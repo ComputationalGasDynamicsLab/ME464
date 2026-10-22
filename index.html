@@ -92,6 +92,9 @@ h2 { font: 700 15px/1.2 var(--display); margin: 0; letter-spacing: .01em; }
 .field label { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; }
 .field label b { font: 500 14px var(--mono); color: var(--fg); }
 input[type=range] { width: 100%; accent-color: var(--num); }
+.cfl-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 10px; align-items: center; }
+input[type=number] { font: 500 15px var(--mono); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; width: 100%; font-variant-numeric: tabular-nums; }
+.hint { font-size: 12px; color: var(--muted); }
 select { font: 14px var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; width: 100%; }
 .presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .presets button { padding: 7px 6px; font-size: 13px; display: grid; gap: 1px; }
@@ -166,8 +169,12 @@ svg.bad .zone { fill: var(--warn-bg); }
       <div class="panel">
         <h2>Parameters</h2>
         <div class="field">
-          <label for="cfl">CFL number c <b id="cfl-v">0.50</b></label>
-          <input type="range" id="cfl" min="0.1" max="1.3" step="0.05" value="0.5">
+          <label for="cfl-num">CFL number c</label>
+          <div class="cfl-row">
+            <input type="range" id="cfl" min="0.05" max="1.5" step="0.01" value="0.5" aria-label="CFL number slider">
+            <input type="number" id="cfl-num" min="0.05" max="2" step="0.01" value="0.50" inputmode="decimal">
+          </div>
+          <div class="hint">Drag the slider or type any value (e.g. 0.8, 0.95, 1.02) and press Enter.</div>
         </div>
         <div class="presets" role="group" aria-label="CFL presets">
           <button data-c="0.5"><span>Smeared</span><small>c = 0.5</small></button>
@@ -400,18 +407,25 @@ svg.bad .zone { fill: var(--warn-bg); }
   $("stepbtn").addEventListener("click", () => { setPlaying(false); step(); render(); });
   $("reset").addEventListener("click", () => { setPlaying(false); init(); });
   $("speed").addEventListener("input", e => { speed = +e.target.value; });
-  $("cfl").addEventListener("input", e => {
-    c = +e.target.value; $("cfl-v").textContent = c.toFixed(2);
-    const wasPlaying = playing; setPlaying(false); init(); if (wasPlaying) setPlaying(true);
-  });
+  function setC(v, autoplay) {
+    if (!isFinite(v) || v < 0.05 || v > 2) {          // reject out-of-range input, restore current value
+      $("cfl-num").value = c.toFixed(2); return;
+    }
+    c = Math.round(v * 100) / 100;
+    $("cfl").value = Math.min(1.5, c);
+    $("cfl-num").value = c.toFixed(2);
+    const wasPlaying = playing; setPlaying(false); init();
+    if (wasPlaying || autoplay) setPlaying(true);
+  }
+  $("cfl").addEventListener("input", e => setC(+e.target.value));
+  $("cfl-num").addEventListener("change", e => setC(+e.target.value, true));
   $("nx").addEventListener("input", e => {
     nx = +e.target.value; $("nx-v").textContent = nx;
     const wasPlaying = playing; setPlaying(false); init(); if (wasPlaying) setPlaying(true);
   });
   $("shape").addEventListener("change", e => { shape = e.target.value; setPlaying(false); init(); });
   document.querySelectorAll(".presets button").forEach(b => b.addEventListener("click", () => {
-    c = +b.dataset.c; $("cfl").value = c; $("cfl-v").textContent = c.toFixed(2);
-    setPlaying(false); init(); setPlaying(true);
+    setC(+b.dataset.c, true);
   }));
 
   new ResizeObserver(() => render()).observe(canvas);

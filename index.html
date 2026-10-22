@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>FTBS Convection Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital@1&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: plot-first lab bench. Big plot on the left, controls + stencil diagram on the right; stacks on phones. */
+:root {
+  --bg: #f3f6f9;
+  --panel: #ffffff;
+  --fg: #15202b;
+  --muted: #5a6876;
+  --line: #d9e0e7;
+  --grid: #e6ebf0;
+  --num: #2552c4;
+  --exact: #17795a;
+  --init: #8a97a4;
+  --warn: #b42318;
+  --warn-bg: #fdecea;
+  --ok-bg: #e5f4ee;
+  --info-bg: #e8eefb;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --math: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
+    --num: #7ea4ff; --exact: #4cc596; --init: #6c7a88; --warn: #ff7b72; --warn-bg: #3a1a1a; --ok-bg: #12301f; --info-bg: #17233d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
+  --num: #7ea4ff; --exact: #4cc596; --init: #6c7a88; --warn: #ff7b72; --warn-bg: #3a1a1a; --ok-bg: #12301f; --info-bg: #17233d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0;
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-block: 28px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1160px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: grid; gap: 6px; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 700 clamp(26px, 4vw, 36px)/1.1 var(--display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+.eqs { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: baseline; color: var(--fg); }
+.eq { font-family: var(--math); font-style: italic; font-size: 19px; white-space: nowrap; }
+.eq .up { font-style: normal; }
+.eq sub, .eq sup { font-size: .7em; }
+.eq-label { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 8px; font-style: normal; }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr); } }
+
+.plot-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.sw { width: 22px; height: 0; border-top: 2.5px solid; display: inline-block; }
+.sw.init { border-color: var(--init); border-top-style: dashed; }
+.sw.exact { border-color: var(--exact); }
+.sw.num { border-color: var(--num); position: relative; }
+.sw.num::after { content: ""; position: absolute; left: 8px; top: -5px; width: 7px; height: 7px; border-radius: 50%; background: var(--num); }
+canvas { width: 100%; display: block; }
+
+.readouts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 560px) { .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ro { border-top: 1px solid var(--line); padding-top: 8px; }
+.ro .k { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ro .v { font: 500 18px var(--mono); font-variant-numeric: tabular-nums; }
+
+.transport { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: 500 14px var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 8px 14px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--num); outline-offset: 2px; }
+button.primary { background: var(--num); border-color: var(--num); color: var(--panel); min-width: 92px; }
+.spacer { flex: 1; }
+.speed { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+
+aside { display: grid; gap: 16px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
+h2 { font: 700 15px/1.2 var(--display); margin: 0; letter-spacing: .01em; }
+.field { display: grid; gap: 6px; }
+.field label { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; }
+.field label b { font: 500 14px var(--mono); color: var(--fg); }
+input[type=range] { width: 100%; accent-color: var(--num); }
+select { font: 14px var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; width: 100%; }
+.presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.presets button { padding: 7px 6px; font-size: 13px; display: grid; gap: 1px; }
+.presets button small { font: 11px var(--mono); color: var(--muted); }
+.presets button[aria-pressed="true"] { border-color: var(--num); background: var(--info-bg); }
+
+.status { border-radius: 8px; padding: 12px 14px; display: grid; gap: 4px; font-size: 14px; }
+.status .tag { font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.status.smear { background: var(--info-bg); } .status.smear .tag { color: var(--num); }
+.status.exact { background: var(--ok-bg); } .status.exact .tag { color: var(--exact); }
+.status.unstable { background: var(--warn-bg); } .status.unstable .tag { color: var(--warn); }
+.status p { margin: 0; }
+
+.stencil svg { width: 100%; height: auto; display: block; }
+.stencil .cap { font-size: 13px; color: var(--muted); margin: 0; }
+svg .gl { stroke: var(--grid); stroke-width: 1; }
+svg .st { stroke: var(--muted); stroke-width: 1.5; }
+svg .pt { fill: var(--panel); stroke: var(--fg); stroke-width: 1.5; }
+svg .pt.on { fill: var(--num); stroke: var(--num); }
+svg .lbl { fill: var(--muted); font: 12px var(--mono); }
+svg .lblm { fill: var(--fg); font: italic 14px var(--math); }
+svg .char { stroke: var(--exact); stroke-width: 2; stroke-dasharray: 5 4; }
+svg .foot { fill: var(--exact); }
+svg.bad .char { stroke: var(--warn); } svg.bad .foot { fill: var(--warn); }
+svg .zone { fill: var(--ok-bg); }
+svg.bad .zone { fill: var(--warn-bg); }
+
+.notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 800px) { .notes { grid-template-columns: minmax(0, 1fr); } }
+.note h3 { font: 700 14px var(--display); margin: 0 0 4px; }
+.note p { margin: 0; color: var(--muted); font-size: 14px; max-width: 65ch; }
+.note i { font-family: var(--math); color: var(--fg); }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">CFD · 1D linear convection · upwind scheme</div>
+    <h1>FTBS Convection Lab</h1>
+    <div class="eqs">
+      <span class="eq"><span class="eq-label">PDE</span>∂u/∂t + a ∂u/∂x = 0, &nbsp;<span class="up">a = 1</span></span>
+      <span class="eq"><span class="eq-label">FTBS</span>u<sub>i</sub><sup>n+1</sup> = u<sub>i</sub><sup>n</sup> − c (u<sub>i</sub><sup>n</sup> − u<sub>i−1</sub><sup>n</sup>)</span>
+      <span class="eq"><span class="eq-label">CFL</span>c = a Δt / Δx</span>
+    </div>
+  </header>
+
+  <div class="main">
+    <section class="plot-card" aria-label="Solution plot">
+      <div class="legend">
+        <span><i class="sw init"></i>Initial condition, t = 0</span>
+        <span><i class="sw exact"></i>Exact solution u₀(x − at)</span>
+        <span><i class="sw num"></i>FTBS numerical solution</span>
+      </div>
+      <canvas id="plot" role="img" aria-label="Plot of u versus x showing the initial, exact and numerical solutions"></canvas>
+      <div class="readouts">
+        <div class="ro"><div class="k">time t</div><div class="v" id="r-t">0.000</div></div>
+        <div class="ro"><div class="k">step n</div><div class="v" id="r-n">0</div></div>
+        <div class="ro"><div class="k">Δt</div><div class="v" id="r-dt">—</div></div>
+        <div class="ro"><div class="k">max |u − u<sub>exact</sub>|</div><div class="v" id="r-err">0.000</div></div>
+      </div>
+      <div class="transport">
+        <button class="primary" id="play">Play</button>
+        <button id="stepbtn">Step +1</button>
+        <button id="reset">Reset</button>
+        <span class="spacer"></span>
+        <label class="speed" for="speed">Speed <input type="range" id="speed" min="2" max="60" value="20" style="width:110px"></label>
+      </div>
+    </section>
+
+    <aside>
+      <div class="panel">
+        <h2>Parameters</h2>
+        <div class="field">
+          <label for="cfl">CFL number c <b id="cfl-v">0.50</b></label>
+          <input type="range" id="cfl" min="0.1" max="1.3" step="0.05" value="0.5">
+        </div>
+        <div class="presets" role="group" aria-label="CFL presets">
+          <button data-c="0.5"><span>Smeared</span><small>c = 0.5</small></button>
+          <button data-c="1"><span>Exact</span><small>c = 1.0</small></button>
+          <button data-c="1.1"><span>Unstable</span><small>c = 1.1</small></button>
+        </div>
+        <div class="field">
+          <label for="nx">Grid points nx <b id="nx-v">81</b></label>
+          <input type="range" id="nx" min="21" max="201" step="20" value="81">
+        </div>
+        <div class="field">
+          <label for="shape">Initial condition</label>
+          <select id="shape">
+            <option value="step" selected>Shock / step (u = 1 for x &lt; 0.5, u = 2 after)</option>
+            <option value="square">Square wave (u = 2 on 0.5 ≤ x ≤ 1)</option>
+            <option value="gauss">Gaussian pulse</option>
+          </select>
+        </div>
+        <div class="status" id="status" aria-live="polite"></div>
+      </div>
+
+      <div class="panel stencil">
+        <h2>Why c ≤ 1? The stencil</h2>
+        <svg id="stencil" viewBox="0 0 300 170" aria-label="FTBS stencil with characteristic line">
+          <line class="gl" x1="20" y1="40" x2="290" y2="40"/>
+          <line class="gl" x1="20" y1="125" x2="290" y2="125"/>
+          <rect class="zone" id="zone" x="140" y="119" width="100" height="12" rx="3"/>
+          <line class="st" x1="140" y1="125" x2="240" y2="40"/>
+          <line class="st" x1="240" y1="125" x2="240" y2="40"/>
+          <line class="char" id="char" x1="240" y1="40" x2="190" y2="125"/>
+          <circle class="pt" cx="40" cy="125" r="6"/>
+          <circle class="pt on" cx="140" cy="125" r="6"/>
+          <circle class="pt on" cx="240" cy="125" r="6"/>
+          <circle class="pt" cx="240" cy="40" r="7" style="fill:var(--num);stroke:var(--num)"/>
+          <circle class="foot" id="foot" cx="190" cy="125" r="4.5"/>
+          <text class="lbl" x="276" y="44">n+1</text>
+          <text class="lbl" x="284" y="129">n</text>
+          <text class="lblm" x="28" y="152">i−2</text>
+          <text class="lblm" x="128" y="152">i−1</text>
+          <text class="lblm" x="236" y="152">i</text>
+          <text class="lbl" id="foot-lbl" x="190" y="112" text-anchor="middle">x<tspan dy="0">ᵢ − aΔt</tspan></text>
+        </svg>
+        <p class="cap">The dashed line is the characteristic. The true value at the new time comes from where it lands at time level n. The scheme only uses points i−1 and i, so that landing point has to fall between them, which means c ≤ 1.</p>
+      </div>
+    </aside>
+  </div>
+
+  <section class="notes">
+    <div class="note">
+      <h3>c &lt; 1: numerical diffusion</h3>
+      <p>Rewrite the update as <i>u<sub>i</sub><sup>n+1</sup> = (1−c) u<sub>i</sub><sup>n</sup> + c u<sub>i−1</sub><sup>n</sup></i>. Each new value is a weighted average of two neighbors. Averaging rounds off sharp corners, so the shock front smears into a ramp. A smaller c needs more steps to reach the same time, so it smears more.</p>
+    </div>
+    <div class="note">
+      <h3>c = 1: exact shift</h3>
+      <p>The update becomes <i>u<sub>i</sub><sup>n+1</sup> = u<sub>i−1</sub><sup>n</sup></i>. Each step copies every value one cell to the right. That is exactly what the PDE does in one Δt, so the error stays at zero.</p>
+    </div>
+    <div class="note">
+      <h3>c &gt; 1: unstable</h3>
+      <p>The weight <i>1−c</i> turns negative, so the update is no longer an average. Small wiggles get amplified every step, and the solution grows without bound. This is the CFL condition in action.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const L = 2, A = 1, T_END = 1.0, YMIN = 0.5, YMAX = 2.5;
+  const $ = id => document.getElementById(id);
+  const canvas = $("plot"), ctx = canvas.getContext("2d");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  let c = 0.5, nx = 81, shape = "step", speed = 20;
+  let x, u, u0, dx, dt, n, t, blown, finished, playing = false;
+
+  const f0 = xx =>
+    shape === "step" ? (xx < 0.5 ? 1 : 2)
+    : shape === "square" ? (xx >= 0.5 && xx <= 1.0 ? 2 : 1)
+    : 1 + Math.exp(-(((xx - 0.75) / 0.12) ** 2));
+  const exact = xx => f0(xx - A * t);
+
+  function init() {
+    dx = L / (nx - 1);
+    dt = c * dx / A;
+    x = Float64Array.from({ length: nx }, (_, i) => i * dx);
+    u0 = Float64Array.from(x, f0);
+    u = Float64Array.from(u0);
+    n = 0; t = 0; blown = false; finished = false;
+    updateStatus(); render();
+  }
+
+  function step() {
+    if (finished) return;
+    if (t + dt > T_END + 1e-9) { finished = true; setPlaying(false); return; }
+    const un = Float64Array.from(u);
+    for (let i = 1; i < nx; i++) u[i] = un[i] - c * (un[i] - un[i - 1]);
+    n++; t = n * dt;
+    u[0] = exact(0);                       // inflow boundary: value carried in from the left
+    let m = 0; for (const v of u) m = Math.max(m, Math.abs(v));
+    if (!isFinite(m) || m > 1e8) { blown = true; finished = true; setPlaying(false); }
+  }
+
+  function maxErr() {
+    let e = 0;
+    for (let i = 0; i < nx; i++) e = Math.max(e, Math.abs(u[i] - exact(x[i])));
+    return e;
+  }
+
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  function render() {
+    const w = canvas.clientWidth;
+    const h = Math.max(260, Math.min(460, w * 0.56));
+    const dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); canvas.style.height = h + "px";
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const m = { l: 44, r: 12, t: 12, b: 34 };
+    const pw = w - m.l - m.r, ph = h - m.t - m.b;
+    const X = v => m.l + (v / L) * pw;
+    const Y = v => m.t + (1 - (v - YMIN) / (YMAX - YMIN)) * ph;
+    const col = { fg: css("--fg"), muted: css("--muted"), grid: css("--grid"), line: css("--line"),
+                  num: css("--num"), exact: css("--exact"), init: css("--init"), warn: css("--warn") };
+
+    // grid + ticks
+    ctx.font = "12px " + css("--mono");
+    ctx.lineWidth = 1;
+    ctx.fillStyle = col.muted;
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (let xv = 0; xv <= L + 1e-9; xv += 0.25) {
+      ctx.strokeStyle = col.grid; ctx.beginPath(); ctx.moveTo(X(xv), m.t); ctx.lineTo(X(xv), m.t + ph); ctx.stroke();
+      if (Math.abs(xv * 2 - Math.round(xv * 2)) < 1e-9) ctx.fillText(xv.toFixed(1), X(xv), m.t + ph + 6);
+    }
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (let yv = YMIN; yv <= YMAX + 1e-9; yv += 0.25) {
+      ctx.strokeStyle = col.grid; ctx.beginPath(); ctx.moveTo(m.l, Y(yv)); ctx.lineTo(m.l + pw, Y(yv)); ctx.stroke();
+      if (Math.abs(yv * 2 - Math.round(yv * 2)) < 1e-9) ctx.fillText(yv.toFixed(1), m.l - 8, Y(yv));
+    }
+    ctx.strokeStyle = col.line; ctx.strokeRect(m.l, m.t, pw, ph);
+    ctx.fillStyle = col.muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom";
+    ctx.fillText("x", m.l + pw, m.t + ph + 32);
+    ctx.save(); ctx.translate(12, m.t + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("u", 0, 0); ctx.restore();
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(m.l, m.t, pw, ph); ctx.clip();
+
+    const curve = (fn, color, width, dash) => {
+      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []);
+      ctx.beginPath();
+      const N = 1000;
+      for (let k = 0; k <= N; k++) { const xv = (k / N) * L; const yv = fn(xv);
+        k ? ctx.lineTo(X(xv), Y(yv)) : ctx.moveTo(X(xv), Y(yv)); }
+      ctx.stroke(); ctx.setLineDash([]);
+    };
+    curve(f0, col.init, 1.5, [6, 5]);
+    curve(exact, col.exact, 2.5);
+
+    // numerical
+    const clampY = v => Y(Math.max(YMIN - 5, Math.min(YMAX + 5, v)));
+    ctx.strokeStyle = blown ? col.warn : col.num; ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < nx; i++) i ? ctx.lineTo(X(x[i]), clampY(u[i])) : ctx.moveTo(X(x[i]), clampY(u[i]));
+    ctx.stroke();
+    ctx.fillStyle = blown ? col.warn : col.num;
+    const r = nx > 121 ? 1.8 : 3;
+    for (let i = 0; i < nx; i++) { ctx.beginPath(); ctx.arc(X(x[i]), clampY(u[i]), r, 0, Math.PI * 2); ctx.fill(); }
+
+    // flow direction arrow
+    ctx.strokeStyle = col.muted; ctx.fillStyle = col.muted; ctx.lineWidth = 1.5;
+    const ay = m.t + 18, ax = m.l + 16;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + 40, ay); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax + 46, ay); ctx.lineTo(ax + 38, ay - 4); ctx.lineTo(ax + 38, ay + 4); ctx.fill();
+    ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText("a = 1", ax + 54, ay);
+    ctx.restore();
+
+    // readouts
+    $("r-t").textContent = t.toFixed(3);
+    $("r-n").textContent = n;
+    $("r-dt").textContent = dt.toFixed(4);
+    const e = maxErr();
+    $("r-err").textContent = !isFinite(e) ? "∞" : e < 1e4 ? e.toFixed(3) : e.toExponential(1);
+    $("r-err").style.color = blown || e > 2 ? col.warn : "";
+  }
+
+  function updateStatus() {
+    const s = $("status");
+    const eq1 = Math.abs(c - 1) < 1e-9;
+    if (c > 1 + 1e-9) {
+      s.className = "status unstable";
+      s.innerHTML = '<span class="tag">Unstable · c &gt; 1</span><p>The CFL condition is violated. Press Play and watch oscillations grow until the solution blows up.</p>';
+    } else if (eq1) {
+      s.className = "status exact";
+      s.innerHTML = '<span class="tag">Exact · c = 1</span><p>Each step shifts the profile exactly one cell. The numerical and exact solutions coincide.</p>';
+    } else {
+      s.className = "status smear";
+      s.innerHTML = '<span class="tag">Stable, diffusive · c &lt; 1</span><p>Stable, but sharp edges smear out. Try c = 0.2 to see more smearing.</p>';
+    }
+    document.querySelectorAll(".presets button").forEach(b =>
+      b.setAttribute("aria-pressed", Math.abs(+b.dataset.c - c) < 1e-9 ? "true" : "false"));
+
+    // stencil diagram: characteristic foot at x_i - c*dx
+    const xi = 240, sp = 100, foot = xi - c * sp;
+    $("char").setAttribute("x2", foot); $("foot").setAttribute("cx", foot);
+    $("foot-lbl").setAttribute("x", Math.max(60, foot));
+    $("stencil").classList.toggle("bad", c > 1 + 1e-9);
+  }
+
+  function setPlaying(p) {
+    playing = p;
+    $("play").textContent = p ? "Pause" : (finished ? "Replay" : "Play");
+    if (p) { last = performance.now(); acc = 0; requestAnimationFrame(loop); }
+  }
+
+  let last = 0, acc = 0;
+  function loop(now) {
+    if (!playing) return;
+    acc += (now - last) / 1000 * speed; last = now;
+    let k = 0;
+    while (acc >= 1 && k < 50 && playing) { step(); acc -= 1; k++; }
+    render();
+    if (playing) requestAnimationFrame(loop);
+  }
+
+  $("play").addEventListener("click", () => {
+    if (finished) { init(); setPlaying(true); return; }
+    setPlaying(!playing);
+  });
+  $("stepbtn").addEventListener("click", () => { setPlaying(false); step(); render(); });
+  $("reset").addEventListener("click", () => { setPlaying(false); init(); });
+  $("speed").addEventListener("input", e => { speed = +e.target.value; });
+  $("cfl").addEventListener("input", e => {
+    c = +e.target.value; $("cfl-v").textContent = c.toFixed(2);
+    const wasPlaying = playing; setPlaying(false); init(); if (wasPlaying) setPlaying(true);
+  });
+  $("nx").addEventListener("input", e => {
+    nx = +e.target.value; $("nx-v").textContent = nx;
+    const wasPlaying = playing; setPlaying(false); init(); if (wasPlaying) setPlaying(true);
+  });
+  $("shape").addEventListener("change", e => { shape = e.target.value; setPlaying(false); init(); });
+  document.querySelectorAll(".presets button").forEach(b => b.addEventListener("click", () => {
+    c = +b.dataset.c; $("cfl").value = c; $("cfl-v").textContent = c.toFixed(2);
+    setPlaying(false); init(); setPlaying(true);
+  }));
+
+  new ResizeObserver(() => render()).observe(canvas);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+  new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  init();
+  if (!reduceMotion) setPlaying(true);
+})();
+</script>
+</body>
+</html>

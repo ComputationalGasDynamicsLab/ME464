@@ -42,6 +42,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0;
   background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5;
   padding-block: 28px 40px;
@@ -70,10 +71,17 @@ h1 { font: 700 clamp(26px, 4vw, 36px)/1.1 var(--display); margin: 0; text-wrap: 
 .sw.exact { border-color: var(--exact); }
 .sw.num { border-color: var(--num); position: relative; }
 .sw.num::after { content: ""; position: absolute; left: 8px; top: -5px; width: 7px; height: 7px; border-radius: 50%; background: var(--num); }
-canvas { width: 100%; display: block; }
+canvas { width: 100%; display: block; cursor: crosshair; }
+.zoombar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+.zoombar .zl { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.zoombar button { padding: 6px 12px; }
+#zin, #zout { min-width: 40px; font: 600 16px/1 var(--mono); }
+.chk { display: inline-flex; gap: 6px; align-items: center; color: var(--fg); cursor: pointer; }
+.chk input { accent-color: var(--num); width: 16px; height: 16px; }
+.zhint { flex: 1 1 220px; }
 
-.readouts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-@media (max-width: 560px) { .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.readouts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 640px) { .readouts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .ro { border-top: 1px solid var(--line); padding-top: 8px; }
 .ro .k { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .ro .v { font: 500 18px var(--mono); font-variant-numeric: tabular-nums; }
@@ -124,13 +132,16 @@ svg .zone { fill: var(--ok-bg); }
 svg.bad .zone { fill: var(--warn-bg); }
 svg .lw-only { display: none; }
 svg.lw .lw-only { display: inline; }
+svg .tvd-only { display: none; }
+svg.tvd .tvd-only { display: inline; }
+.phi { font: italic 15px var(--math); color: var(--fg); }
 
 .notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 @media (max-width: 800px) { .notes { grid-template-columns: minmax(0, 1fr); } }
 .notes-wrap { display: grid; gap: 14px; }
 .notes-wrap .lead { margin: 0; color: var(--muted); max-width: 70ch; }
-.notes.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@media (max-width: 800px) { .notes.two { grid-template-columns: minmax(0, 1fr); } }
+.notes.two { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) { .notes.two { grid-template-columns: minmax(0, 1fr); } }
 .note .meq { font: italic 17px var(--math); color: var(--fg); margin: 2px 0 8px; overflow-x: auto; }
 .note h3 { font: 700 14px var(--display); margin: 0 0 4px; }
 .note p { margin: 0; color: var(--muted); font-size: 14px; max-width: 65ch; }
@@ -163,6 +174,7 @@ svg.lw .lw-only { display: inline; }
         <div class="ro"><div class="k">step n</div><div class="v" id="r-n">0</div></div>
         <div class="ro"><div class="k">Δt</div><div class="v" id="r-dt">—</div></div>
         <div class="ro"><div class="k">max |u − u<sub>exact</sub>|</div><div class="v" id="r-err">0.000</div></div>
+        <div class="ro"><div class="k">L1 error</div><div class="v" id="r-l1">0.0000</div></div>
       </div>
       <div class="transport">
         <button class="primary" id="play">Play</button>
@@ -170,6 +182,14 @@ svg.lw .lw-only { display: inline; }
         <button id="reset">Reset</button>
         <span class="spacer"></span>
         <label class="speed" for="speed">Speed <input type="range" id="speed" min="2" max="60" value="20" style="width:110px"></label>
+      </div>
+      <div class="zoombar">
+        <span class="zl">Zoom</span>
+        <button id="zin" aria-label="Zoom in">+</button>
+        <button id="zout" aria-label="Zoom out">−</button>
+        <button id="zreset">Reset view</button>
+        <label class="chk" for="follow"><input type="checkbox" id="follow"> Follow the front</label>
+        <span class="zhint">Drag a box on the plot to zoom into it. Double-click to reset.</span>
       </div>
     </section>
 
@@ -181,7 +201,17 @@ svg.lw .lw-only { display: inline; }
           <select id="scheme">
             <option value="ftbs" selected>FTBS (1st-order upwind): diffusive</option>
             <option value="lw">Lax–Wendroff (2nd order): dispersive</option>
+            <option value="tvd">TVD with flux limiter: sharp, no wiggles</option>
           </select>
+        </div>
+        <div class="field" id="limiter-field" hidden>
+          <label for="limiter">Limiter φ(r)</label>
+          <select id="limiter">
+            <option value="minmod">minmod (most diffusive)</option>
+            <option value="vanleer" selected>van Leer</option>
+            <option value="superbee">superbee (most compressive)</option>
+          </select>
+          <div class="phi" id="phi-formula"></div>
         </div>
         <div class="field">
           <label for="cfl-num">CFL number c</label>
@@ -224,8 +254,9 @@ svg.lw .lw-only { display: inline; }
           <line class="st" x1="170" y1="125" x2="270" y2="40"/>
           <line class="st" x1="270" y1="125" x2="270" y2="40"/>
           <line class="st lw-only" x1="370" y1="125" x2="270" y2="40"/>
+          <line class="st tvd-only" x1="70" y1="125" x2="270" y2="40"/>
           <line class="char" id="char" x1="270" y1="40" x2="220" y2="125"/>
-          <circle class="pt" cx="70" cy="125" r="6"/>
+          <circle class="pt" id="pt-im2" cx="70" cy="125" r="6"/>
           <circle class="pt on" cx="170" cy="125" r="6"/>
           <circle class="pt on" cx="270" cy="125" r="6"/>
           <circle class="pt" id="pt-ip1" cx="370" cy="125" r="6"/>
@@ -245,8 +276,8 @@ svg.lw .lw-only { display: inline; }
   </div>
 
   <section class="notes-wrap">
-    <h2>Diffusion vs dispersion: the modified equation</h2>
-    <p class="lead">Each scheme really solves a slightly different PDE. Its leading error term decides how the numerical solution goes wrong.</p>
+    <h2>Diffusion, dispersion and limiters</h2>
+    <p class="lead">FTBS and Lax–Wendroff each really solve a slightly different PDE, the modified equation. Its leading error term decides how the numerical solution goes wrong. A flux limiter combines the two schemes to avoid both problems.</p>
     <div class="notes two">
       <div class="note">
         <h3>FTBS: numerical diffusion</h3>
@@ -258,19 +289,24 @@ svg.lw .lw-only { display: inline; }
         <p class="meq">u<sub>t</sub> + a u<sub>x</sub> = −(aΔx²/6)(1 − c²) u<sub>xxx</sub></p>
         <p>The error term has an odd (third) derivative. It hardly damps waves. Instead, short waves travel slower than <i>a</i>. A jump is made of many wavelengths, so they separate and leave a train of wiggles behind the jump, undershooting and overshooting the exact solution.</p>
       </div>
+      <div class="note">
+        <h3>TVD limiter: sharp and wiggle-free</h3>
+        <p class="meq">φ = 0 → FTBS, &nbsp;φ = 1 → Lax–Wendroff</p>
+        <p>Godunov's theorem: a linear scheme that never creates new wiggles is at most first-order accurate. The way around it is a nonlinear scheme. The ratio <i>r</i> compares neighboring slopes. The limiter <i>φ(r)</i> turns the Lax–Wendroff correction on where the solution is smooth (<i>r</i> ≈ 1) and off at a jump or a peak (<i>r</i> ≤ 0). Minmod is the most cautious, superbee the most compressive.</p>
+      </div>
     </div>
     <div class="notes">
       <div class="note">
         <h3>c &lt; 1</h3>
-        <p>Both schemes are stable. FTBS smears; Lax–Wendroff wiggles. A smaller c makes both errors larger at the same time, because the error coefficients grow and more steps are needed.</p>
+        <p>All three schemes are stable. FTBS smears, Lax–Wendroff wiggles, and the TVD scheme stays sharp without wiggles. A smaller c makes the errors larger at the same time, because the error coefficients grow and more steps are needed.</p>
       </div>
       <div class="note">
         <h3>c = 1</h3>
-        <p>Both error terms vanish, because (1 − c) = 0 and (1 − c²) = 0. Both schemes reduce to <i>u<sub>i</sub><sup>n+1</sup> = u<sub>i−1</sub><sup>n</sup></i>, an exact one-cell shift.</p>
+        <p>The error terms vanish, because (1 − c) = 0 and (1 − c²) = 0, and the TVD correction also has the factor (1 − c). All three schemes reduce to <i>u<sub>i</sub><sup>n+1</sup> = u<sub>i−1</sub><sup>n</sup></i>, an exact one-cell shift.</p>
       </div>
       <div class="note">
         <h3>c &gt; 1</h3>
-        <p>Both schemes are unstable. The true value comes from outside the stencil, so small errors are amplified every step until the solution blows up. This is the CFL condition.</p>
+        <p>All three schemes are unstable. The true value comes from outside the stencil, so small errors are amplified every step until the solution blows up. This is the CFL condition.</p>
       </div>
     </div>
   </section>
@@ -283,7 +319,7 @@ svg.lw .lw-only { display: inline; }
   const canvas = $("plot"), ctx = canvas.getContext("2d");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  let c = 0.5, nx = 81, shape = "step", speed = 20, scheme = "ftbs";
+  let c = 0.5, nx = 81, shape = "step", speed = 20, scheme = "ftbs", limiter = "vanleer";
   let x, u, u0, dx, dt, n, t, blown, finished, playing = false;
 
   const f0 = xx =>
@@ -291,6 +327,12 @@ svg.lw .lw-only { display: inline; }
     : shape === "square" ? (xx >= 0.5 && xx <= 1.0 ? 2 : 1)
     : 1 + Math.exp(-(((xx - 0.75) / 0.12) ** 2));
   const exact = xx => f0(xx - A * t);
+
+  const LIMITERS = {
+    minmod:   { phi: r => Math.max(0, Math.min(1, r)), formula: "φ(r) = max(0, min(1, r))" },
+    vanleer:  { phi: r => (r + Math.abs(r)) / (1 + Math.abs(r)), formula: "φ(r) = (r + |r|) / (1 + |r|)" },
+    superbee: { phi: r => Math.max(0, Math.min(2 * r, 1), Math.min(r, 2)), formula: "φ(r) = max(0, min(2r, 1), min(r, 2))" }
+  };
 
   function init() {
     dx = L / (nx - 1);
@@ -308,15 +350,30 @@ svg.lw .lw-only { display: inline; }
     const un = Float64Array.from(u);
     if (scheme === "ftbs") {
       for (let i = 1; i < nx; i++) u[i] = un[i] - c * (un[i] - un[i - 1]);
-    } else {                               // Lax-Wendroff
+    } else if (scheme === "lw") {          // Lax-Wendroff
       for (let i = 1; i < nx - 1; i++)
         u[i] = un[i] - 0.5 * c * (un[i + 1] - un[i - 1]) + 0.5 * c * c * (un[i + 1] - 2 * un[i] + un[i - 1]);
       u[nx - 1] = un[nx - 1] - c * (un[nx - 1] - un[nx - 2]);   // outflow boundary: upwind
+    } else {                               // TVD: flux-limited Lax-Wendroff correction
+      const phi = LIMITERS[limiter].phi;
+      const D = new Float64Array(nx);      // D[j]: limited correction at face j+1/2 (0 at both ends)
+      for (let j = 1; j < nx - 1; j++) {
+        const dR = un[j + 1] - un[j], dL = un[j] - un[j - 1];
+        const r = Math.abs(dR) > 1e-14 ? dL / dR : 0;   // r is irrelevant when dR = 0
+        D[j] = 0.5 * (1 - c) * phi(r) * dR;
+      }
+      for (let i = 1; i < nx; i++) u[i] = un[i] - c * ((un[i] - un[i - 1]) + D[i] - D[i - 1]);
     }
     n++; t = n * dt;
     u[0] = exact(0);                       // inflow boundary: value carried in from the left
     let m = 0; for (const v of u) m = Math.max(m, Math.abs(v));
     if (!isFinite(m) || m > 1e8) { blown = true; finished = true; setPlaying(false); }
+  }
+
+  function l1Err() {
+    let e = 0;
+    for (let i = 0; i < nx; i++) e += Math.abs(u[i] - exact(x[i]));
+    return e * dx;
   }
 
   function maxErr() {
@@ -326,6 +383,22 @@ svg.lw .lw-only { display: inline; }
   }
 
   const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  // ---- zoom state: view = null means the full plot; follow keeps the view centred on the moving front
+  let view = null, follow = false, sel = null, lay = null;
+  const FULL = { x0: 0, x1: L, y0: YMIN, y1: YMAX };
+  const frontX = () => (shape === "step" ? 0.5 : 0.75) + A * t;
+  function getView() {
+    if (!view) return FULL;
+    const v = { ...view };
+    if (follow) { const w = v.x1 - v.x0, xc = frontX(); v.x0 = xc - w / 2; v.x1 = xc + w / 2; }
+    return v;
+  }
+  function niceStep(span, target) {
+    const raw = span / Math.max(2, target), mag = 10 ** Math.floor(Math.log10(raw)), f = raw / mag;
+    return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+  }
+  const decimals = st => Math.max(0, -Math.floor(Math.log10(st) + 1e-9));
 
   function render() {
     const w = canvas.clientWidth;
@@ -337,10 +410,12 @@ svg.lw .lw-only { display: inline; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    const m = { l: 54, r: 12, t: 12, b: 34 };
+    const m = { l: 54, r: 20, t: 12, b: 34 };
     const pw = w - m.l - m.r, ph = h - m.t - m.b;
-    const X = v => m.l + (v / L) * pw;
-    const Y = v => m.t + (1 - (v - YMIN) / (YMAX - YMIN)) * ph;
+    const V = getView();
+    lay = { m, pw, ph, V };
+    const X = v => m.l + ((v - V.x0) / (V.x1 - V.x0)) * pw;
+    const Y = v => m.t + (1 - (v - V.y0) / (V.y1 - V.y0)) * ph;
     const col = { fg: css("--fg"), muted: css("--muted"), grid: css("--grid"), line: css("--line"),
                   num: css("--num"), exact: css("--exact"), init: css("--init"), warn: css("--warn") };
 
@@ -349,14 +424,17 @@ svg.lw .lw-only { display: inline; }
     ctx.lineWidth = 1;
     ctx.fillStyle = col.muted;
     ctx.textAlign = "center"; ctx.textBaseline = "top";
-    for (let xv = 0; xv <= L + 1e-9; xv += 0.25) {
+    const sx = niceStep(V.x1 - V.x0, pw / 80), sy = niceStep(V.y1 - V.y0, ph / 45);
+    for (let k = Math.ceil(V.x0 / sx - 1e-9); k * sx <= V.x1 + 1e-9; k++) {
+      const xv = k * sx;
       ctx.strokeStyle = col.grid; ctx.beginPath(); ctx.moveTo(X(xv), m.t); ctx.lineTo(X(xv), m.t + ph); ctx.stroke();
-      if (Math.abs(xv * 2 - Math.round(xv * 2)) < 1e-9) ctx.fillText(xv.toFixed(1), X(xv), m.t + ph + 6);
+      ctx.fillText(xv.toFixed(decimals(sx)), X(xv), m.t + ph + 6);
     }
     ctx.textAlign = "right"; ctx.textBaseline = "middle";
-    for (let yv = YMIN; yv <= YMAX + 1e-9; yv += 0.25) {
+    for (let k = Math.ceil(V.y0 / sy - 1e-9); k * sy <= V.y1 + 1e-9; k++) {
+      const yv = k * sy;
       ctx.strokeStyle = col.grid; ctx.beginPath(); ctx.moveTo(m.l, Y(yv)); ctx.lineTo(m.l + pw, Y(yv)); ctx.stroke();
-      if (Math.abs(yv * 2 - Math.round(yv * 2)) < 1e-9) ctx.fillText(yv.toFixed(1), m.l - 8, Y(yv));
+      ctx.fillText(yv.toFixed(decimals(sy)), m.l - 8, Y(yv));
     }
     ctx.strokeStyle = col.line; ctx.strokeRect(m.l, m.t, pw, ph);
     ctx.fillStyle = col.muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom";
@@ -370,8 +448,8 @@ svg.lw .lw-only { display: inline; }
     const curve = (fn, color, width, dash) => {
       ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []);
       ctx.beginPath();
-      const N = 1000;
-      for (let k = 0; k <= N; k++) { const xv = (k / N) * L; const yv = fn(xv);
+      const N = 1000, a0 = Math.max(0, V.x0), a1 = Math.min(L, V.x1);
+      for (let k = 0; k <= N; k++) { const xv = a0 + (k / N) * (a1 - a0); const yv = fn(xv);
         k ? ctx.lineTo(X(xv), Y(yv)) : ctx.moveTo(X(xv), Y(yv)); }
       ctx.stroke(); ctx.setLineDash([]);
     };
@@ -379,15 +457,25 @@ svg.lw .lw-only { display: inline; }
     curve(exact, col.exact, 2.5);
 
     // numerical
-    const clampY = v => Y(Math.max(YMIN - 5, Math.min(YMAX + 5, v)));
+    const ys = V.y1 - V.y0, clampY = v => Y(Math.max(V.y0 - 10 * ys, Math.min(V.y1 + 10 * ys, v)));
     ctx.strokeStyle = blown ? col.warn : col.num; ctx.lineWidth = 2;
     ctx.beginPath();
     for (let i = 0; i < nx; i++) i ? ctx.lineTo(X(x[i]), clampY(u[i])) : ctx.moveTo(X(x[i]), clampY(u[i]));
     ctx.stroke();
     ctx.fillStyle = blown ? col.warn : col.num;
-    const r = nx > 121 ? 1.8 : 3;
-    if (nx <= 301)                         // on fine grids the dots would merge into a blur
-      for (let i = 0; i < nx; i++) { ctx.beginPath(); ctx.arc(X(x[i]), clampY(u[i]), r, 0, Math.PI * 2); ctx.fill(); }
+    const visible = (V.x1 - V.x0) / dx + 1, r = visible > 121 ? 1.8 : 3;
+    if (visible <= 301)                    // when many points are visible the dots would merge into a blur
+      for (let i = 0; i < nx; i++) {
+        if (x[i] < V.x0 - dx || x[i] > V.x1 + dx) continue;
+        ctx.beginPath(); ctx.arc(X(x[i]), clampY(u[i]), r, 0, Math.PI * 2); ctx.fill();
+      }
+
+    if (sel) {                             // zoom selection box while dragging
+      ctx.fillStyle = col.num; ctx.globalAlpha = 0.12;
+      ctx.fillRect(Math.min(sel.x0, sel.x1), Math.min(sel.y0, sel.y1), Math.abs(sel.x1 - sel.x0), Math.abs(sel.y1 - sel.y0));
+      ctx.globalAlpha = 1; ctx.strokeStyle = col.num; ctx.lineWidth = 1;
+      ctx.strokeRect(Math.min(sel.x0, sel.x1), Math.min(sel.y0, sel.y1), Math.abs(sel.x1 - sel.x0), Math.abs(sel.y1 - sel.y0));
+    }
 
     // flow direction arrow
     ctx.strokeStyle = col.muted; ctx.fillStyle = col.muted; ctx.lineWidth = 1.5;
@@ -404,6 +492,9 @@ svg.lw .lw-only { display: inline; }
     const e = maxErr();
     $("r-err").textContent = !isFinite(e) ? "∞" : e < 1e4 ? e.toFixed(3) : e.toExponential(1);
     $("r-err").style.color = blown || e > 2 ? col.warn : "";
+    const e1 = l1Err();
+    $("r-l1").textContent = !isFinite(e1) ? "∞" : e1 < 1e4 ? e1.toFixed(4) : e1.toExponential(1);
+    $("r-l1").style.color = blown || e1 > 2 ? col.warn : "";
   }
 
   const SCHEMES = {
@@ -418,6 +509,12 @@ svg.lw .lw-only { display: inline; }
       eq: '<span class="eq-label">Lax–Wendroff</span>u<sub>i</sub><sup>n+1</sup> = u<sub>i</sub><sup>n</sup> − (c/2)(u<sub>i+1</sub><sup>n</sup> − u<sub>i−1</sub><sup>n</sup>) + (c²/2)(u<sub>i+1</sub><sup>n</sup> − 2u<sub>i</sub><sup>n</sup> + u<sub>i−1</sub><sup>n</sup>)',
       typical: '<span class="tag">Stable, dispersive · c &lt; 1</span><p>The front stays sharper than with FTBS, but a train of wiggles appears behind it, dipping below the exact solution.</p>',
       cap: "The dashed line is the characteristic. The true value at the new time comes from where it lands at time level n. Lax–Wendroff uses points i−1, i and i+1. For a > 0 the landing point still has to fall between i−1 and i, which again means c ≤ 1."
+    },
+    tvd: {
+      name: "TVD",
+      eq: '<span class="eq-label">TVD</span>u<sub>i</sub><sup>n+1</sup> = u<sub>i</sub><sup>n</sup> − c (u<sub>i</sub><sup>n</sup> − u<sub>i−1</sub><sup>n</sup>) − (c(1−c)/2)[φ(r<sub>i</sub>)(u<sub>i+1</sub><sup>n</sup> − u<sub>i</sub><sup>n</sup>) − φ(r<sub>i−1</sub>)(u<sub>i</sub><sup>n</sup> − u<sub>i−1</sub><sup>n</sup>)], &nbsp;r<sub>i</sub> = (u<sub>i</sub><sup>n</sup> − u<sub>i−1</sub><sup>n</sup>)/(u<sub>i+1</sub><sup>n</sup> − u<sub>i</sub><sup>n</sup>)',
+      typical: '<span class="tag">Stable, TVD · c &lt; 1</span><p>Sharp front and no wiggles. The limiter acts like Lax–Wendroff where the solution is smooth and falls back to FTBS at the jump. Compare the L1 error with the other two schemes.</p>',
+      cap: "The dashed line is the characteristic. The true value at the new time comes from where it lands at time level n. The TVD scheme uses points i−2 to i+1, because φ(r i−1) needs u i−2. The landing point still has to fall between i−1 and i, so again c ≤ 1."
     }
   };
 
@@ -426,6 +523,9 @@ svg.lw .lw-only { display: inline; }
     $("eq-scheme").innerHTML = S.eq;
     $("leg-num").lastChild.textContent = S.name + " numerical solution";
     $("stencil-cap").textContent = S.cap;
+    $("limiter-field").hidden = scheme !== "tvd";
+    $("phi-formula").textContent = LIMITERS[limiter].formula;
+    if (scheme === "tvd") $("leg-num").lastChild.textContent = "TVD (" + $("limiter").selectedOptions[0].text.split(" (")[0] + ") numerical solution";
     if (c > 1 + 1e-9) {
       s.className = "status unstable";
       s.innerHTML = '<span class="tag">Unstable · c &gt; 1</span><p>The CFL condition is violated. Press Play and watch oscillations grow until the solution blows up.</p>';
@@ -444,8 +544,10 @@ svg.lw .lw-only { display: inline; }
     $("char").setAttribute("x2", foot); $("foot").setAttribute("cx", foot);
     $("foot-lbl").setAttribute("x", Math.max(100, foot));
     $("stencil").classList.toggle("bad", c > 1 + 1e-9);
-    $("stencil").classList.toggle("lw", scheme === "lw");
-    $("pt-ip1").classList.toggle("on", scheme === "lw");
+    $("stencil").classList.toggle("lw", scheme !== "ftbs");
+    $("stencil").classList.toggle("tvd", scheme === "tvd");
+    $("pt-ip1").classList.toggle("on", scheme !== "ftbs");
+    $("pt-im2").classList.toggle("on", scheme === "tvd");
   }
 
   function setPlaying(p) {
@@ -498,9 +600,56 @@ svg.lw .lw-only { display: inline; }
   $("nx-num").addEventListener("change", e => setNx(+e.target.value, true));
   $("shape").addEventListener("change", e => { shape = e.target.value; setPlaying(false); init(); });
   $("scheme").addEventListener("change", e => { scheme = e.target.value; setPlaying(false); init(); setPlaying(true); });
+  $("limiter").addEventListener("change", e => { limiter = e.target.value; setPlaying(false); init(); setPlaying(true); });
   document.querySelectorAll(".presets button").forEach(b => b.addEventListener("click", () => {
     setC(+b.dataset.c, true);
   }));
+
+  // ---- zoom controls
+  const toData = (px, py) => {
+    const { m, pw, ph, V } = lay;
+    return { x: V.x0 + ((px - m.l) / pw) * (V.x1 - V.x0), y: V.y0 + (1 - (py - m.t) / ph) * (V.y1 - V.y0) };
+  };
+  function zoomBy(f) {
+    const V = getView();
+    const xc = follow ? frontX() : (V.x0 + V.x1) / 2, yc = (V.y0 + V.y1) / 2;
+    const hw = (V.x1 - V.x0) * f / 2, hh = (V.y1 - V.y0) * f / 2;
+    if (f > 1 && hw * 2 >= L && hh * 2 >= YMAX - YMIN) view = null;
+    else if (hw * 2 > 1e-4) view = { x0: xc - hw, x1: xc + hw, y0: yc - hh, y1: yc + hh };
+    render();
+  }
+  $("zin").addEventListener("click", () => zoomBy(0.5));
+  $("zout").addEventListener("click", () => zoomBy(2));
+  $("zreset").addEventListener("click", () => { view = null; render(); });
+  canvas.addEventListener("dblclick", () => { view = null; render(); });
+  $("follow").addEventListener("change", e => {
+    follow = e.target.checked;
+    if (follow && !view) view = { x0: 0, x1: 0.5, y0: YMIN, y1: YMAX };   // start with a 0.5-wide window on the front
+    render();
+  });
+  canvas.addEventListener("pointerdown", e => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;   // touch keeps normal page scrolling; use the buttons
+    const b = canvas.getBoundingClientRect();
+    sel = { x0: e.clientX - b.left, y0: e.clientY - b.top, x1: e.clientX - b.left, y1: e.clientY - b.top };
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", e => {
+    if (!sel) return;
+    const b = canvas.getBoundingClientRect();
+    sel.x1 = e.clientX - b.left; sel.y1 = e.clientY - b.top;
+    render();
+  });
+  canvas.addEventListener("pointerup", () => {
+    if (!sel) return;
+    const s0 = sel; sel = null;
+    const dxp = Math.abs(s0.x1 - s0.x0), dyp = Math.abs(s0.y1 - s0.y0);
+    if (dxp > 6) {
+      const a = toData(s0.x0, s0.y0), b = toData(s0.x1, s0.y1), V = getView();
+      view = { x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x),
+               y0: dyp > 6 ? Math.min(a.y, b.y) : V.y0, y1: dyp > 6 ? Math.max(a.y, b.y) : V.y1 };  // a flat drag zooms x only
+    }
+    render();
+  });
 
   new ResizeObserver(() => render()).observe(canvas);
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);

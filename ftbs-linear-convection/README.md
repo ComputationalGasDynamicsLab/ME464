@@ -1,16 +1,29 @@
-# 1D Linear Convection: FTBS and Lax–Wendroff
+# 1D Linear Convection: Diffusion, Dispersion and Limiters
 
-Teaching material for a CFD course: the 1D linear convection equation solved with two schemes
-that go wrong in different ways.
+Teaching material for a CFD course: the 1D linear convection equation solved with three schemes.
 
 - **FTBS** (forward in time, backward in space; first-order upwind) shows **numerical diffusion**:
   the sharp front smears out.
 - **Lax–Wendroff** (second order) shows **numerical dispersion**: the front stays sharper, but
   wiggles appear behind it.
+- **TVD with a flux limiter** combines the two: a sharp front and no wiggles.
 
-| FTBS: numerical diffusion | Lax–Wendroff: numerical dispersion |
-|---|---|
-| ![FTBS animation](ftbs_convection.gif) | ![Lax–Wendroff animation](lax_wendroff.gif) |
+| FTBS: numerical diffusion | Lax–Wendroff: numerical dispersion | TVD (van Leer limiter) |
+|---|---|---|
+| ![FTBS animation](ftbs_convection.gif) | ![Lax–Wendroff animation](lax_wendroff.gif) | ![TVD animation](tvd_vanleer.gif) |
+
+## Interactive animation
+
+**Open it here: https://computationalgasdynamicslab.github.io/ME464/ftbs-linear-convection/**
+
+It runs in any web browser, with nothing to install. You can:
+
+- play the solution, or step through it one time step at a time
+- switch between FTBS, Lax–Wendroff and TVD (with the minmod, van Leer or superbee limiter)
+- type any CFL number and grid size (up to 2001 points), and switch the initial condition
+- zoom in: drag a box on the plot, use the + and − buttons, or tick **Follow the front** to keep
+  the moving jump in view; double-click or **Reset view** to zoom back out
+- compare the maximum and L1 errors, and see on a stencil diagram why each scheme needs $`c \le 1`$
 
 ## The equation
 
@@ -19,28 +32,22 @@ that go wrong in different ways.
 ```
 
 The exact solution is the initial profile shifted to the right: $`u(x,t) = u_0(x - at)`$.
+The default initial condition is a shock-like step: $`u = 1`$ for $`x < 0.5`$ and $`u = 2`$ for
+$`x \ge 0.5`$, on the domain $`x \in [0, 2]`$, run to $`t = 1`$.
 
-## Scheme 1: FTBS (numerical diffusion)
-
-With the CFL (Courant) number
+All three schemes use the CFL (Courant) number
 
 ```math
 c = \frac{a \Delta t}{\Delta x}
 ```
 
-the FTBS update is
+## Scheme 1: FTBS (numerical diffusion)
 
 ```math
 u_i^{n+1} = u_i^n - c\left(u_i^n - u_{i-1}^n\right) = (1-c) u_i^n + c u_{i-1}^n
 ```
 
-It is stable for $`a > 0`$ when $`0 \le c \le 1`$.
-
-| CFL number | What you see |
-|---|---|
-| $`c < 1`$ | Stable, but the sharp front smears into a ramp (numerical diffusion). Smaller $`c`$ smears more. |
-| $`c = 1`$ | $`u_i^{n+1} = u_{i-1}^n`$: an exact one-cell shift, zero error. |
-| $`c > 1`$ | Unstable. The weight $`1 - c`$ is negative and oscillations grow until the solution blows up. |
+Each new value is a weighted average of two neighbors, so sharp corners get rounded off.
 
 ## Scheme 2: Lax–Wendroff (numerical dispersion)
 
@@ -48,13 +55,40 @@ It is stable for $`a > 0`$ when $`0 \le c \le 1`$.
 u_i^{n+1} = u_i^n - \frac{c}{2}\left(u_{i+1}^n - u_{i-1}^n\right) + \frac{c^2}{2}\left(u_{i+1}^n - 2u_i^n + u_{i-1}^n\right)
 ```
 
-It is second-order accurate and also stable for $`0 \le c \le 1`$. At the right (outflow) boundary,
-where $`u_{i+1}`$ does not exist, the code uses the FTBS update.
+At the right (outflow) boundary, where $`u_{i+1}`$ does not exist, the code uses the FTBS update.
+
+## Scheme 3: TVD with a flux limiter
+
+Write the scheme as FTBS plus a Lax–Wendroff correction, and scale the correction by a limiter
+$`\phi(r)`$:
+
+```math
+u_i^{n+1} = u_i^n - c\left(u_i^n - u_{i-1}^n\right)
+ - \frac{c(1-c)}{2}\left[\phi(r_i)\left(u_{i+1}^n - u_i^n\right) - \phi(r_{i-1})\left(u_i^n - u_{i-1}^n\right)\right]
+```
+
+```math
+r_i = \frac{u_i^n - u_{i-1}^n}{u_{i+1}^n - u_i^n}
+```
+
+$`\phi = 0`$ gives FTBS and $`\phi = 1`$ gives Lax–Wendroff. The ratio $`r`$ compares neighboring
+slopes: $`r \approx 1`$ where the solution is smooth, $`r \le 0`$ at a peak or a jump.
+
+| Limiter | $`\phi(r)`$ | Character |
+|---|---|---|
+| minmod | $`\max(0, \min(1, r))`$ | most diffusive, most cautious |
+| van Leer | $`(r + \lvert r \rvert)/(1 + \lvert r \rvert)`$ | smooth, a good default |
+| superbee | $`\max(0, \min(2r, 1), \min(r, 2))`$ | most compressive, sharpest jumps |
+
+Why a nonlinear limiter is needed: **Godunov's theorem** says a linear scheme that never creates
+new wiggles can be at most first-order accurate. FTBS and Lax–Wendroff are both linear, so one
+of them must either smear or wiggle. The limiter makes the scheme nonlinear: it switches between
+the two depending on the local solution.
 
 ## Diffusion vs dispersion: the modified equation
 
-Each scheme really solves a slightly different PDE. Its leading error term decides how the
-numerical solution goes wrong.
+FTBS and Lax–Wendroff each really solve a slightly different PDE. Its leading error term decides
+how the numerical solution goes wrong.
 
 FTBS:
 
@@ -68,32 +102,30 @@ Lax–Wendroff:
 u_t + a u_x = -\frac{a \Delta x^2}{6}(1 - c^2)\, u_{xxx}
 ```
 
-| | FTBS | Lax–Wendroff |
-|---|---|---|
-| Order of accuracy | 1st | 2nd |
-| Leading error term | even derivative $`u_{xx}`$ | odd derivative $`u_{xxx}`$ |
-| Error type | numerical diffusion | numerical dispersion |
-| Effect on a jump | smears into a ramp, no wiggles | stays sharper, wiggles behind the jump |
-| At $`c = 1`$ | exact shift | exact shift |
-| Stable for | $`0 \le c \le 1`$ | $`0 \le c \le 1`$ |
-
-Why wiggles: with dispersion, waves of different lengths travel at different speeds (short waves
-are slower than $`a`$). A jump is made of many wavelengths, so they separate and leave a train of
+With dispersion, waves of different lengths travel at different speeds (short waves are slower
+than $`a`$). A jump is made of many wavelengths, so they separate and leave a train of
 oscillations behind the front.
 
-## Initial condition
+## Comparison
 
-The default initial condition is a shock-like step: $`u = 1`$ for $`x < 0.5`$ and $`u = 2`$ for $`x \ge 0.5`$,
-on the domain $`x \in [0, 2]`$.
+| | FTBS | Lax–Wendroff | TVD with limiter |
+|---|---|---|---|
+| Order of accuracy | 1st | 2nd | 2nd where smooth, 1st at jumps and peaks |
+| Leading error | $`u_{xx}`$: diffusion | $`u_{xxx}`$: dispersion | limited, nonlinear |
+| Effect on a jump | smears into a ramp | wiggles behind the jump | sharp, no wiggles |
+| At $`c = 1`$ | exact shift | exact shift | exact shift |
+| Stable for | $`0 \le c \le 1`$ | $`0 \le c \le 1`$ | $`0 \le c \le 1`$ |
 
-## Interactive animation
+Results for the default case ($`nx = 81`$, $`c = 0.5`$, $`t = 1`$), with
+L1 error $`= \Delta x \sum_i \lvert u_i - u_{exact}(x_i) \rvert`$:
 
-**Open it here: https://computationalgasdynamicslab.github.io/ME464/ftbs-linear-convection/**
-
-It runs in any web browser, with nothing to install. You can play the solution step by step,
-switch between FTBS and Lax–Wendroff, change the CFL number and grid size, switch the initial
-condition, and see on a stencil diagram
-why the scheme needs $`c \le 1`$.
+| Scheme | L1 error | min $`u`$ | max $`u`$ |
+|---|---|---|---|
+| FTBS | 0.0889 | 1.000 | 2.000 |
+| Lax–Wendroff | 0.0679 | **0.790** (undershoot) | 2.000 |
+| TVD, minmod | 0.0444 | 1.000 | 2.000 |
+| TVD, van Leer | 0.0330 | 1.000 | 2.000 |
+| TVD, superbee | 0.0211 | 1.000 | 2.000 |
 
 ## Run the Python script on your own computer
 
@@ -169,11 +201,13 @@ python ftbs_convection.py                # c = 0.5, step initial condition
 python ftbs_convection.py --cfl 1.0      # exact shift
 python ftbs_convection.py --cfl 1.1      # unstable
 python ftbs_convection.py --scheme lw    # Lax-Wendroff: numerical dispersion
+python ftbs_convection.py --scheme tvd   # TVD with the van Leer limiter
+python ftbs_convection.py --scheme tvd --limiter superbee
 python ftbs_convection.py --animate      # also saves an animated GIF
 python ftbs_convection.py --help         # all options
 ```
 
-Each run prints the grid spacing, time step and maximum error, and saves the plot
+Each run prints the grid spacing, time step, maximum error and L1 error, and saves the plot
 `ftbs_convection.png` (and `ftbs_convection.gif` with `--animate`) in the same folder.
 Open those files to see the results.
 
@@ -181,7 +215,8 @@ Options you can combine:
 
 | Option | Meaning | Default |
 |---|---|---|
-| `--scheme` | `ftbs` or `lw` (Lax–Wendroff) | `ftbs` |
+| `--scheme` | `ftbs`, `lw` (Lax–Wendroff) or `tvd` (flux limiter) | `ftbs` |
+| `--limiter` | for `tvd`: `minmod`, `vanleer` or `superbee` | `vanleer` |
 | `--cfl` | CFL number $`c = a \Delta t / \Delta x`$ | 0.5 |
 | `--nx` | number of grid points | 81 |
 | `--t-end` | final time | 1.0 |

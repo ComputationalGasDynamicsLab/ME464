@@ -40,9 +40,11 @@ on the domain $`x \in [0, 2]`$.
 
 ## Interactive animation
 
-Open [`index.html`](index.html) in a browser (or enable GitHub Pages for this repository).
-You can play the solution step by step, change the CFL number and grid size, switch the initial
-condition, and see on a stencil diagram why the scheme needs $`c \le 1`$.
+**Open it here: https://computationalgasdynamicslab.github.io/ME464/**
+
+It runs in any web browser, with nothing to install. You can play the solution step by step,
+change the CFL number and grid size, switch the initial condition, and see on a stencil diagram
+why the scheme needs $`c \le 1`$.
 
 ## Python script
 

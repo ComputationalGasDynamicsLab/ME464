@@ -119,7 +119,7 @@ For $`|M| < 1`$ the split functions are
 ```
 
 with $`\alpha = 3/16`$, $`\beta = 1/8`$. For $`|M| \ge 1`$ they reduce to full upwinding:
-$`\mathcal{M}^\pm = \tfrac{1}{2}(M \pm |M|)`$ and $`\mathcal{P}^\pm = \tfrac{1}{2}(1 \pm \operatorname{sign} M)`$.
+$`\mathcal{M}^\pm = \tfrac{1}{2}(M \pm |M|)`$ and $`\mathcal{P}^\pm = \tfrac{1}{2}(1 \pm \mathrm{sign}(M))`$.
 The interface speed of sound is $`a_{1/2} = \min(\tilde a_L, \tilde a_R)`$ with
 $`\tilde a_L = a^{*2}_L / \max(a^*_L, u_L)`$, $`\tilde a_R = a^{*2}_R / \max(a^*_R, -u_R)`$ and the critical speed
 $`a^{*2} = 2(\gamma - 1) H / (\gamma + 1)`$.

@@ -1,8 +1,8 @@
-# Sod Shock Tube: Roe, HLLC and AUSM+
+# Sod Shock Tube: Roe, HLLC, AUSM+ and AUSM+-up
 
 Teaching material for a CFD course: the Sod shock tube problem for the 1D Euler equations,
-solved with a finite-volume method and three approximate Riemann solvers (Roe, HLLC and
-AUSM+), compared with the exact solution.
+solved with a finite-volume method and four approximate Riemann solvers (Roe, HLLC, AUSM+
+and AUSM+-up), compared with the exact solution.
 
 ![Sod shock tube animation, 2nd order](sod_shock_tube.gif)
 
@@ -14,7 +14,7 @@ It runs in any web browser, with nothing to install. You can:
 
 - play the solution, or step through it one time step at a time
 - switch between density, velocity, pressure and internal energy
-- show or hide Roe, HLLC and AUSM+, compared with the exact solution
+- show or hide Roe, HLLC, AUSM+ and AUSM+-up, compared with the exact solution
 - choose 1st order or 2nd order (MUSCL with a minmod, van Leer or superbee limiter)
 - type any CFL number and number of cells
 - zoom in: drag a box on the plot (for example around the contact), use the + and − buttons,
@@ -68,7 +68,7 @@ applied to the states on either side of the face.
   cell with a limited slope, $`W_L = W_i + \tfrac{1}{2}\sigma_i`$ and
   $`W_R = W_{i+1} - \tfrac{1}{2}\sigma_{i+1}`$, and advance in time with two-stage SSP Runge–Kutta (Heun).
 
-## The three fluxes
+## The four fluxes
 
 ### Roe
 
@@ -126,16 +126,41 @@ $`a^{*2} = 2(\gamma - 1) H / (\gamma + 1)`$.
 
 AUSM+ needs no eigenvectors, so it is cheap and extends easily to other systems of equations.
 
+### AUSM+-up (Liou 2006)
+
+AUSM+ with two diffusion terms, designed so that the scheme works at all speeds, including
+low Mach numbers:
+
+```math
+m_{1/2} = \mathcal{M}^+_{(4)}(M_L) + \mathcal{M}^-_{(4)}(M_R) + M_p, \qquad
+M_p = -\frac{K_p}{f_a}\,\max\left(1 - \sigma \bar M^2, 0\right)\frac{p_R - p_L}{\rho_{1/2}\, a_{1/2}^2}
+```
+
+```math
+p_{1/2} = \mathcal{P}^+_{(5)}(M_L)\, p_L + \mathcal{P}^-_{(5)}(M_R)\, p_R + p_u, \qquad
+p_u = -K_u\, \mathcal{P}^+_{(5)}(M_L)\, \mathcal{P}^-_{(5)}(M_R)\,(\rho_L + \rho_R)\, f_a\, a_{1/2}\,(u_R - u_L)
+```
+
+with $`\bar M^2 = (u_L^2 + u_R^2)/(2a_{1/2}^2)`$, $`\rho_{1/2} = (\rho_L + \rho_R)/2`$, $`K_p = 0.25`$,
+$`K_u = 0.75`$ and $`\sigma = 1`$. The factor $`f_a`$ rescales the scheme for low-Mach flow; for this
+transonic problem $`f_a = 1`$, so $`\alpha = \tfrac{3}{16}(-4 + 5 f_a^2) = 3/16`$ as in AUSM+.
+
+The pressure-diffusion term $`M_p`$ makes the mass flux respond to a pressure jump even when the
+gas is at rest. That removes the AUSM+ start-up error described below, at the price of a
+little more smearing.
+
 ## Results
 
 L1 error in density, $`\Delta x \sum_i |\rho_i - \rho_{exact}(x_i)|`$, at $`t = 0.2`$ with CFL = 0.5:
 
-| Cells | Order | Roe | HLLC | AUSM+ |
-|---|---|---|---|---|
-| 100 | 1st | 0.01706 | 0.01764 | 0.01639 |
-| 100 | 2nd (van Leer) | 0.00513 | 0.00556 | 0.00521 |
-| 400 | 1st | 0.00695 | 0.00710 | 0.00652 |
-| 400 | 2nd (van Leer) | 0.00155 | 0.00164 | 0.00158 |
+| Cells | Order | Roe | HLLC | AUSM+ | AUSM+-up |
+|---|---|---|---|---|---|
+| 100 | 1st | 0.01706 | 0.01764 | 0.01639 | 0.02207 |
+| 100 | 2nd (van Leer) | 0.00513 | 0.00556 | 0.00521 | 0.00624 |
+| 400 | 1st | 0.00695 | 0.00710 | 0.00652 | 0.00901 |
+| 400 | 2nd (van Leer) | 0.00155 | 0.00164 | 0.00158 | 0.00178 |
+
+At CFL = 0.8 (1st order, 100 cells): Roe 0.01480, HLLC 0.01547, AUSM+ fails, AUSM+-up 0.02025.
 
 What to look for:
 
@@ -155,8 +180,12 @@ diaphragm gain momentum but no energy.
   stays there. Replacing only the first three time steps with HLLC removes it, which shows it
   is a start-up effect and not a problem at the sonic point.
 - At 1st order with CFL ≥ 0.7, the kinetic energy gained in the first step exceeds the total
-  energy of the low-density cell, so its pressure becomes negative and the run stops. Roe and
-  HLLC run fine at the same CFL. The page and the script report this instead of crashing.
+  energy of the low-density cell, so its pressure becomes negative and the run stops. Roe,
+  HLLC and AUSM+-up run fine at the same CFL. The page and the script report this instead of
+  crashing.
+- **AUSM+-up** fixes both: its pressure-diffusion term $`M_p`$ gives a nonzero mass flux at the
+  diaphragm from the first step. It has no bump at $`x = 0.5`$ and runs at CFL 0.8 and 0.9, but
+  its L1 error is about 20–35% higher than AUSM+ because of the extra diffusion.
 
 ## Run the Python script on your own computer
 
@@ -228,11 +257,11 @@ When the environment is active, your prompt starts with `(.venv)`.
 ### Step 4: Run the solver
 
 ```bash
-python sod_shock_tube.py                         # Roe, HLLC and AUSM+, 1st order, 100 cells
+python sod_shock_tube.py                         # all four fluxes, 1st order, 100 cells
 python sod_shock_tube.py --order 2               # 2nd order: MUSCL + van Leer limiter + RK2
 python sod_shock_tube.py --flux hllc --nx 400    # one flux, finer grid
 python sod_shock_tube.py --order 2 --animate     # also saves an animated GIF
-python sod_shock_tube.py --cfl 0.8               # AUSM+ fails in the first step (see above)
+python sod_shock_tube.py --cfl 0.8               # AUSM+ fails in the first step, AUSM+-up does not
 python sod_shock_tube.py --help                  # all options
 ```
 
@@ -242,7 +271,7 @@ error in density. It saves a 2×2 plot of density, velocity, pressure and intern
 
 | Option | Meaning | Default |
 |---|---|---|
-| `--flux` | one or more of `roe`, `hllc`, `ausm+` | all three |
+| `--flux` | one or more of `roe`, `hllc`, `ausm+`, `ausm+up` | all four |
 | `--order` | `1` (piecewise constant) or `2` (MUSCL + RK2) | 1 |
 | `--limiter` | for `--order 2`: `minmod`, `vanleer` or `superbee` | `vanleer` |
 | `--cfl` | CFL number | 0.5 |
@@ -250,7 +279,7 @@ error in density. It saves a 2×2 plot of density, velocity, pressure and intern
 | `--t-end` | final time | 0.2 |
 | `--animate` | also save `sod_shock_tube.gif` | off |
 
-Example: `python sod_shock_tube.py --flux roe ausm+ --order 2 --limiter superbee --nx 200`
+Example: `python sod_shock_tube.py --flux ausm+ ausm+up --order 2 --limiter superbee --nx 200`
 
 ### Next time
 

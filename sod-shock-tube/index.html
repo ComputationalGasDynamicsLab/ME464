@@ -23,6 +23,7 @@
   --roe: #2552c4;
   --hllc: #c2410c;
   --ausm: #0f8a6a;
+  --ausmup: #8b3fb5;
   --warn: #b42318;
   --warn-bg: #fdecea;
   --info-bg: #e8eefb;
@@ -34,14 +35,14 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
-    --accent: #7ea4ff; --exact: #e3e9ef; --init: #6c7a88; --roe: #7ea4ff; --hllc: #fb923c; --ausm: #3fcf9f;
+    --accent: #7ea4ff; --exact: #e3e9ef; --init: #6c7a88; --roe: #7ea4ff; --hllc: #fb923c; --ausm: #3fcf9f; --ausmup: #c99bf2;
     --warn: #ff7b72; --warn-bg: #3a1a1a; --info-bg: #17233d;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
-  --accent: #7ea4ff; --exact: #e3e9ef; --init: #6c7a88; --roe: #7ea4ff; --hllc: #fb923c; --ausm: #3fcf9f;
+  --accent: #7ea4ff; --exact: #e3e9ef; --init: #6c7a88; --roe: #7ea4ff; --hllc: #fb923c; --ausm: #3fcf9f; --ausmup: #c99bf2;
   --warn: #ff7b72; --warn-bg: #3a1a1a; --info-bg: #17233d;
   color-scheme: dark;
 }
@@ -76,10 +77,10 @@ h1 { font: 700 clamp(26px, 4vw, 36px)/1.1 var(--display); margin: 0; text-wrap: 
 .sw { width: 22px; height: 0; border-top: 2.5px solid; display: inline-block; }
 .sw.init { border-color: var(--init); border-top-style: dashed; }
 .sw.exact { border-color: var(--exact); }
-.sw.roe { border-color: var(--roe); } .sw.hllc { border-color: var(--hllc); } .sw.ausm { border-color: var(--ausm); }
+.sw.roe { border-color: var(--roe); } .sw.hllc { border-color: var(--hllc); } .sw.ausm { border-color: var(--ausm); } .sw.ausmup { border-color: var(--ausmup); }
 canvas { width: 100%; display: block; cursor: crosshair; }
 
-.readouts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.readouts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 640px) { .readouts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .ro { border-top: 1px solid var(--line); padding-top: 8px; min-width: 0; }
 .ro .k { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
@@ -122,7 +123,8 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
 .notes-wrap { display: grid; gap: 14px; }
 .notes-wrap .lead { margin: 0; color: var(--muted); max-width: 75ch; }
 .notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
-@media (max-width: 900px) { .notes { grid-template-columns: minmax(0, 1fr); } }
+.notes.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 900px) { .notes, .notes.four { grid-template-columns: minmax(0, 1fr); } }
 .note h3 { font: 700 14px var(--display); margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
 .note h3 .dot { width: 10px; height: 10px; border-radius: 2px; }
 .note p { margin: 0 0 6px; color: var(--muted); font-size: 14px; max-width: 65ch; }
@@ -156,6 +158,7 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
         <label for="show-roe"><input type="checkbox" id="show-roe" checked><i class="sw roe"></i>Roe</label>
         <label for="show-hllc"><input type="checkbox" id="show-hllc" checked><i class="sw hllc"></i>HLLC</label>
         <label for="show-ausm"><input type="checkbox" id="show-ausm" checked><i class="sw ausm"></i>AUSM+</label>
+        <label for="show-ausmup"><input type="checkbox" id="show-ausmup" checked><i class="sw ausmup"></i>AUSM+-up</label>
       </div>
       <canvas id="plot" role="img" aria-label="Sod shock tube solution compared with the exact solution"></canvas>
       <div class="readouts">
@@ -164,6 +167,7 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
         <div class="ro"><div class="k"><i class="dot" style="background:var(--roe)"></i>L1(ρ) Roe</div><div class="v" id="r-roe">0.0000</div></div>
         <div class="ro"><div class="k"><i class="dot" style="background:var(--hllc)"></i>L1(ρ) HLLC</div><div class="v" id="r-hllc">0.0000</div></div>
         <div class="ro"><div class="k"><i class="dot" style="background:var(--ausm)"></i>L1(ρ) AUSM+</div><div class="v" id="r-ausm">0.0000</div></div>
+        <div class="ro"><div class="k"><i class="dot" style="background:var(--ausmup)"></i>L1(ρ) AUSM+-up</div><div class="v" id="r-ausmup">0.0000</div></div>
       </div>
       <div class="transport">
         <button class="primary" id="play">Play</button>
@@ -205,7 +209,7 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
             <input type="range" id="cfl" min="0.1" max="0.95" step="0.01" value="0.5" aria-label="CFL number slider">
             <input type="number" id="cfl-num" min="0.05" max="1" step="0.01" value="0.50" inputmode="decimal">
           </div>
-          <div class="hint">Δt = CFL · Δx / max(|u| + a). Try 0.7 and watch AUSM+.</div>
+          <div class="hint">Δt = CFL · Δx / max(|u| + a). Try 0.7 and compare AUSM+ with AUSM+-up.</div>
         </div>
         <div class="field">
           <label for="nx-num">Number of cells</label>
@@ -230,9 +234,9 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
   </div>
 
   <section class="notes-wrap">
-    <h2>Three ways to compute the interface flux</h2>
+    <h2>Four ways to compute the interface flux</h2>
     <p class="lead">A finite-volume method updates each cell with the fluxes through its two faces. At each face the left and right states form a small Riemann problem, the same kind of problem as the whole shock tube. The schemes differ in how they approximate its solution.</p>
-    <div class="notes">
+    <div class="notes four">
       <div class="note">
         <h3><i class="dot" style="background:var(--roe)"></i>Roe</h3>
         <p>Linearizes the Riemann problem around the Roe-averaged state and solves it exactly: <i>F = ½(F<sub>L</sub> + F<sub>R</sub>) − ½ Σ |λ<sub>k</sub>| α<sub>k</sub> K<sub>k</sub></i>, with eigenvalues <i>u − a, u, u + a</i>. It resolves all three waves, but it can let through an expansion shock at a sonic point, so this code uses Harten's entropy fix on <i>|u ± a|</i>.</p>
@@ -245,6 +249,10 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
         <h3><i class="dot" style="background:var(--ausm)"></i>AUSM+</h3>
         <p>Splits the flux into a convective part, carried by an interface Mach number <i>m<sub>½</sub></i> built from split polynomials <i>M<sup>±</sup>(M)</i>, and a pressure part <i>p<sub>½</sub> = P<sup>+</sup>(M<sub>L</sub>) p<sub>L</sub> + P<sup>−</sup>(M<sub>R</sub>) p<sub>R</sub></i>. It needs no eigenvectors, so it is cheap and extends easily to other equations.</p>
       </div>
+      <div class="note">
+        <h3><i class="dot" style="background:var(--ausmup)"></i>AUSM+-up</h3>
+        <p>AUSM+ with two diffusion terms (Liou 2006). A pressure term in the mass flux, <i>M<sub>p</sub> = −K<sub>p</sub> max(1 − M̄², 0)(p<sub>R</sub> − p<sub>L</sub>)/(ρ<sub>½</sub> a<sub>½</sub>²)</i>, and a velocity term in the pressure flux, <i>p<sub>u</sub> = −K<sub>u</sub> P<sup>+</sup>P<sup>−</sup>(ρ<sub>L</sub> + ρ<sub>R</sub>) a<sub>½</sub>(u<sub>R</sub> − u<sub>L</sub>)</i>, with <i>K<sub>p</sub></i> = 0.25 and <i>K<sub>u</sub></i> = 0.75. They were designed for low-Mach flow. Here <i>M<sub>p</sub></i> lets mass cross the diaphragm in the first step, so the start-up bump and the CFL failure go away, at the price of a little more smearing.</p>
+      </div>
     </div>
     <div class="notes">
       <div class="note">
@@ -256,12 +264,12 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
         <ul>
           <li>The <b>contact</b> is smeared over more cells than the shock. A shock compresses itself, while a contact is a linear wave that only spreads.</li>
           <li><b>2nd order</b> makes all jumps much sharper. Compare the L1 errors.</li>
-          <li><b>Zoom</b> into the contact and the shock to compare Roe, HLLC and AUSM+ point by point.</li>
+          <li><b>Zoom</b> into the contact and the shock to compare the four schemes point by point. AUSM+-up is slightly more smeared than AUSM+.</li>
         </ul>
       </div>
       <div class="note">
         <h3>The AUSM+ start-up error</h3>
-        <p>At <i>t</i> = 0 the gas is at rest, so <i>m<sub>½</sub></i> = 0 and AUSM+ moves no mass or energy across the diaphragm in the first step, only the pressure force. The cells next to it gain momentum without energy. This leaves a small bump near <i>x</i> = 0.5, and above CFL ≈ 0.65 the first step already makes the pressure negative.</p>
+        <p>At <i>t</i> = 0 the gas is at rest, so <i>m<sub>½</sub></i> = 0 and AUSM+ moves no mass or energy across the diaphragm in the first step, only the pressure force. The cells next to it gain momentum without energy. This leaves a small bump near <i>x</i> = 0.5, and above CFL ≈ 0.65 the first step already makes the pressure negative. AUSM+-up has neither problem: compare the two at CFL 0.8.</p>
       </div>
     </div>
   </section>
@@ -367,6 +375,24 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
     out[0] = res[0]; out[1] = res[1]; out[2] = res[2];
   }
 
+  function fluxAUSMup(rL, uL, pL, rR, uR, pR, out) {   // AUSM+-up, fa = 1 (no low-Mach scaling)
+    const Kp = 0.25, Ku = 0.75, sigma = 1, beta = 1 / 8, fa = 1, alpha = 3 / 16 * (-4 + 5 * fa * fa);
+    const HL = (energy(rL, uL, pL) + pL) / rL, HR = (energy(rR, uR, pR) + pR) / rR;
+    const acL = Math.sqrt(2 * (G - 1) / (G + 1) * HL), acR = Math.sqrt(2 * (G - 1) / (G + 1) * HR);
+    const a12 = Math.min(acL * acL / Math.max(acL, uL), acR * acR / Math.max(acR, -uR));
+    const ML = uL / a12, MR = uR / a12, Mbar2 = (uL * uL + uR * uR) / (2 * a12 * a12);
+    const M4 = (M, s) => Math.abs(M) >= 1 ? 0.5 * (M + s * Math.abs(M)) : s * 0.25 * (M + s) ** 2 + s * beta * (M * M - 1) ** 2;
+    const P5 = (M, s) => Math.abs(M) >= 1 ? 0.5 * (1 + s * Math.sign(M)) : 0.25 * (M + s) ** 2 * (2 - s * M) + s * alpha * M * (M * M - 1) ** 2;
+    const Mp = -Kp / fa * Math.max(1 - sigma * Mbar2, 0) * (pR - pL) / (0.5 * (rL + rR) * a12 * a12);
+    const PL = P5(ML, 1), PR = P5(MR, -1);
+    const m12 = M4(ML, 1) + M4(MR, -1) + Mp;
+    const p12 = PL * pL + PR * pR - Ku * PL * PR * (rL + rR) * fa * a12 * (uR - uL);
+    const mdot = a12 * (m12 > 0 ? m12 * rL : m12 * rR), up = mdot >= 0;
+    out[0] = mdot;
+    out[1] = mdot * (up ? uL : uR) + p12;
+    out[2] = mdot * (up ? HL : HR);
+  }
+
   function fluxAUSM(rL, uL, pL, rR, uR, pR, out) {
     const alpha = 3 / 16, beta = 1 / 8;
     const HL = (energy(rL, uL, pL) + pL) / rL, HR = (energy(rR, uR, pR) + pR) / rR;
@@ -396,6 +422,7 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
     { key: "roe", name: "Roe", flux: fluxRoe },
     { key: "hllc", name: "HLLC", flux: fluxHLLC },
     { key: "ausm", name: "AUSM+", flux: fluxAUSM },
+    { key: "ausmup", name: "AUSM+-up", flux: fluxAUSMup },
   ];
 
   function makeState() {
@@ -507,7 +534,8 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
     ctx.beginPath();
     if (shape === 0) ctx.arc(x, y, r, 0, Math.PI * 2);
     else if (shape === 1) ctx.rect(x - r * 0.9, y - r * 0.9, r * 1.8, r * 1.8);
-    else { ctx.moveTo(x, y - r * 1.15); ctx.lineTo(x + r * 1.05, y + r * 0.75); ctx.lineTo(x - r * 1.05, y + r * 0.75); ctx.closePath(); }
+    else if (shape === 2) { ctx.moveTo(x, y - r * 1.15); ctx.lineTo(x + r * 1.05, y + r * 0.75); ctx.lineTo(x - r * 1.05, y + r * 0.75); ctx.closePath(); }
+    else { ctx.moveTo(x, y - r * 1.25); ctx.lineTo(x + r * 1.1, y); ctx.lineTo(x, y + r * 1.25); ctx.lineTo(x - r * 1.1, y); ctx.closePath(); }
     ctx.fill();
   }
 
@@ -526,7 +554,7 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
     const X = v => m.l + ((v - V.x0) / (V.x1 - V.x0)) * pw;
     const Y = v => m.t + (1 - (v - V.y0) / (V.y1 - V.y0)) * ph;
     const col = { fg: css("--fg"), muted: css("--muted"), grid: css("--grid"), line: css("--line"), exact: css("--exact"),
-                  init: css("--init"), accent: css("--accent"), roe: css("--roe"), hllc: css("--hllc"), ausm: css("--ausm") };
+                  init: css("--init"), accent: css("--accent"), roe: css("--roe"), hllc: css("--hllc"), ausm: css("--ausm"), ausmup: css("--ausmup") };
 
     ctx.font = "12px " + css("--mono"); ctx.lineWidth = 1; ctx.fillStyle = col.muted;
     const sx = niceStep(V.x1 - V.x0, pw / 80), sy = niceStep(V.y1 - V.y0, ph / 45);
@@ -631,7 +659,7 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
       st.className = "status bad";
       const names = failed.map(s => s.name + " at t = " + s.failed.toFixed(4)).join(", ");
       const ausm = failed.some(s => s.key === "ausm")
-        ? " At t = 0 the gas is at rest, so AUSM+ carries no mass or energy across the diaphragm, only pressure. The cell next to it gains kinetic energy but no total energy, so its pressure goes negative. Lower the CFL number to about 0.65 or less."
+        ? " At t = 0 the gas is at rest, so AUSM+ carries no mass or energy across the diaphragm, only pressure. The cell next to it gains kinetic energy but no total energy, so its pressure goes negative. AUSM+-up adds a pressure-diffusion term to the mass flux and keeps running. Lower the CFL number to about 0.65 or less for AUSM+."
         : " Lower the CFL number.";
       st.innerHTML = '<span class="tag">Negative pressure</span><p>Stopped: ' + names + "." + ausm + "</p>";
     } else {

@@ -1,4 +1,4 @@
-"""Sod shock tube: the 1D Euler equations solved with Roe, HLLC and AUSM+ fluxes.
+"""Sod shock tube: the 1D Euler equations solved with Roe, HLLC, AUSM+ and AUSM+-up fluxes.
 
     U_t + F(U)_x = 0,  U = (rho, rho u, E),  F = (rho u, rho u^2 + p, u (E + p)),
     p = (gamma - 1)(E - rho u^2 / 2),  gamma = 1.4
@@ -12,7 +12,7 @@ Finite-volume method: first order, or second order with MUSCL reconstruction of 
 primitive variables (with a slope limiter) and two-stage SSP Runge-Kutta time stepping.
 
 Examples:
-    python sod_shock_tube.py                         # all three fluxes, 1st order, 100 cells, CFL 0.5
+    python sod_shock_tube.py                         # all four fluxes, 1st order, 100 cells, CFL 0.5
     python sod_shock_tube.py --order 2               # MUSCL + van Leer limiter
     python sod_shock_tube.py --flux ausm+ --nx 400   # one flux, finer grid
     python sod_shock_tube.py --order 2 --animate     # also save an animated GIF
@@ -179,8 +179,40 @@ def flux_ausm_plus(rL, uL, pL, rR, uR, pR, alpha=3 / 16, beta=1 / 8):
                      mdot * np.where(up, HL, HR)])
 
 
-FLUXES = {"roe": flux_roe, "hllc": flux_hllc, "ausm+": flux_ausm_plus}
-NAMES = {"roe": "Roe", "hllc": "HLLC", "ausm+": "AUSM+"}
+def flux_ausm_plus_up(rL, uL, pL, rR, uR, pR, Kp=0.25, Ku=0.75, sigma=1.0, beta=1 / 8):
+    """AUSM+-up (Liou 2006): AUSM+ plus pressure diffusion in the mass flux (Mp)
+    and velocity diffusion in the pressure flux (pu). With no low-Mach scaling, fa = 1."""
+    HL, HR = (energy(rL, uL, pL) + pL) / rL, (energy(rR, uR, pR) + pR) / rR
+    acL = np.sqrt(2 * (G - 1) / (G + 1) * HL)
+    acR = np.sqrt(2 * (G - 1) / (G + 1) * HR)
+    a12 = np.minimum(acL ** 2 / np.maximum(acL, uL), acR ** 2 / np.maximum(acR, -uR))
+    ML, MR = uL / a12, uR / a12
+    Mbar2 = (uL ** 2 + uR ** 2) / (2 * a12 ** 2)
+    fa = 1.0
+    alpha = 3 / 16 * (-4 + 5 * fa ** 2)
+
+    def M4(M, s):
+        return np.where(np.abs(M) >= 1, 0.5 * (M + s * np.abs(M)),
+                        s * 0.25 * (M + s) ** 2 + s * beta * (M * M - 1) ** 2)
+
+    def P5(M, s):
+        return np.where(np.abs(M) >= 1, 0.5 * (1 + s * np.sign(M)),
+                        0.25 * (M + s) ** 2 * (2 - s * M) + s * alpha * M * (M * M - 1) ** 2)
+
+    rho12 = 0.5 * (rL + rR)
+    Mp = -Kp / fa * np.maximum(1 - sigma * Mbar2, 0) * (pR - pL) / (rho12 * a12 ** 2)
+    m12 = M4(ML, 1) + M4(MR, -1) + Mp
+    pu = -Ku * P5(ML, 1) * P5(MR, -1) * (rL + rR) * fa * a12 * (uR - uL)
+    p12 = P5(ML, 1) * pL + P5(MR, -1) * pR + pu
+    mdot = a12 * np.where(m12 > 0, m12 * rL, m12 * rR)
+    up = mdot >= 0
+    return np.array([mdot,
+                     mdot * np.where(up, uL, uR) + p12,
+                     mdot * np.where(up, HL, HR)])
+
+
+FLUXES = {"roe": flux_roe, "hllc": flux_hllc, "ausm+": flux_ausm_plus, "ausm+up": flux_ausm_plus_up}
+NAMES = {"roe": "Roe", "hllc": "HLLC", "ausm+": "AUSM+", "ausm+up": "AUSM+-up"}
 
 
 # --------------------------------------------------------------------------------------
@@ -257,7 +289,7 @@ def solve(flux_name, nx, cfl, t_end, order, limiter, n_frames=0):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--flux", nargs="+", choices=list(FLUXES), default=list(FLUXES),
-                   help="one or more of roe, hllc, ausm+ (default: all three)")
+                   help="one or more of roe, hllc, ausm+, ausm+up (default: all four)")
     p.add_argument("--nx", type=int, default=100, help="number of cells (default 100)")
     p.add_argument("--cfl", type=float, default=0.5, help="CFL number (default 0.5)")
     p.add_argument("--order", type=int, choices=[1, 2], default=1, help="1 (default) or 2 (MUSCL + RK2)")
@@ -279,18 +311,18 @@ def main():
         xc, W, steps, frames, failed = solve(name, args.nx, args.cfl, args.t_end, args.order, args.limiter,
                                              n_frames=60 if args.animate else 0)
         if failed is not None:
-            print(f"{NAMES[name]:6s} FAILED: negative pressure or density at t = {failed:.4f} "
+            print(f"{NAMES[name]:8s} FAILED: negative pressure or density at t = {failed:.4f} "
                   f"(step {steps}). Try a smaller --cfl.")
             continue
         ex_c = exact(xc, args.t_end)
         l1 = np.sum(np.abs(W[0] - ex_c[0])) / args.nx
-        print(f"{NAMES[name]:6s} steps = {steps:4d}   L1 error in density = {l1:.5f}")
+        print(f"{NAMES[name]:8s} steps = {steps:4d}   L1 error in density = {l1:.5f}")
         results[name] = (xc, W, frames)
 
     if not results:
         return
     titles = ["Density ρ", "Velocity u", "Pressure p", "Internal energy e = p / ((γ−1)ρ)"]
-    colors = {"roe": "tab:blue", "hllc": "tab:orange", "ausm+": "tab:green"}
+    colors = {"roe": "tab:blue", "hllc": "tab:orange", "ausm+": "tab:green", "ausm+up": "tab:purple"}
     to_plot = lambda W: [W[0], W[1], W[2], W[2] / ((G - 1) * W[0])]
     order_txt = "1st order" if args.order == 1 else f"2nd order MUSCL ({args.limiter})"
 

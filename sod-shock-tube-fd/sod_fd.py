@@ -13,14 +13,20 @@ Values live at grid points x_i = i dx (i = 0..nx-1) on 0 <= x <= 1, with lam = d
     mc   MacCormack (2nd order), forward predictor and backward corrector
          U*_i = U_i^n - lam (F_{i+1}^n - F_i^n)
          U_i^{n+1} = (U_i^n + U*_i - lam (F*_i - F*_{i-1}))/2
+    mcav MacCormack with artificial viscosity (Anderson, Computational Fluid Dynamics, ch. 7)
+         S_i = Cx |p_{i+1} - 2p_i + p_{i-1}| / (p_{i+1} + 2p_i + p_{i-1}) (U_{i+1} - 2U_i + U_{i-1})
+         U*_i = U_i^n - lam (F_{i+1}^n - F_i^n) + S_i^n
+         U_i^{n+1} = U_i^n - (lam/2)[(F_{i+1}^n - F_i^n) + (F*_i - F*_{i-1})] + S*_i
 
-No artificial viscosity is added, so the 2nd-order schemes oscillate near the shock and contact.
+Without artificial viscosity the 2nd-order schemes oscillate near the shock and contact.
 The numerical solutions are compared with the exact Riemann solution at t = 0.2.
 
 Examples:
-    python sod_fd.py                      # all three schemes, 101 points, CFL 0.8
+    python sod_fd.py                      # all four schemes, 101 points, CFL 0.8
     python sod_fd.py --cfl 0.3            # smaller time step: more smearing and more wiggles
     python sod_fd.py --scheme mc --nx 401 # one scheme, finer grid
+    python sod_fd.py --scheme mc mcav     # MacCormack with and without artificial viscosity
+    python sod_fd.py --scheme mcav --cx 1.0 --cfl 0.3   # too much viscosity: unstable
     python sod_fd.py --animate            # also save an animated GIF
 """
 import argparse
@@ -150,8 +156,33 @@ def step_mc(U, lam):
     return Un
 
 
-SCHEMES = {"lf": step_lf, "lw": step_lw, "mc": step_mc}
-NAMES = {"lf": "Lax-Friedrichs", "lw": "Lax-Wendroff (Richtmyer)", "mc": "MacCormack"}
+CX = 0.3  # artificial-viscosity coefficient for mcav (set by --cx)
+
+
+def artificial_viscosity(U):
+    """Pressure-switched second-difference damping S_i (zero at the two end points)."""
+    _, _, p = primitives(U)
+    switch = np.abs(p[2:] - 2 * p[1:-1] + p[:-2]) / (p[2:] + 2 * p[1:-1] + p[:-2])
+    S = np.zeros_like(U)
+    S[:, 1:-1] = CX * switch * (U[:, 2:] - 2 * U[:, 1:-1] + U[:, :-2])
+    return S
+
+
+def step_mcav(U, lam):
+    F = flux(U)
+    Us = U.copy()
+    Us[:, :-1] = U[:, :-1] - lam * (F[:, 1:] - F[:, :-1])
+    Us += artificial_viscosity(U)                                            # predictor + S^n
+    Fs = flux(Us)
+    Un = U.copy()
+    Un[:, 1:-1] = U[:, 1:-1] - 0.5 * lam * ((F[:, 2:] - F[:, 1:-1]) + (Fs[:, 1:-1] - Fs[:, :-2]))
+    Un += artificial_viscosity(Us)                                           # corrector + S*
+    return Un
+
+
+SCHEMES = {"lf": step_lf, "lw": step_lw, "mc": step_mc, "mcav": step_mcav}
+NAMES = {"lf": "Lax-Friedrichs", "lw": "Lax-Wendroff (Richtmyer)", "mc": "MacCormack",
+         "mcav": "MacCormack + art. viscosity"}
 
 
 def solve(name, nx, cfl, t_end, n_frames=0):
@@ -183,12 +214,15 @@ def solve(name, nx, cfl, t_end, n_frames=0):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--scheme", nargs="+", choices=list(SCHEMES), default=list(SCHEMES),
-                   help="one or more of lf, lw, mc (default: all three)")
+                   help="one or more of lf, lw, mc, mcav (default: all four)")
     p.add_argument("--nx", type=int, default=101, help="number of grid points (default 101)")
     p.add_argument("--cfl", type=float, default=0.8, help="CFL number (default 0.8)")
+    p.add_argument("--cx", type=float, default=0.3, help="artificial-viscosity coefficient for mcav (default 0.3)")
     p.add_argument("--t-end", type=float, default=0.2, help="final time (default 0.2)")
     p.add_argument("--animate", action="store_true", help="also save sod_fd.gif")
     args = p.parse_args()
+    global CX
+    CX = args.cx
 
     s = SOD
     exact = lambda x, t: exact_solution(x, t, s["rL"], s["uL"], s["pL"], s["rR"], s["uR"], s["pR"], s["x0"])
@@ -197,18 +231,19 @@ def main():
     for name in args.scheme:
         x, W, steps, frames, failed = solve(name, args.nx, args.cfl, args.t_end, n_frames=60 if args.animate else 0)
         if failed is not None:
-            print(f"{NAMES[name]:25s} FAILED: negative pressure or density at t = {failed:.4f} (step {steps}). "
-                  f"Try a smaller --cfl.")
+            print(f"{NAMES[name]:28s} FAILED: negative pressure or density at t = {failed:.4f} (step {steps}). "
+                  ("Try a smaller --cx: too much artificial viscosity is unstable." if name == "mcav" and CX > 0
+                   else "Try a smaller --cfl."))
             continue
         ex = exact(x, args.t_end)
         l1 = np.sum(np.abs(W[0] - ex[0])) * (x[1] - x[0])
-        print(f"{NAMES[name]:25s} steps = {steps:4d}   L1 error in density = {l1:.5f}   max u = {W[1].max():.3f}")
+        print(f"{NAMES[name]:28s} steps = {steps:4d}   L1 error in density = {l1:.5f}   max u = {W[1].max():.3f}")
         results[name] = (x, W, frames)
     if not results:
         return
 
     titles = ["Density ρ", "Velocity u", "Pressure p", "Internal energy e = p / ((γ−1)ρ)"]
-    colors = {"lf": "tab:blue", "lw": "tab:orange", "mc": "tab:green"}
+    colors = {"lf": "tab:blue", "lw": "tab:orange", "mc": "tab:green", "mcav": "tab:purple"}
     to_plot = lambda W: [W[0], W[1], W[2], W[2] / ((G - 1) * W[0])]
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5))
     ex_f = to_plot(exact(xf, args.t_end))

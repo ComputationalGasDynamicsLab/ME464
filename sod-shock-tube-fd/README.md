@@ -1,8 +1,8 @@
 # Sod Shock Tube: Finite-Difference Schemes
 
 Teaching material for a CFD course: the Sod shock tube problem for the 1D Euler equations,
-solved with three classic finite-difference schemes (Lax–Friedrichs, Lax–Wendroff and
-MacCormack) and compared with the exact solution. The finite-volume version with Riemann
+solved with classic finite-difference schemes (Lax–Friedrichs, Lax–Wendroff, MacCormack, and
+MacCormack with artificial viscosity) and compared with the exact solution. The finite-volume version with Riemann
 solvers is in [`../sod-shock-tube/`](../sod-shock-tube/).
 
 ![Finite-difference Sod animation](sod_fd.gif)
@@ -16,7 +16,7 @@ It runs in any web browser, with nothing to install. You can:
 - play the solution, or step through it one time step at a time
 - switch between density, velocity, pressure and internal energy
 - show or hide each scheme, compared with the exact solution
-- type any CFL number and number of grid points
+- type any CFL number, artificial-viscosity coefficient $`C_x`$ and number of grid points
 - zoom in: drag a box on the plot (for example around the shock), use the + and − buttons,
   and double-click or **Reset view** to zoom back out
 - compare the L1 error in density for each scheme
@@ -63,8 +63,26 @@ U_i^{*} = U_i^n - \lambda\left(F_{i+1}^n - F_i^n\right), \qquad
 U_i^{n+1} = \frac{1}{2}\left[U_i^n + U_i^{*} - \lambda\left(F_i^{*} - F_{i-1}^{*}\right)\right]
 ```
 
+**MacCormack with artificial viscosity** (Anderson, *Computational Fluid Dynamics: The Basics
+with Applications*, ch. 7). A pressure-switched second-difference term
+
+```math
+S_i = C_x \frac{\left|p_{i+1} - 2p_i + p_{i-1}\right|}{p_{i+1} + 2p_i + p_{i-1}}\left(U_{i+1} - 2U_i + U_{i-1}\right)
+```
+
+is added to the predictor (computed from $`U^n`$) and to the corrector (computed from $`U^*`$):
+
+```math
+U_i^{*} = U_i^n - \lambda\left(F_{i+1}^n - F_i^n\right) + S_i^n, \qquad
+U_i^{n+1} = U_i^n - \frac{\lambda}{2}\left[\left(F_{i+1}^n - F_i^n\right) + \left(F_i^{*} - F_{i-1}^{*}\right)\right] + S_i^{*}
+```
+
+The pressure switch is close to zero where the pressure is smooth and large at a shock, so the
+damping acts mainly where it is needed. The default is $`C_x = 0.3`$; $`C_x = 0`$ gives plain
+MacCormack.
+
 Boundary points copy their neighbor (transmissive), and a grid point exactly at $`x = 0.5`$
-starts with the average of the two states. No artificial viscosity is added.
+starts with the average of the two states.
 
 Each scheme takes its own time step from its own solution, in both the script and the page.
 
@@ -73,11 +91,18 @@ Each scheme takes its own time step from its own solution, in both the script an
 L1 error in density, $`\Delta x \sum_i |\rho_i - \rho_{exact}(x_i)|`$, at $`t = 0.2`$ with 101 points;
 the last column is the largest velocity (exact maximum 0.927):
 
-| CFL | Lax–Friedrichs | Lax–Wendroff | MacCormack | max $`u`$ (LW / MacC) |
-|---|---|---|---|---|
-| 0.3 | 0.04687 | 0.01393 | 0.01292 | 1.31 / 1.16 |
-| 0.5 | 0.03866 | 0.01191 | 0.01094 | 1.21 / 1.12 |
-| 0.8 | 0.03078 | 0.00946 | 0.00869 | 1.09 / 1.06 |
+| CFL | Lax–Friedrichs | Lax–Wendroff | MacCormack | MacCormack + AV ($`C_x = 0.3`$) | max $`u`$ (LW / MacC / MacC + AV) |
+|---|---|---|---|---|---|
+| 0.3 | 0.04687 | 0.01393 | 0.01292 | 0.00952 | 1.31 / 1.16 / 1.02 |
+| 0.5 | 0.03866 | 0.01191 | 0.01094 | 0.00897 | 1.21 / 1.12 / 1.01 |
+| 0.8 | 0.03078 | 0.00946 | 0.00869 | 0.00812 | 1.09 / 1.06 / 0.97 |
+
+Effect of $`C_x`$ on MacCormack + AV (CFL 0.8, 101 points):
+
+| $`C_x`$ | 0 | 0.1 | 0.2 | 0.3 | 0.5 | 1.0 |
+|---|---|---|---|---|---|---|
+| L1 error | 0.00869 | 0.00829 | 0.00814 | 0.00812 | 0.00822 | 0.00909 |
+| max $`u`$ | 1.056 | 0.994 | 0.977 | 0.969 | 0.957 | 0.953 |
 
 With 401 points at CFL 0.8: Lax–Friedrichs 0.01496, Lax–Wendroff 0.00346, MacCormack 0.00303.
 
@@ -91,6 +116,10 @@ What to look for:
 - **Godunov's theorem** explains why: a linear scheme that does not create new oscillations is
   at most first order. The classic fix is artificial viscosity near shocks; the modern fixes are
   TVD limiters and upwind Riemann solvers, as in the [finite-volume Sod example](../sod-shock-tube/).
+- **Artificial viscosity** removes most of the MacCormack overshoot and lowers the error. More is
+  not always better: past $`C_x \approx 0.3`$ the error rises again because the shock is smeared,
+  and $`C_x = 1`$ at CFL 0.3 is unstable, because the added diffusion term has its own explicit
+  stability limit (a smaller time step does not help, since $`S_i`$ is added in full every step).
 - **Stability:** the schemes need CFL ≤ 1 based on $`|u| + a`$. Because that speed is reached at
   only a few points, a small violation can survive to $`t = 0.2`$. At CFL 1.3 MacCormack fails and
   Lax–Wendroff is on the edge; at CFL 1.5 all three fail.
@@ -165,10 +194,11 @@ When the environment is active, your prompt starts with `(.venv)`.
 ### Step 4: Run the solver
 
 ```bash
-python sod_fd.py                       # all three schemes, 101 points, CFL 0.8
+python sod_fd.py                       # all four schemes, 101 points, CFL 0.8
 python sod_fd.py --cfl 0.3             # smaller time step: more smearing and bigger wiggles
 python sod_fd.py --cfl 1.5             # unstable: all three schemes fail
 python sod_fd.py --scheme mc --nx 401  # one scheme, finer grid
+python sod_fd.py --scheme mc mcav --cx 0.5   # MacCormack with and without artificial viscosity
 python sod_fd.py --animate             # also saves an animated GIF
 python sod_fd.py --help                # all options
 ```
@@ -180,7 +210,8 @@ It saves a 2×2 plot of density, velocity, pressure and internal energy as `sod_
 
 | Option | Meaning | Default |
 |---|---|---|
-| `--scheme` | one or more of `lf` (Lax–Friedrichs), `lw` (Lax–Wendroff), `mc` (MacCormack) | all three |
+| `--scheme` | one or more of `lf` (Lax–Friedrichs), `lw` (Lax–Wendroff), `mc` (MacCormack), `mcav` (MacCormack + artificial viscosity) | all four |
+| `--cx` | artificial-viscosity coefficient for `mcav` | 0.3 |
 | `--cfl` | CFL number | 0.8 |
 | `--nx` | number of grid points | 101 |
 | `--t-end` | final time | 0.2 |

@@ -23,6 +23,7 @@
   --lf: #2552c4;
   --lw: #c2410c;
   --mc: #0f8a6a;
+  --mcav: #8b3fb5;
   --warn: #b42318;
   --warn-bg: #fdecea;
   --info-bg: #e8eefb;
@@ -34,14 +35,14 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
-    --accent: #7ea4ff; --exact: #e3e9ef; --init: #6c7a88; --lf: #7ea4ff; --lw: #fb923c; --mc: #3fcf9f;
+    --accent: #7ea4ff; --exact: #e3e9ef; --init: #6c7a88; --lf: #7ea4ff; --lw: #fb923c; --mc: #3fcf9f; --mcav: #c99bf2;
     --warn: #ff7b72; --warn-bg: #3a1a1a; --info-bg: #17233d;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
-  --accent: #7ea4ff; --exact: #e3e9ef; --init: #6c7a88; --lf: #7ea4ff; --lw: #fb923c; --mc: #3fcf9f;
+  --accent: #7ea4ff; --exact: #e3e9ef; --init: #6c7a88; --lf: #7ea4ff; --lw: #fb923c; --mc: #3fcf9f; --mcav: #c99bf2;
   --warn: #ff7b72; --warn-bg: #3a1a1a; --info-bg: #17233d;
   color-scheme: dark;
 }
@@ -76,10 +77,10 @@ h1 { font: 700 clamp(26px, 4vw, 36px)/1.1 var(--display); margin: 0; text-wrap: 
 .sw { width: 22px; height: 0; border-top: 2.5px solid; display: inline-block; }
 .sw.init { border-color: var(--init); border-top-style: dashed; }
 .sw.exact { border-color: var(--exact); }
-.sw.lf { border-color: var(--lf); } .sw.lw { border-color: var(--lw); } .sw.mc { border-color: var(--mc); }
+.sw.lf { border-color: var(--lf); } .sw.lw { border-color: var(--lw); } .sw.mc { border-color: var(--mc); } .sw.mcav { border-color: var(--mcav); }
 canvas { width: 100%; display: block; cursor: crosshair; }
 
-.readouts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.readouts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 640px) { .readouts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .ro { border-top: 1px solid var(--line); padding-top: 8px; min-width: 0; }
 .ro .k { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
@@ -159,14 +160,16 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
         <label for="show-lf"><input type="checkbox" id="show-lf" checked><i class="sw lf"></i>Lax–Friedrichs</label>
         <label for="show-lw"><input type="checkbox" id="show-lw" checked><i class="sw lw"></i>Lax–Wendroff</label>
         <label for="show-mc"><input type="checkbox" id="show-mc" checked><i class="sw mc"></i>MacCormack</label>
+        <label for="show-mcav"><input type="checkbox" id="show-mcav" checked><i class="sw mcav"></i>MacCormack + AV</label>
       </div>
       <canvas id="plot" role="img" aria-label="Finite-difference Sod solutions compared with the exact solution"></canvas>
       <div class="readouts">
         <div class="ro"><div class="k">time t</div><div class="v" id="r-t">0.000</div></div>
-        <div class="ro"><div class="k">steps LF/LW/MC</div><div class="v" id="r-n">0/0/0</div></div>
+        <div class="ro" title="Time steps taken by Lax–Friedrichs / Lax–Wendroff / MacCormack / MacCormack + AV"><div class="k">steps</div><div class="v" id="r-n" style="font-size:14px;padding-top:3px">0/0/0/0</div></div>
         <div class="ro"><div class="k"><i class="dot" style="background:var(--lf)"></i>L1(ρ) LF</div><div class="v" id="r-lf">0.0000</div></div>
         <div class="ro"><div class="k"><i class="dot" style="background:var(--lw)"></i>L1(ρ) LW</div><div class="v" id="r-lw">0.0000</div></div>
         <div class="ro"><div class="k"><i class="dot" style="background:var(--mc)"></i>L1(ρ) MacC</div><div class="v" id="r-mc">0.0000</div></div>
+        <div class="ro"><div class="k"><i class="dot" style="background:var(--mcav)"></i>L1(ρ) MacC+AV</div><div class="v" id="r-mcav">0.0000</div></div>
       </div>
       <div class="transport">
         <button class="primary" id="play">Play</button>
@@ -196,6 +199,14 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
           <div class="hint">Δt = CFL · Δx / max(|u| + a). Try 0.3 (more smearing and more wiggles) and 1.5 (unstable).</div>
         </div>
         <div class="field">
+          <label for="cx-num">Artificial viscosity C<sub>x</sub> (MacCormack + AV)</label>
+          <div class="row">
+            <input type="range" id="cx" min="0" max="1" step="0.05" value="0.3" aria-label="Artificial viscosity slider">
+            <input type="number" id="cx-num" min="0" max="2" step="0.05" value="0.30" inputmode="decimal">
+          </div>
+          <div class="hint">0 gives plain MacCormack. Try 0.1, 0.3 and 1.0, and at 1.0 lower the CFL to 0.3.</div>
+        </div>
+        <div class="field">
           <label for="nx-num">Grid points</label>
           <div class="row">
             <input type="range" id="nx" min="21" max="1001" step="10" value="101" aria-label="Grid points slider">
@@ -218,9 +229,9 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
   </div>
 
   <section class="notes-wrap">
-    <h2>Three classic finite-difference schemes</h2>
+    <h2>Classic finite-difference schemes</h2>
     <p class="lead">Finite differences store the solution at grid points and replace the derivative of the flux <i>F(U)</i> with differences of <i>F</i> at neighboring points. There is no Riemann problem and no upwinding: these schemes use central differences and get their stability from extra terms in the time step. Compare with the <a href="../sod-shock-tube/">finite-volume Sod example</a> and the <a href="../ftbs-linear-convection/">linear convection lab</a>.</p>
-    <div class="notes">
+    <div class="notes four">
       <div class="note">
         <h3><i class="dot" style="background:var(--lf)"></i>Lax–Friedrichs</h3>
         <p class="meq">U<sub>i</sub><sup>n+1</sup> = ½(U<sub>i+1</sub><sup>n</sup> + U<sub>i−1</sub><sup>n</sup>) − (λ/2)(F<sub>i+1</sub><sup>n</sup> − F<sub>i−1</sub><sup>n</sup>)</p>
@@ -236,6 +247,11 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
         <p class="meq">U<sub>i</sub><sup>*</sup> = U<sub>i</sub><sup>n</sup> − λ(F<sub>i+1</sub><sup>n</sup> − F<sub>i</sub><sup>n</sup>)<br>U<sub>i</sub><sup>n+1</sup> = ½[U<sub>i</sub><sup>n</sup> + U<sub>i</sub><sup>*</sup> − λ(F<sub>i</sub><sup>*</sup> − F<sub>i−1</sub><sup>*</sup>)]</p>
         <p>Second order. A forward-difference predictor and a backward-difference corrector. It is the same as Lax–Wendroff for linear problems, and for the Euler equations it gives similar results with slightly smaller wiggles.</p>
       </div>
+      <div class="note">
+        <h3><i class="dot" style="background:var(--mcav)"></i>MacCormack + artificial viscosity</h3>
+        <p class="meq">S<sub>i</sub> = C<sub>x</sub> |p<sub>i+1</sub> − 2p<sub>i</sub> + p<sub>i−1</sub>| / (p<sub>i+1</sub> + 2p<sub>i</sub> + p<sub>i−1</sub>) · (U<sub>i+1</sub> − 2U<sub>i</sub> + U<sub>i−1</sub>)</p>
+        <p>Anderson's form: <i>S<sub>i</sub></i> from <i>U<sup>n</sup></i> is added to the predictor, and <i>S<sub>i</sub></i> from <i>U<sup>*</sup></i> to the corrector. The pressure switch is nearly zero where the pressure is smooth and large at a shock, so the damping acts mainly at the shock. Too little leaves wiggles; too much smears the shock again, and with a small CFL it can even make the scheme unstable.</p>
+      </div>
     </div>
     <div class="notes">
       <div class="note">
@@ -243,12 +259,13 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
         <ul>
           <li><b>Lax–Friedrichs</b> is smooth but badly smeared. Its L1 error is about 3× that of the other two.</li>
           <li><b>Lax–Wendroff and MacCormack</b> keep the jumps sharp but oscillate behind the shock, around the contact and at the tail of the expansion fan. Switch to the velocity tab and zoom in.</li>
-          <li>Lowering the CFL number makes all three worse: more smearing and bigger wiggles.</li>
+          <li>Lowering the CFL number makes the first three worse: more smearing and bigger wiggles.</li>
+          <li><b>Artificial viscosity</b> with C<sub>x</sub> = 0.3 removes most of the MacCormack wiggles. Change C<sub>x</sub> and watch the shock and the velocity overshoot.</li>
         </ul>
       </div>
       <div class="note">
         <h3>Why the wiggles</h3>
-        <p>Godunov's theorem: a linear scheme that does not create new oscillations can be at most first-order accurate. Lax–Wendroff and MacCormack are second order, so they must oscillate at a jump. The classic fix is to add artificial viscosity near shocks. The modern fixes are TVD limiters and upwind Riemann solvers, as in the other two examples.</p>
+        <p>Godunov's theorem: a linear scheme that does not create new oscillations can be at most first-order accurate. Lax–Wendroff and MacCormack are second order, so they must oscillate at a jump. Artificial viscosity is the classic fix: it adds damping only where the pressure switch detects a jump, which makes the scheme nonlinear. The modern fixes are TVD limiters and upwind Riemann solvers, as in the other two examples.</p>
       </div>
       <div class="note">
         <h3>Stability</h3>
@@ -268,7 +285,7 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
   const canvas = $("plot"), ctx = canvas.getContext("2d");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  let cfl = 0.8, nx = 101, speed = 20, variable = "rho";
+  let cfl = 0.8, nx = 101, speed = 20, variable = "rho", cx = 0.3;
   let dx, xc, t, n, finished, playing = false;
 
   // ---------------- exact Riemann solution (Toro, ch. 4)
@@ -323,9 +340,9 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
 
   // ---------------- finite-difference schemes on grid points x_i = i dx, i = 0..nx-1
   const energy = (r, u, p) => p / (G - 1) + 0.5 * r * u * u;
-  let F, Uh, Fh, Us, Fs, Un;                         // work buffers
+  let F, Uh, Fh, Us, Fs, Un, Sv;                     // work buffers
   const mk = N => [new Float64Array(N), new Float64Array(N), new Float64Array(N)];
-  function allocBuffers() { F = mk(nx); Uh = mk(nx); Fh = mk(nx); Us = mk(nx); Fs = mk(nx); Un = mk(nx); }
+  function allocBuffers() { F = mk(nx); Uh = mk(nx); Fh = mk(nx); Us = mk(nx); Fs = mk(nx); Un = mk(nx); Sv = mk(nx); }
 
   function fluxes(U, out, N) {
     for (let i = 0; i < N; i++) {
@@ -358,10 +375,36 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
       for (let i = 1; i < nx - 1; i++) U[k][i] = 0.5 * (U[k][i] + Us[k][i] - lam * (Fs[k][i] - Fs[k][i - 1]));
   }
 
+  // artificial viscosity S_i = cx |p_{i+1} - 2p_i + p_{i-1}| / (p_{i+1} + 2p_i + p_{i-1}) (U_{i+1} - 2U_i + U_{i-1})
+  function artVisc(U, out) {
+    const pr = i => { const r = U[0][i], u = U[1][i] / r; return (G - 1) * (U[2][i] - 0.5 * r * u * u); };
+    for (let k = 0; k < 3; k++) { out[k][0] = 0; out[k][nx - 1] = 0; }
+    for (let i = 1; i < nx - 1; i++) {
+      const pm = pr(i - 1), p0 = pr(i), pp = pr(i + 1);
+      const sw = cx * Math.abs(pp - 2 * p0 + pm) / (pp + 2 * p0 + pm);
+      for (let k = 0; k < 3; k++) out[k][i] = sw * (U[k][i + 1] - 2 * U[k][i] + U[k][i - 1]);
+    }
+  }
+  function stepMCAV(U, lam) {
+    fluxes(U, F, nx);
+    artVisc(U, Sv);
+    for (let k = 0; k < 3; k++) {                     // predictor: forward difference + S^n
+      for (let i = 0; i < nx - 1; i++) Us[k][i] = U[k][i] - lam * (F[k][i + 1] - F[k][i]) + Sv[k][i];
+      Us[k][nx - 1] = U[k][nx - 1];
+    }
+    fluxes(Us, Fs, nx);
+    artVisc(Us, Sv);
+    for (let k = 0; k < 3; k++)                       // corrector: average of both slopes + S*
+      for (let i = 1; i < nx - 1; i++)
+        Un[k][i] = U[k][i] - 0.5 * lam * ((F[k][i + 1] - F[k][i]) + (Fs[k][i] - Fs[k][i - 1])) + Sv[k][i];
+    for (let k = 0; k < 3; k++) for (let i = 1; i < nx - 1; i++) U[k][i] = Un[k][i];
+  }
+
   const SCHEMES = [
     { key: "lf", name: "Lax–Friedrichs", step: stepLF },
     { key: "lw", name: "Lax–Wendroff", step: stepLW },
     { key: "mc", name: "MacCormack", step: stepMC },
+    { key: "mcav", name: "MacCormack + AV", step: stepMCAV },
   ];
 
   function makeState() {
@@ -476,7 +519,7 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
     const X = v => m.l + ((v - V.x0) / (V.x1 - V.x0)) * pw;
     const Y = v => m.t + (1 - (v - V.y0) / (V.y1 - V.y0)) * ph;
     const col = { fg: css("--fg"), muted: css("--muted"), grid: css("--grid"), line: css("--line"), exact: css("--exact"),
-                  init: css("--init"), accent: css("--accent"), lf: css("--lf"), lw: css("--lw"), mc: css("--mc") };
+                  init: css("--init"), accent: css("--accent"), lf: css("--lf"), lw: css("--lw"), mc: css("--mc"), mcav: css("--mcav") };
 
     ctx.font = "12px " + css("--mono"); ctx.lineWidth = 1; ctx.fillStyle = col.muted;
     const sx = niceStep(V.x1 - V.x0, pw / 80), sy = niceStep(V.y1 - V.y0, ph / 45);
@@ -579,13 +622,14 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
     if (failed.length) {
       st.className = "status bad";
       st.innerHTML = '<span class="tag">Unstable</span><p>Stopped: ' + failed.map(s => s.name + " at t = " + s.failed.toFixed(4)).join(", ") +
-        ". Errors grew every step until the pressure or density went negative. These explicit schemes need CFL ≤ 1.</p>";
+        ". Errors grew every step until the pressure or density went negative. These explicit schemes need CFL ≤ 1." +
+        (failed.some(s => s.key === "mcav") && cx > 0.5 ? " For MacCormack + AV, a large C<sub>x</sub> adds so much damping per step that it is unstable on its own: lower C<sub>x</sub>." : "") + "</p>";
     } else {
       st.className = "status";
       st.innerHTML = '<span class="tag">CFL ' + cfl.toFixed(2) + "</span><p>" +
         (cfl > 1 + 1e-9
           ? "Above the stability limit. A small violation can survive to t = 0.2, because |u| + a is only this large at a few points. Try 1.3 or 1.5."
-          : "Lax–Friedrichs smears; Lax–Wendroff and MacCormack keep the jumps sharp but oscillate. Switch to the velocity tab to see the wiggles best.") + "</p>";
+          : "Lax–Friedrichs smears; Lax–Wendroff and MacCormack keep the jumps sharp but oscillate. Artificial viscosity (C<sub>x</sub> = " + cx.toFixed(2) + ") damps the MacCormack wiggles. Switch to the velocity tab to see them best.") + "</p>";
     }
   }
 
@@ -625,6 +669,14 @@ select { font: 14px var(--body); color: var(--fg); background: var(--bg); border
     $("nx").value = Math.min(1001, nx); $("nx-num").value = nx;
     restart(autoplay);
   }
+  function setCx(v, autoplay) {
+    if (!isFinite(v) || v < 0 || v > 2) { $("cx-num").value = cx.toFixed(2); return; }
+    cx = Math.round(v * 100) / 100;
+    $("cx").value = Math.min(1, cx); $("cx-num").value = cx.toFixed(2);
+    restart(autoplay);
+  }
+  $("cx").addEventListener("input", e => setCx(+e.target.value));
+  $("cx-num").addEventListener("change", e => setCx(+e.target.value, true));
   $("nx").addEventListener("input", e => setNx(+e.target.value));
   $("nx-num").addEventListener("change", e => setNx(+e.target.value, true));
   for (const s of SCHEMES) $("show-" + s.key).addEventListener("change", render);

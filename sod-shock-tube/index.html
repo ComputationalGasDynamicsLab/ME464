@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Sod Shock Tube Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital@1&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: same lab bench as the convection example. Big plot left, controls right; stacks on phones. */
+:root {
+  --bg: #f3f6f9;
+  --panel: #ffffff;
+  --fg: #15202b;
+  --muted: #5a6876;
+  --line: #d9e0e7;
+  --grid: #e6ebf0;
+  --accent: #2552c4;
+  --exact: #15202b;
+  --init: #8a97a4;
+  --roe: #2552c4;
+  --hllc: #c2410c;
+  --ausm: #0f8a6a;
+  --warn: #b42318;
+  --warn-bg: #fdecea;
+  --info-bg: #e8eefb;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --math: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
+    --accent: #7ea4ff; --exact: #e3e9ef; --init: #6c7a88; --roe: #7ea4ff; --hllc: #fb923c; --ausm: #3fcf9f;
+    --warn: #ff7b72; --warn-bg: #3a1a1a; --info-bg: #17233d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
+  --accent: #7ea4ff; --exact: #e3e9ef; --init: #6c7a88; --roe: #7ea4ff; --hllc: #fb923c; --ausm: #3fcf9f;
+  --warn: #ff7b72; --warn-bg: #3a1a1a; --info-bg: #17233d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-block: 28px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1160px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: grid; gap: 6px; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 700 clamp(26px, 4vw, 36px)/1.1 var(--display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+.eqs { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: baseline; }
+.eq { font-family: var(--math); font-style: italic; font-size: 18px; }
+.eq sub, .eq sup { font-size: .7em; }
+.eq-label { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 8px; font-style: normal; }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr); } }
+
+.plot-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabs button { font-size: 13px; padding: 6px 12px; }
+.tabs button[aria-selected="true"] { background: var(--info-bg); border-color: var(--accent); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); align-items: center; }
+.legend > span, .legend label { display: inline-flex; align-items: center; gap: 7px; }
+.legend label { color: var(--fg); cursor: pointer; }
+.legend input { width: 15px; height: 15px; accent-color: var(--accent); }
+.sw { width: 22px; height: 0; border-top: 2.5px solid; display: inline-block; }
+.sw.init { border-color: var(--init); border-top-style: dashed; }
+.sw.exact { border-color: var(--exact); }
+.sw.roe { border-color: var(--roe); } .sw.hllc { border-color: var(--hllc); } .sw.ausm { border-color: var(--ausm); }
+canvas { width: 100%; display: block; cursor: crosshair; }
+
+.readouts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 640px) { .readouts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.ro { border-top: 1px solid var(--line); padding-top: 8px; min-width: 0; }
+.ro .k { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.ro .k .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.ro .v { font: 500 18px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ro .v.bad { color: var(--warn); font-size: 14px; padding-top: 3px; }
+
+.transport, .zoombar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.zoombar { font-size: 13px; color: var(--muted); }
+.zoombar .zl { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.zoombar button { padding: 6px 12px; }
+#zin, #zout { min-width: 40px; font: 600 16px/1 var(--mono); }
+.zhint { flex: 1 1 220px; }
+button { font: 500 14px var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 8px 14px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); min-width: 92px; }
+.spacer { flex: 1; }
+.speed { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+
+aside { display: grid; gap: 16px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
+h2 { font: 700 15px/1.2 var(--display); margin: 0; letter-spacing: .01em; }
+.field { display: grid; gap: 6px; }
+.field > label { font-size: 13px; color: var(--muted); }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 10px; align-items: center; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+input[type=number] { font: 500 15px var(--mono); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; width: 100%; font-variant-numeric: tabular-nums; }
+select { font: 14px var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; width: 100%; }
+.hint { font-size: 12px; color: var(--muted); }
+.status { border-radius: 8px; padding: 12px 14px; display: grid; gap: 4px; font-size: 14px; background: var(--info-bg); }
+.status .tag { font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.status.bad { background: var(--warn-bg); } .status.bad .tag { color: var(--warn); }
+.status p { margin: 0; }
+.ic { width: 100%; border-collapse: collapse; font: 13px var(--mono); font-variant-numeric: tabular-nums; }
+.ic th, .ic td { padding: 4px 6px; text-align: right; border-bottom: 1px solid var(--line); }
+.ic th:first-child, .ic td:first-child { text-align: left; color: var(--muted); }
+.ic th { font-weight: 500; color: var(--muted); }
+
+.notes-wrap { display: grid; gap: 14px; }
+.notes-wrap .lead { margin: 0; color: var(--muted); max-width: 75ch; }
+.notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 900px) { .notes { grid-template-columns: minmax(0, 1fr); } }
+.note h3 { font: 700 14px var(--display); margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+.note h3 .dot { width: 10px; height: 10px; border-radius: 2px; }
+.note p { margin: 0 0 6px; color: var(--muted); font-size: 14px; max-width: 65ch; }
+.note i { font-family: var(--math); color: var(--fg); }
+.note ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: grid; gap: 6px; }
+.note b { color: var(--fg); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">CFD · 1D Euler equations · approximate Riemann solvers</div>
+    <h1>Sod Shock Tube Lab</h1>
+    <div class="eqs">
+      <span class="eq"><span class="eq-label">Euler</span>U<sub>t</sub> + F(U)<sub>x</sub> = 0, &nbsp;U = (ρ, ρu, E), &nbsp;F = (ρu, ρu² + p, u(E + p))</span>
+      <span class="eq"><span class="eq-label">EOS</span>p = (γ − 1)(E − ρu²/2), &nbsp;γ = 1.4</span>
+    </div>
+  </header>
+
+  <div class="main">
+    <section class="plot-card" aria-label="Solution plot">
+      <div class="tabs" role="tablist" aria-label="Variable">
+        <button role="tab" data-var="rho" aria-selected="true">Density ρ</button>
+        <button role="tab" data-var="u" aria-selected="false">Velocity u</button>
+        <button role="tab" data-var="p" aria-selected="false">Pressure p</button>
+        <button role="tab" data-var="e" aria-selected="false">Internal energy e</button>
+      </div>
+      <div class="legend">
+        <span><i class="sw init"></i>Initial</span>
+        <span><i class="sw exact"></i>Exact</span>
+        <label for="show-roe"><input type="checkbox" id="show-roe" checked><i class="sw roe"></i>Roe</label>
+        <label for="show-hllc"><input type="checkbox" id="show-hllc" checked><i class="sw hllc"></i>HLLC</label>
+        <label for="show-ausm"><input type="checkbox" id="show-ausm" checked><i class="sw ausm"></i>AUSM+</label>
+      </div>
+      <canvas id="plot" role="img" aria-label="Sod shock tube solution compared with the exact solution"></canvas>
+      <div class="readouts">
+        <div class="ro"><div class="k">time t</div><div class="v" id="r-t">0.000</div></div>
+        <div class="ro"><div class="k">steps</div><div class="v" id="r-n">0</div></div>
+        <div class="ro"><div class="k"><i class="dot" style="background:var(--roe)"></i>L1(ρ) Roe</div><div class="v" id="r-roe">0.0000</div></div>
+        <div class="ro"><div class="k"><i class="dot" style="background:var(--hllc)"></i>L1(ρ) HLLC</div><div class="v" id="r-hllc">0.0000</div></div>
+        <div class="ro"><div class="k"><i class="dot" style="background:var(--ausm)"></i>L1(ρ) AUSM+</div><div class="v" id="r-ausm">0.0000</div></div>
+      </div>
+      <div class="transport">
+        <button class="primary" id="play">Play</button>
+        <button id="stepbtn">Step +1</button>
+        <button id="reset">Reset</button>
+        <span class="spacer"></span>
+        <label class="speed" for="speed">Speed <input type="range" id="speed" min="2" max="60" value="20" style="width:110px"></label>
+      </div>
+      <div class="zoombar">
+        <span class="zl">Zoom</span>
+        <button id="zin" aria-label="Zoom in">+</button>
+        <button id="zout" aria-label="Zoom out">−</button>
+        <button id="zreset">Reset view</button>
+        <span class="zhint">Drag a box on the plot to zoom into it, for example around the contact. Double-click to reset.</span>
+      </div>
+    </section>
+
+    <aside>
+      <div class="panel">
+        <h2>Parameters</h2>
+        <div class="field">
+          <label for="order">Spatial order</label>
+          <select id="order">
+            <option value="1" selected>1st order (piecewise constant)</option>
+            <option value="2">2nd order (MUSCL + RK2)</option>
+          </select>
+        </div>
+        <div class="field" id="limiter-field" hidden>
+          <label for="limiter">Slope limiter</label>
+          <select id="limiter">
+            <option value="minmod">minmod (most diffusive)</option>
+            <option value="vanleer" selected>van Leer</option>
+            <option value="superbee">superbee (most compressive)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cfl-num">CFL number</label>
+          <div class="row">
+            <input type="range" id="cfl" min="0.1" max="0.95" step="0.01" value="0.5" aria-label="CFL number slider">
+            <input type="number" id="cfl-num" min="0.05" max="1" step="0.01" value="0.50" inputmode="decimal">
+          </div>
+          <div class="hint">Δt = CFL · Δx / max(|u| + a). Try 0.7 and watch AUSM+.</div>
+        </div>
+        <div class="field">
+          <label for="nx-num">Number of cells</label>
+          <div class="row">
+            <input type="range" id="nx" min="20" max="1000" step="10" value="100" aria-label="Number of cells slider">
+            <input type="number" id="nx-num" min="10" max="2000" step="1" value="100" inputmode="numeric">
+          </div>
+        </div>
+        <div class="status" id="status" aria-live="polite"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Initial condition (Sod 1978)</h2>
+        <table class="ic">
+          <tr><th></th><th>ρ</th><th>u</th><th>p</th></tr>
+          <tr><td>left, x &lt; 0.5</td><td>1.000</td><td>0</td><td>1.0</td></tr>
+          <tr><td>right, x &gt; 0.5</td><td>0.125</td><td>0</td><td>0.1</td></tr>
+        </table>
+        <div class="hint">Exact star state: p* = 0.30313, u* = 0.92745. Domain 0 ≤ x ≤ 1, run to t = 0.2, transmissive boundaries.</div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="notes-wrap">
+    <h2>Three ways to compute the interface flux</h2>
+    <p class="lead">A finite-volume method updates each cell with the fluxes through its two faces. At each face the left and right states form a small Riemann problem, the same kind of problem as the whole shock tube. The schemes differ in how they approximate its solution.</p>
+    <div class="notes">
+      <div class="note">
+        <h3><i class="dot" style="background:var(--roe)"></i>Roe</h3>
+        <p>Linearizes the Riemann problem around the Roe-averaged state and solves it exactly: <i>F = ½(F<sub>L</sub> + F<sub>R</sub>) − ½ Σ |λ<sub>k</sub>| α<sub>k</sub> K<sub>k</sub></i>, with eigenvalues <i>u − a, u, u + a</i>. It resolves all three waves, but it can let through an expansion shock at a sonic point, so this code uses Harten's entropy fix on <i>|u ± a|</i>.</p>
+      </div>
+      <div class="note">
+        <h3><i class="dot" style="background:var(--hllc)"></i>HLLC</h3>
+        <p>Assumes only the fastest left and right waves, <i>S<sub>L</sub></i> and <i>S<sub>R</sub></i>, plus the contact wave <i>S*</i> in between, with two constant star states. HLL without the "C" smears the contact badly; restoring it gives contact resolution close to Roe. It needs no entropy fix and is robust at strong shocks and expansions.</p>
+      </div>
+      <div class="note">
+        <h3><i class="dot" style="background:var(--ausm)"></i>AUSM+</h3>
+        <p>Splits the flux into a convective part, carried by an interface Mach number <i>m<sub>½</sub></i> built from split polynomials <i>M<sup>±</sup>(M)</i>, and a pressure part <i>p<sub>½</sub> = P<sup>+</sup>(M<sub>L</sub>) p<sub>L</sub> + P<sup>−</sup>(M<sub>R</sub>) p<sub>R</sub></i>. It needs no eigenvectors, so it is cheap and extends easily to other equations.</p>
+      </div>
+    </div>
+    <div class="notes">
+      <div class="note">
+        <h3>The three waves</h3>
+        <p>Breaking the diaphragm gives an <b>expansion fan</b> moving left, a <b>contact discontinuity</b> (a jump in density and internal energy, with no jump in pressure or velocity), and a <b>shock</b> moving right. Switch the tab to pressure: the contact disappears.</p>
+      </div>
+      <div class="note">
+        <h3>What to look for</h3>
+        <ul>
+          <li>The <b>contact</b> is smeared over more cells than the shock. A shock compresses itself, while a contact is a linear wave that only spreads.</li>
+          <li><b>2nd order</b> makes all jumps much sharper. Compare the L1 errors.</li>
+          <li><b>Zoom</b> into the contact and the shock to compare Roe, HLLC and AUSM+ point by point.</li>
+        </ul>
+      </div>
+      <div class="note">
+        <h3>The AUSM+ start-up error</h3>
+        <p>At <i>t</i> = 0 the gas is at rest, so <i>m<sub>½</sub></i> = 0 and AUSM+ moves no mass or energy across the diaphragm in the first step, only the pressure force. The cells next to it gain momentum without energy. This leaves a small bump near <i>x</i> = 0.5, and above CFL ≈ 0.65 the first step already makes the pressure negative.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const G = 1.4, T_END = 0.2, X0 = 0.5;
+  const IC = { rL: 1, uL: 0, pL: 1, rR: 0.125, uR: 0, pR: 0.1 };
+  const RANGES = { rho: [0, 1.1], u: [-0.1, 1.1], p: [0, 1.1], e: [1.6, 3.0] };
+  const LABELS = { rho: "ρ", u: "u", p: "p", e: "e" };
+  const $ = id => document.getElementById(id);
+  const canvas = $("plot"), ctx = canvas.getContext("2d");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  let cfl = 0.5, nx = 100, order = 1, limiter = "vanleer", speed = 20, variable = "rho";
+  let dx, xc, t, n, finished, playing = false;
+
+  // ---------------- exact Riemann solution (Toro, ch. 4)
+  function fK(p, r, pk, a) {
+    if (p > pk) {
+      const A = 2 / ((G + 1) * r), B = (G - 1) / (G + 1) * pk, q = Math.sqrt(A / (p + B));
+      return [(p - pk) * q, q * (1 - (p - pk) / (2 * (B + p)))];
+    }
+    return [2 * a / (G - 1) * ((p / pk) ** ((G - 1) / (2 * G)) - 1), 1 / (r * a) * (p / pk) ** (-(G + 1) / (2 * G))];
+  }
+  const aL0 = Math.sqrt(G * IC.pL / IC.rL), aR0 = Math.sqrt(G * IC.pR / IC.rR);
+  const STAR = (() => {
+    const { rL, uL, pL, rR, uR, pR } = IC;
+    let p = Math.max(1e-8, 0.5 * (pL + pR) - 0.125 * (uR - uL) * (rL + rR) * (aL0 + aR0));
+    for (let k = 0; k < 100; k++) {
+      const [fl, dl] = fK(p, rL, pL, aL0), [fr, dr] = fK(p, rR, pR, aR0);
+      const pn = Math.max(1e-10, p - (fl + fr + uR - uL) / (dl + dr));
+      if (Math.abs(pn - p) < 1e-14 * p) { p = pn; break; }
+      p = pn;
+    }
+    const u = 0.5 * (uL + uR) + 0.5 * (fK(p, rR, pR, aR0)[0] - fK(p, rL, pL, aL0)[0]);
+    return { p, u };
+  })();
+  function exactAt(x, tt) {                        // returns [rho, u, p]
+    const { rL, uL, pL, rR, uR, pR } = IC, ps = STAR.p, us = STAR.u, gm = (G - 1) / (G + 1);
+    if (tt <= 0) return x < X0 ? [rL, uL, pL] : [rR, uR, pR];
+    const xi = (x - X0) / tt;
+    if (xi <= us) {
+      if (ps > pL) {
+        const S = uL - aL0 * Math.sqrt((G + 1) / (2 * G) * ps / pL + (G - 1) / (2 * G));
+        return xi <= S ? [rL, uL, pL] : [rL * (ps / pL + gm) / (gm * ps / pL + 1), us, ps];
+      }
+      const as = aL0 * (ps / pL) ** ((G - 1) / (2 * G));
+      if (xi <= uL - aL0) return [rL, uL, pL];
+      if (xi > us - as) return [rL * (ps / pL) ** (1 / G), us, ps];
+      const a = 2 / (G + 1) * (aL0 + (G - 1) / 2 * (uL - xi));
+      return [rL * (a / aL0) ** (2 / (G - 1)), 2 / (G + 1) * (aL0 + (G - 1) / 2 * uL + xi), pL * (a / aL0) ** (2 * G / (G - 1))];
+    }
+    if (ps > pR) {
+      const S = uR + aR0 * Math.sqrt((G + 1) / (2 * G) * ps / pR + (G - 1) / (2 * G));
+      return xi >= S ? [rR, uR, pR] : [rR * (ps / pR + gm) / (gm * ps / pR + 1), us, ps];
+    }
+    const as = aR0 * (ps / pR) ** ((G - 1) / (2 * G));
+    if (xi >= uR + aR0) return [rR, uR, pR];
+    if (xi <= us + as) return [rR * (ps / pR) ** (1 / G), us, ps];
+    const a = 2 / (G + 1) * (aR0 - (G - 1) / 2 * (uR - xi));
+    return [rR * (a / aR0) ** (2 / (G - 1)), 2 / (G + 1) * (-aR0 + (G - 1) / 2 * uR + xi), pR * (a / aR0) ** (2 * G / (G - 1))];
+  }
+  // wave positions for the labels
+  const aStarL = aL0 * (STAR.p / IC.pL) ** ((G - 1) / (2 * G));
+  const SHOCK = IC.uR + aR0 * Math.sqrt((G + 1) / (2 * G) * STAR.p / IC.pR + (G - 1) / (2 * G));
+
+  // ---------------- numerical fluxes: (left state, right state) -> out[0..2]
+  const energy = (r, u, p) => p / (G - 1) + 0.5 * r * u * u;
+
+  function fluxRoe(rL, uL, pL, rR, uR, pR, out) {
+    const EL = energy(rL, uL, pL), ER = energy(rR, uR, pR), HL = (EL + pL) / rL, HR = (ER + pR) / rR;
+    const sL = Math.sqrt(rL), sR = Math.sqrt(rR);
+    const u = (sL * uL + sR * uR) / (sL + sR), H = (sL * HL + sR * HR) / (sL + sR);
+    const a = Math.sqrt((G - 1) * (H - 0.5 * u * u)), r = sL * sR;
+    const dr = rR - rL, du = uR - uL, dp = pR - pL;
+    const a1 = (dp - r * a * du) / (2 * a * a), a2 = dr - dp / (a * a), a3 = (dp + r * a * du) / (2 * a * a);
+    let l1 = Math.abs(u - a), l3 = Math.abs(u + a);
+    const l2 = Math.abs(u), d = 0.1 * (Math.abs(u) + a);       // Harten's entropy fix
+    if (l1 < d) l1 = (l1 * l1 + d * d) / (2 * d);
+    if (l3 < d) l3 = (l3 * l3 + d * d) / (2 * d);
+    out[0] = 0.5 * (rL * uL + rR * uR) - 0.5 * (l1 * a1 + l2 * a2 + l3 * a3);
+    out[1] = 0.5 * (rL * uL * uL + pL + rR * uR * uR + pR) - 0.5 * (l1 * a1 * (u - a) + l2 * a2 * u + l3 * a3 * (u + a));
+    out[2] = 0.5 * (uL * (EL + pL) + uR * (ER + pR)) - 0.5 * (l1 * a1 * (H - u * a) + l2 * a2 * 0.5 * u * u + l3 * a3 * (H + u * a));
+  }
+
+  function fluxHLLC(rL, uL, pL, rR, uR, pR, out) {
+    const aL = Math.sqrt(G * pL / rL), aR = Math.sqrt(G * pR / rR);
+    const SL = Math.min(uL - aL, uR - aR), SR = Math.max(uL + aL, uR + aR);
+    const Ss = (pR - pL + rL * uL * (SL - uL) - rR * uR * (SR - uR)) / (rL * (SL - uL) - rR * (SR - uR));
+    const EL = energy(rL, uL, pL), ER = energy(rR, uR, pR);
+    const F = (r, u, p, E) => [r * u, r * u * u + p, u * (E + p)];
+    let res;
+    if (SL >= 0) res = F(rL, uL, pL, EL);
+    else if (SR <= 0) res = F(rR, uR, pR, ER);
+    else {
+      const left = Ss >= 0, r = left ? rL : rR, u = left ? uL : uR, p = left ? pL : pR, E = left ? EL : ER, S = left ? SL : SR;
+      const c = r * (S - u) / (S - Ss);
+      const Us = [c, c * Ss, c * (E / r + (Ss - u) * (Ss + p / (r * (S - u))))], Uk = [r, r * u, E], Fk = F(r, u, p, E);
+      res = [0, 1, 2].map(k => Fk[k] + S * (Us[k] - Uk[k]));
+    }
+    out[0] = res[0]; out[1] = res[1]; out[2] = res[2];
+  }
+
+  function fluxAUSM(rL, uL, pL, rR, uR, pR, out) {
+    const alpha = 3 / 16, beta = 1 / 8;
+    const HL = (energy(rL, uL, pL) + pL) / rL, HR = (energy(rR, uR, pR) + pR) / rR;
+    const acL = Math.sqrt(2 * (G - 1) / (G + 1) * HL), acR = Math.sqrt(2 * (G - 1) / (G + 1) * HR);
+    const a12 = Math.min(acL * acL / Math.max(acL, uL), acR * acR / Math.max(acR, -uR));
+    const ML = uL / a12, MR = uR / a12;
+    const M4 = (M, s) => Math.abs(M) >= 1 ? 0.5 * (M + s * Math.abs(M)) : s * 0.25 * (M + s) ** 2 + s * beta * (M * M - 1) ** 2;
+    const P5 = (M, s) => Math.abs(M) >= 1 ? 0.5 * (1 + s * Math.sign(M)) : 0.25 * (M + s) ** 2 * (2 - s * M) + s * alpha * M * (M * M - 1) ** 2;
+    const m12 = M4(ML, 1) + M4(MR, -1), p12 = P5(ML, 1) * pL + P5(MR, -1) * pR;
+    const mdot = a12 * (m12 > 0 ? m12 * rL : m12 * rR), up = mdot >= 0;
+    out[0] = mdot;
+    out[1] = mdot * (up ? uL : uR) + p12;
+    out[2] = mdot * (up ? HL : HR);
+  }
+
+  // ---------------- finite-volume solver (2 ghost cells per side)
+  function limit(a, b) {
+    if (a * b <= 0) return 0;
+    if (limiter === "minmod") return Math.abs(a) < Math.abs(b) ? a : b;
+    if (limiter === "vanleer") return 2 * a * b / (a + b);
+    const mm = (x, y) => (x * y <= 0 ? 0 : Math.abs(x) < Math.abs(y) ? x : y);   // superbee
+    const s1 = mm(2 * a, b), s2 = mm(a, 2 * b);
+    return Math.abs(s1) > Math.abs(s2) ? s1 : s2;
+  }
+
+  const SCHEMES = [
+    { key: "roe", name: "Roe", flux: fluxRoe },
+    { key: "hllc", name: "HLLC", flux: fluxHLLC },
+    { key: "ausm", name: "AUSM+", flux: fluxAUSM },
+  ];
+
+  function makeState() {
+    const N = nx + 4, U = [new Float64Array(N), new Float64Array(N), new Float64Array(N)];
+    for (let i = 2; i < nx + 2; i++) {
+      const left = xc[i - 2] < X0, r = left ? IC.rL : IC.rR, u = left ? IC.uL : IC.uR, p = left ? IC.pL : IC.pR;
+      U[0][i] = r; U[1][i] = r * u; U[2][i] = energy(r, u, p);
+    }
+    return U;
+  }
+  let W, S, Fx, R, U1, fout;                         // work buffers
+  function allocBuffers() {
+    const N = nx + 4, mk = () => [new Float64Array(N), new Float64Array(N), new Float64Array(N)];
+    W = mk(); S = mk(); Fx = mk(); R = mk(); U1 = mk(); fout = new Float64Array(3);
+  }
+
+  function residual(U, flux) {
+    const N = nx + 4;
+    for (let k = 0; k < 3; k++) { U[k][0] = U[k][1] = U[k][2]; U[k][N - 1] = U[k][N - 2] = U[k][N - 3]; }  // transmissive
+    for (let i = 0; i < N; i++) {
+      const r = U[0][i], u = U[1][i] / r;
+      W[0][i] = r; W[1][i] = u; W[2][i] = (G - 1) * (U[2][i] - 0.5 * r * u * u);
+    }
+    for (let k = 0; k < 3; k++) {
+      S[k].fill(0);
+      if (order === 2) for (let i = 1; i < N - 1; i++) S[k][i] = limit(W[k][i] - W[k][i - 1], W[k][i + 1] - W[k][i]);
+    }
+    for (let j = 1; j <= nx + 1; j++) {             // face between cells j and j+1
+      flux(W[0][j] + 0.5 * S[0][j], W[1][j] + 0.5 * S[1][j], W[2][j] + 0.5 * S[2][j],
+           W[0][j + 1] - 0.5 * S[0][j + 1], W[1][j + 1] - 0.5 * S[1][j + 1], W[2][j + 1] - 0.5 * S[2][j + 1], fout);
+      Fx[0][j] = fout[0]; Fx[1][j] = fout[1]; Fx[2][j] = fout[2];
+    }
+    for (let k = 0; k < 3; k++) for (let i = 2; i < nx + 2; i++) R[k][i] = -(Fx[k][i] - Fx[k][i - 1]) / dx;
+  }
+
+  function healthy(U) {
+    for (let i = 2; i < nx + 2; i++) {
+      const r = U[0][i], u = U[1][i] / r, p = (G - 1) * (U[2][i] - 0.5 * r * u * u);
+      if (!(r > 0) || !(p > 0)) return false;
+    }
+    return true;
+  }
+  function maxSpeed(U) {
+    let m = 0;
+    for (let i = 2; i < nx + 2; i++) {
+      const r = U[0][i], u = U[1][i] / r, p = (G - 1) * (U[2][i] - 0.5 * r * u * u);
+      m = Math.max(m, Math.abs(u) + Math.sqrt(G * p / r));
+    }
+    return m;
+  }
+
+  function init() {
+    dx = 1 / nx;
+    xc = Float64Array.from({ length: nx }, (_, i) => (i + 0.5) * dx);
+    allocBuffers();
+    for (const s of SCHEMES) { s.U = makeState(); s.failed = null; }
+    t = 0; n = 0; finished = false;
+    updateStatus(); render();
+  }
+
+  function step() {
+    if (finished) return;
+    let smax = 0;
+    for (const s of SCHEMES) if (s.failed === null) smax = Math.max(smax, maxSpeed(s.U));
+    if (!(smax > 0)) { finished = true; setPlaying(false); return; }
+    const dt = Math.min(cfl * dx / smax, T_END - t);
+    for (const s of SCHEMES) {
+      if (s.failed !== null) continue;
+      const U = s.U;
+      residual(U, s.flux);
+      if (order === 1) {
+        for (let k = 0; k < 3; k++) for (let i = 2; i < nx + 2; i++) U[k][i] += dt * R[k][i];
+      } else {                                      // SSP-RK2 (Heun)
+        for (let k = 0; k < 3; k++) for (let i = 0; i < nx + 4; i++) U1[k][i] = U[k][i] + dt * R[k][i];
+        residual(U1, s.flux);
+        for (let k = 0; k < 3; k++) for (let i = 2; i < nx + 2; i++) U[k][i] = 0.5 * (U[k][i] + U1[k][i] + dt * R[k][i]);
+      }
+      if (!healthy(U)) s.failed = t + dt;
+    }
+    t += dt; n++;
+    if (SCHEMES.some(s => s.failed !== null)) updateStatus();
+    if (t >= T_END - 1e-12) { finished = true; setPlaying(false); }
+  }
+
+  // value of the plotted variable from primitive (r, u, p)
+  const pick = (r, u, p) => variable === "rho" ? r : variable === "u" ? u : variable === "p" ? p : p / ((G - 1) * r);
+  function cellValue(U, i) {
+    const r = U[0][i + 2], u = U[1][i + 2] / r, p = (G - 1) * (U[2][i + 2] - 0.5 * r * u * u);
+    return pick(r, u, p);
+  }
+  function l1(s) {
+    let e = 0;
+    for (let i = 0; i < nx; i++) e += Math.abs(s.U[0][i + 2] - exactAt(xc[i], t)[0]);
+    return e * dx;
+  }
+
+  // ---------------- drawing
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  let view = null, sel = null, lay = null;
+  const full = () => ({ x0: 0, x1: 1, y0: RANGES[variable][0], y1: RANGES[variable][1] });
+  const getView = () => view || full();
+  function niceStep(span, target) {
+    const raw = span / Math.max(2, target), mag = 10 ** Math.floor(Math.log10(raw)), f = raw / mag;
+    return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+  }
+  const decimals = st => Math.max(0, -Math.floor(Math.log10(st) + 1e-9));
+
+  function marker(shape, x, y, r) {
+    ctx.beginPath();
+    if (shape === 0) ctx.arc(x, y, r, 0, Math.PI * 2);
+    else if (shape === 1) ctx.rect(x - r * 0.9, y - r * 0.9, r * 1.8, r * 1.8);
+    else { ctx.moveTo(x, y - r * 1.15); ctx.lineTo(x + r * 1.05, y + r * 0.75); ctx.lineTo(x - r * 1.05, y + r * 0.75); ctx.closePath(); }
+    ctx.fill();
+  }
+
+  function render() {
+    const w = canvas.clientWidth;
+    const h = Math.max(280, Math.min(480, w * 0.58));
+    const dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); canvas.style.height = h + "px";
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const m = { l: 54, r: 20, t: 28, b: 34 };
+    const pw = w - m.l - m.r, ph = h - m.t - m.b, V = getView();
+    lay = { m, pw, ph, V };
+    const X = v => m.l + ((v - V.x0) / (V.x1 - V.x0)) * pw;
+    const Y = v => m.t + (1 - (v - V.y0) / (V.y1 - V.y0)) * ph;
+    const col = { fg: css("--fg"), muted: css("--muted"), grid: css("--grid"), line: css("--line"), exact: css("--exact"),
+                  init: css("--init"), accent: css("--accent"), roe: css("--roe"), hllc: css("--hllc"), ausm: css("--ausm") };
+
+    ctx.font = "12px " + css("--mono"); ctx.lineWidth = 1; ctx.fillStyle = col.muted;
+    const sx = niceStep(V.x1 - V.x0, pw / 80), sy = niceStep(V.y1 - V.y0, ph / 45);
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (let k = Math.ceil(V.x0 / sx - 1e-9); k * sx <= V.x1 + 1e-9; k++) {
+      const xv = k * sx;
+      ctx.strokeStyle = col.grid; ctx.beginPath(); ctx.moveTo(X(xv), m.t); ctx.lineTo(X(xv), m.t + ph); ctx.stroke();
+      ctx.fillText(xv.toFixed(decimals(sx)), X(xv), m.t + ph + 6);
+    }
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (let k = Math.ceil(V.y0 / sy - 1e-9); k * sy <= V.y1 + 1e-9; k++) {
+      const yv = k * sy;
+      ctx.strokeStyle = col.grid; ctx.beginPath(); ctx.moveTo(m.l, Y(yv)); ctx.lineTo(m.l + pw, Y(yv)); ctx.stroke();
+      ctx.fillText(yv.toFixed(decimals(sy)), m.l - 8, Y(yv));
+    }
+    ctx.strokeStyle = col.line; ctx.strokeRect(m.l, m.t, pw, ph);
+    ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText("x", m.l + pw, m.t + ph + 32);
+    ctx.save(); ctx.translate(12, m.t + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "italic 15px " + css("--math"); ctx.fillText(LABELS[variable], 0, 0); ctx.restore();
+
+    // wave labels above the plot
+    if (t > 0.03) {
+      ctx.font = "11px " + css("--mono"); ctx.textBaseline = "bottom"; ctx.textAlign = "center";
+      const waves = [
+        { a: X0 + (IC.uL - aL0) * t, b: X0 + (STAR.u - aStarL) * t, label: "expansion fan" },
+        { a: X0 + STAR.u * t, label: "contact" },
+        { a: X0 + SHOCK * t, label: "shock" },
+      ];
+      for (const wv of waves) {
+        const xa = X(wv.a), xb = wv.b !== undefined ? X(wv.b) : null;
+        const xm = xb === null ? xa : (xa + xb) / 2;
+        if (xm < m.l - 20 || xm > m.l + pw + 20) continue;
+        ctx.strokeStyle = col.muted; ctx.setLineDash([2, 3]); ctx.globalAlpha = 0.7;
+        for (const xx of [xa, xb]) if (xx !== null && xx >= m.l && xx <= m.l + pw) {
+          ctx.beginPath(); ctx.moveTo(xx, m.t); ctx.lineTo(xx, m.t + ph); ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1; ctx.fillStyle = col.muted;
+        ctx.fillText(wv.label, Math.min(m.l + pw - 30, Math.max(m.l + 30, xm)), m.t - 6);
+      }
+    }
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(m.l, m.t, pw, ph); ctx.clip();
+    const curve = (fn, color, width, dash) => {
+      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []);
+      ctx.beginPath();
+      const N = 1200, a0 = Math.max(0, V.x0), a1 = Math.min(1, V.x1);
+      for (let k = 0; k <= N; k++) {
+        const xv = a0 + (k / N) * (a1 - a0), yv = fn(xv);
+        k ? ctx.lineTo(X(xv), Y(yv)) : ctx.moveTo(X(xv), Y(yv));
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+    };
+    curve(xv => pick(...exactAt(xv, 0)), col.init, 1.5, [6, 5]);
+    if (t > 0) curve(xv => pick(...exactAt(xv, t)), col.exact, 2);
+
+    const ys = V.y1 - V.y0, clampY = v => Y(Math.max(V.y0 - 10 * ys, Math.min(V.y1 + 10 * ys, v)));
+    const visible = (V.x1 - V.x0) / dx;
+    SCHEMES.forEach((s, si) => {
+      if (!$("show-" + s.key).checked) return;
+      const c = col[s.key];
+      ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = 1.5; ctx.globalAlpha = s.failed !== null ? 0.35 : 1;
+      ctx.beginPath();
+      let started = false;
+      for (let i = 0; i < nx; i++) {
+        const v = cellValue(s.U, i);
+        if (!isFinite(v)) { started = false; continue; }
+        started ? ctx.lineTo(X(xc[i]), clampY(v)) : ctx.moveTo(X(xc[i]), clampY(v)); started = true;
+      }
+      ctx.stroke();
+      if (visible <= 220) {
+        const r = visible > 120 ? 2.2 : 3;
+        for (let i = 0; i < nx; i++) {
+          if (xc[i] < V.x0 - dx || xc[i] > V.x1 + dx) continue;
+          const v = cellValue(s.U, i);
+          if (isFinite(v)) marker(si, X(xc[i]), clampY(v), r);
+        }
+      }
+      ctx.globalAlpha = 1;
+    });
+
+    if (sel) {
+      const x = Math.min(sel.x0, sel.x1), y = Math.min(sel.y0, sel.y1), sw = Math.abs(sel.x1 - sel.x0), sh = Math.abs(sel.y1 - sel.y0);
+      ctx.fillStyle = col.accent; ctx.globalAlpha = 0.12; ctx.fillRect(x, y, sw, sh);
+      ctx.globalAlpha = 1; ctx.strokeStyle = col.accent; ctx.lineWidth = 1; ctx.strokeRect(x, y, sw, sh);
+    }
+    ctx.restore();
+
+    $("r-t").textContent = t.toFixed(3);
+    $("r-n").textContent = n;
+    for (const s of SCHEMES) {
+      const el = $("r-" + s.key);
+      if (s.failed !== null) { el.textContent = "failed"; el.className = "v bad"; el.title = "negative pressure at t = " + s.failed.toFixed(4); }
+      else { el.textContent = l1(s).toFixed(4); el.className = "v"; el.title = ""; }
+    }
+  }
+
+  function updateStatus() {
+    const st = $("status"), failed = SCHEMES.filter(s => s.failed !== null);
+    $("limiter-field").hidden = order !== 2;
+    if (failed.length) {
+      st.className = "status bad";
+      const names = failed.map(s => s.name + " at t = " + s.failed.toFixed(4)).join(", ");
+      const ausm = failed.some(s => s.key === "ausm")
+        ? " At t = 0 the gas is at rest, so AUSM+ carries no mass or energy across the diaphragm, only pressure. The cell next to it gains kinetic energy but no total energy, so its pressure goes negative. Lower the CFL number to about 0.65 or less."
+        : " Lower the CFL number.";
+      st.innerHTML = '<span class="tag">Negative pressure</span><p>Stopped: ' + names + "." + ausm + "</p>";
+    } else {
+      st.className = "status";
+      st.innerHTML = '<span class="tag">' + (order === 1 ? "1st order" : "2nd order MUSCL") + " · CFL " + cfl.toFixed(2) + "</span><p>" +
+        (order === 1
+          ? "Piecewise-constant cells: robust but diffusive. The contact is smeared the most. Switch to 2nd order to sharpen all three waves."
+          : "Linear reconstruction with a slope limiter, so jumps stay sharp without wiggles. Zoom in to compare the schemes at the contact and the shock.") + "</p>";
+    }
+  }
+
+  // ---------------- playback
+  let last = 0, acc = 0;
+  function setPlaying(p) {
+    playing = p;
+    $("play").textContent = p ? "Pause" : (finished ? "Replay" : "Play");
+    if (p) { last = performance.now(); acc = 0; requestAnimationFrame(loop); }
+  }
+  function loop(now) {
+    if (!playing) return;
+    // steps per second scale with nx / CFL, so a run takes about the same wall time on any grid
+    acc += (now - last) / 1000 * speed * (nx / 100) * (0.5 / cfl); last = now;
+    let k = 0;
+    while (acc >= 1 && k < 200 && playing) { step(); acc -= 1; k++; }
+    if (k === 200) acc = 0;
+    render();
+    if (playing) requestAnimationFrame(loop);
+  }
+
+  // ---------------- controls
+  const restart = autoplay => { const was = playing; setPlaying(false); init(); if (was || autoplay) setPlaying(true); };
+  $("play").addEventListener("click", () => { if (finished) { init(); setPlaying(true); } else setPlaying(!playing); });
+  $("stepbtn").addEventListener("click", () => { setPlaying(false); step(); render(); });
+  $("reset").addEventListener("click", () => { setPlaying(false); init(); });
+  $("speed").addEventListener("input", e => { speed = +e.target.value; });
+  $("order").addEventListener("change", e => { order = +e.target.value; restart(true); });
+  $("limiter").addEventListener("change", e => { limiter = e.target.value; restart(true); });
+  function setCfl(v, autoplay) {
+    if (!isFinite(v) || v < 0.05 || v > 1) { $("cfl-num").value = cfl.toFixed(2); return; }
+    cfl = Math.round(v * 100) / 100;
+    $("cfl").value = Math.min(0.95, cfl); $("cfl-num").value = cfl.toFixed(2);
+    restart(autoplay);
+  }
+  $("cfl").addEventListener("input", e => setCfl(+e.target.value));
+  $("cfl-num").addEventListener("change", e => setCfl(+e.target.value, true));
+  function setNx(v, autoplay) {
+    if (!isFinite(v) || v < 10 || v > 2000) { $("nx-num").value = nx; return; }
+    nx = Math.round(v);
+    $("nx").value = Math.min(1000, nx); $("nx-num").value = nx;
+    restart(autoplay);
+  }
+  $("nx").addEventListener("input", e => setNx(+e.target.value));
+  $("nx-num").addEventListener("change", e => setNx(+e.target.value, true));
+  for (const s of SCHEMES) $("show-" + s.key).addEventListener("change", render);
+  document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+    variable = b.dataset.var; view = null;
+    document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b ? "true" : "false"));
+    render();
+  }));
+
+  // ---------------- zoom
+  const toData = (px, py) => {
+    const { m, pw, ph, V } = lay;
+    return { x: V.x0 + ((px - m.l) / pw) * (V.x1 - V.x0), y: V.y0 + (1 - (py - m.t) / ph) * (V.y1 - V.y0) };
+  };
+  function zoomBy(f) {
+    const V = getView(), F = full();
+    const xc0 = (V.x0 + V.x1) / 2, yc0 = (V.y0 + V.y1) / 2, hw = (V.x1 - V.x0) * f / 2, hh = (V.y1 - V.y0) * f / 2;
+    if (f > 1 && hw * 2 >= F.x1 - F.x0 && hh * 2 >= F.y1 - F.y0) view = null;
+    else if (hw * 2 > 1e-4) view = { x0: xc0 - hw, x1: xc0 + hw, y0: yc0 - hh, y1: yc0 + hh };
+    render();
+  }
+  $("zin").addEventListener("click", () => zoomBy(0.5));
+  $("zout").addEventListener("click", () => zoomBy(2));
+  $("zreset").addEventListener("click", () => { view = null; render(); });
+  canvas.addEventListener("dblclick", () => { view = null; render(); });
+  canvas.addEventListener("pointerdown", e => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;     // touch keeps normal scrolling; use the buttons
+    const b = canvas.getBoundingClientRect();
+    sel = { x0: e.clientX - b.left, y0: e.clientY - b.top, x1: e.clientX - b.left, y1: e.clientY - b.top };
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", e => {
+    if (!sel) return;
+    const b = canvas.getBoundingClientRect();
+    sel.x1 = e.clientX - b.left; sel.y1 = e.clientY - b.top; render();
+  });
+  canvas.addEventListener("pointerup", () => {
+    if (!sel) return;
+    const s0 = sel; sel = null;
+    const dxp = Math.abs(s0.x1 - s0.x0), dyp = Math.abs(s0.y1 - s0.y0);
+    if (dxp > 6) {
+      const a = toData(s0.x0, s0.y0), b = toData(s0.x1, s0.y1), V = getView();
+      view = { x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x),
+               y0: dyp > 6 ? Math.min(a.y, b.y) : V.y0, y1: dyp > 6 ? Math.max(a.y, b.y) : V.y1 };   // a flat drag zooms x only
+    }
+    render();
+  });
+
+  new ResizeObserver(() => render()).observe(canvas);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+  new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  init();
+  if (!reduceMotion) setPlaying(true);
+})();
+</script>
+</body>
+</html>

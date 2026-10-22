@@ -1,9 +1,16 @@
-# FTBS Linear Convection
+# 1D Linear Convection: FTBS and Lax–Wendroff
 
-Teaching material for a CFD course: the 1D linear convection equation solved with the
-forward-in-time, backward-in-space (FTBS, first-order upwind) scheme.
+Teaching material for a CFD course: the 1D linear convection equation solved with two schemes
+that go wrong in different ways.
 
-![FTBS animation](ftbs_convection.gif)
+- **FTBS** (forward in time, backward in space; first-order upwind) shows **numerical diffusion**:
+  the sharp front smears out.
+- **Lax–Wendroff** (second order) shows **numerical dispersion**: the front stays sharper, but
+  wiggles appear behind it.
+
+| FTBS: numerical diffusion | Lax–Wendroff: numerical dispersion |
+|---|---|
+| ![FTBS animation](ftbs_convection.gif) | ![Lax–Wendroff animation](lax_wendroff.gif) |
 
 ## The equation
 
@@ -13,7 +20,7 @@ forward-in-time, backward-in-space (FTBS, first-order upwind) scheme.
 
 The exact solution is the initial profile shifted to the right: $`u(x,t) = u_0(x - at)`$.
 
-## The scheme
+## Scheme 1: FTBS (numerical diffusion)
 
 With the CFL (Courant) number
 
@@ -35,6 +42,47 @@ It is stable for $`a > 0`$ when $`0 \le c \le 1`$.
 | $`c = 1`$ | $`u_i^{n+1} = u_{i-1}^n`$: an exact one-cell shift, zero error. |
 | $`c > 1`$ | Unstable. The weight $`1 - c`$ is negative and oscillations grow until the solution blows up. |
 
+## Scheme 2: Lax–Wendroff (numerical dispersion)
+
+```math
+u_i^{n+1} = u_i^n - \frac{c}{2}\left(u_{i+1}^n - u_{i-1}^n\right) + \frac{c^2}{2}\left(u_{i+1}^n - 2u_i^n + u_{i-1}^n\right)
+```
+
+It is second-order accurate and also stable for $`0 \le c \le 1`$. At the right (outflow) boundary,
+where $`u_{i+1}`$ does not exist, the code uses the FTBS update.
+
+## Diffusion vs dispersion: the modified equation
+
+Each scheme really solves a slightly different PDE. Its leading error term decides how the
+numerical solution goes wrong.
+
+FTBS:
+
+```math
+u_t + a u_x = \frac{a \Delta x}{2}(1 - c)\, u_{xx}
+```
+
+Lax–Wendroff:
+
+```math
+u_t + a u_x = -\frac{a \Delta x^2}{6}(1 - c^2)\, u_{xxx}
+```
+
+| | FTBS | Lax–Wendroff |
+|---|---|---|
+| Order of accuracy | 1st | 2nd |
+| Leading error term | even derivative $`u_{xx}`$ | odd derivative $`u_{xxx}`$ |
+| Error type | numerical diffusion | numerical dispersion |
+| Effect on a jump | smears into a ramp, no wiggles | stays sharper, wiggles behind the jump |
+| At $`c = 1`$ | exact shift | exact shift |
+| Stable for | $`0 \le c \le 1`$ | $`0 \le c \le 1`$ |
+
+Why wiggles: with dispersion, waves of different lengths travel at different speeds (short waves
+are slower than $`a`$). A jump is made of many wavelengths, so they separate and leave a train of
+oscillations behind the front.
+
+## Initial condition
+
 The default initial condition is a shock-like step: $`u = 1`$ for $`x < 0.5`$ and $`u = 2`$ for $`x \ge 0.5`$,
 on the domain $`x \in [0, 2]`$.
 
@@ -43,7 +91,8 @@ on the domain $`x \in [0, 2]`$.
 **Open it here: https://computationalgasdynamicslab.github.io/ME464/ftbs-linear-convection/**
 
 It runs in any web browser, with nothing to install. You can play the solution step by step,
-change the CFL number and grid size, switch the initial condition, and see on a stencil diagram
+switch between FTBS and Lax–Wendroff, change the CFL number and grid size, switch the initial
+condition, and see on a stencil diagram
 why the scheme needs $`c \le 1`$.
 
 ## Run the Python script on your own computer
@@ -119,6 +168,7 @@ When the environment is active, your prompt starts with `(.venv)`.
 python ftbs_convection.py                # c = 0.5, step initial condition
 python ftbs_convection.py --cfl 1.0      # exact shift
 python ftbs_convection.py --cfl 1.1      # unstable
+python ftbs_convection.py --scheme lw    # Lax-Wendroff: numerical dispersion
 python ftbs_convection.py --animate      # also saves an animated GIF
 python ftbs_convection.py --help         # all options
 ```
@@ -131,6 +181,7 @@ Options you can combine:
 
 | Option | Meaning | Default |
 |---|---|---|
+| `--scheme` | `ftbs` or `lw` (Lax–Wendroff) | `ftbs` |
 | `--cfl` | CFL number $`c = a \Delta t / \Delta x`$ | 0.5 |
 | `--nx` | number of grid points | 81 |
 | `--t-end` | final time | 1.0 |
@@ -138,7 +189,7 @@ Options you can combine:
 | `--a` | wave speed | 1.0 |
 | `--animate` | also save `ftbs_convection.gif` | off |
 
-Example: `python ftbs_convection.py --cfl 0.25 --nx 161 --shape square --animate`
+Example: `python ftbs_convection.py --scheme lw --cfl 0.25 --nx 161 --shape square --animate`
 
 ### Next time
 

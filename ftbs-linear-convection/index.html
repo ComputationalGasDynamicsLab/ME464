@@ -55,6 +55,7 @@ h1 { font: 700 clamp(26px, 4vw, 36px)/1.1 var(--display); margin: 0; text-wrap: 
 .eqs { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: baseline; color: var(--fg); }
 .eq { font-family: var(--math); font-style: italic; font-size: 19px; white-space: nowrap; }
 .eq .up { font-style: normal; }
+#eq-scheme { white-space: normal; }
 .eq sub, .eq sup { font-size: .7em; }
 .eq-label { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 8px; font-style: normal; }
 
@@ -121,9 +122,16 @@ svg .foot { fill: var(--exact); }
 svg.bad .char { stroke: var(--warn); } svg.bad .foot { fill: var(--warn); }
 svg .zone { fill: var(--ok-bg); }
 svg.bad .zone { fill: var(--warn-bg); }
+svg .lw-only { display: none; }
+svg.lw .lw-only { display: inline; }
 
 .notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 @media (max-width: 800px) { .notes { grid-template-columns: minmax(0, 1fr); } }
+.notes-wrap { display: grid; gap: 14px; }
+.notes-wrap .lead { margin: 0; color: var(--muted); max-width: 70ch; }
+.notes.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 800px) { .notes.two { grid-template-columns: minmax(0, 1fr); } }
+.note .meq { font: italic 17px var(--math); color: var(--fg); margin: 2px 0 8px; overflow-x: auto; }
 .note h3 { font: 700 14px var(--display); margin: 0 0 4px; }
 .note p { margin: 0; color: var(--muted); font-size: 14px; max-width: 65ch; }
 .note i { font-family: var(--math); color: var(--fg); }
@@ -133,11 +141,11 @@ svg.bad .zone { fill: var(--warn-bg); }
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">CFD · 1D linear convection · upwind scheme</div>
+    <div class="eyebrow">CFD · 1D linear convection · numerical diffusion and dispersion</div>
     <h1>FTBS Convection Lab</h1>
     <div class="eqs">
       <span class="eq"><span class="eq-label">PDE</span>∂u/∂t + a ∂u/∂x = 0, &nbsp;<span class="up">a = 1</span></span>
-      <span class="eq"><span class="eq-label">FTBS</span>u<sub>i</sub><sup>n+1</sup> = u<sub>i</sub><sup>n</sup> − c (u<sub>i</sub><sup>n</sup> − u<sub>i−1</sub><sup>n</sup>)</span>
+      <span class="eq" id="eq-scheme"><span class="eq-label">FTBS</span>u<sub>i</sub><sup>n+1</sup> = u<sub>i</sub><sup>n</sup> − c (u<sub>i</sub><sup>n</sup> − u<sub>i−1</sub><sup>n</sup>)</span>
       <span class="eq"><span class="eq-label">CFL</span>c = a Δt / Δx</span>
     </div>
   </header>
@@ -147,7 +155,7 @@ svg.bad .zone { fill: var(--warn-bg); }
       <div class="legend">
         <span><i class="sw init"></i>Initial condition, t = 0</span>
         <span><i class="sw exact"></i>Exact solution u₀(x − at)</span>
-        <span><i class="sw num"></i>FTBS numerical solution</span>
+        <span id="leg-num"><i class="sw num"></i>FTBS numerical solution</span>
       </div>
       <canvas id="plot" role="img" aria-label="Plot of u versus x showing the initial, exact and numerical solutions"></canvas>
       <div class="readouts">
@@ -169,6 +177,13 @@ svg.bad .zone { fill: var(--warn-bg); }
       <div class="panel">
         <h2>Parameters</h2>
         <div class="field">
+          <label for="scheme">Scheme</label>
+          <select id="scheme">
+            <option value="ftbs" selected>FTBS (1st-order upwind): diffusive</option>
+            <option value="lw">Lax–Wendroff (2nd order): dispersive</option>
+          </select>
+        </div>
+        <div class="field">
           <label for="cfl-num">CFL number c</label>
           <div class="cfl-row">
             <input type="range" id="cfl" min="0.05" max="1.5" step="0.01" value="0.5" aria-label="CFL number slider">
@@ -177,7 +192,7 @@ svg.bad .zone { fill: var(--warn-bg); }
           <div class="hint">Drag the slider or type any value (e.g. 0.8, 0.95, 1.02) and press Enter.</div>
         </div>
         <div class="presets" role="group" aria-label="CFL presets">
-          <button data-c="0.5"><span>Smeared</span><small>c = 0.5</small></button>
+          <button data-c="0.5"><span>Typical</span><small>c = 0.5</small></button>
           <button data-c="1"><span>Exact</span><small>c = 1.0</small></button>
           <button data-c="1.1"><span>Unstable</span><small>c = 1.1</small></button>
         </div>
@@ -198,42 +213,61 @@ svg.bad .zone { fill: var(--warn-bg); }
 
       <div class="panel stencil">
         <h2>Why c ≤ 1? The stencil</h2>
-        <svg id="stencil" viewBox="0 0 300 170" aria-label="FTBS stencil with characteristic line">
-          <line class="gl" x1="20" y1="40" x2="290" y2="40"/>
-          <line class="gl" x1="20" y1="125" x2="290" y2="125"/>
-          <rect class="zone" id="zone" x="140" y="119" width="100" height="12" rx="3"/>
-          <line class="st" x1="140" y1="125" x2="240" y2="40"/>
-          <line class="st" x1="240" y1="125" x2="240" y2="40"/>
-          <line class="char" id="char" x1="240" y1="40" x2="190" y2="125"/>
-          <circle class="pt" cx="40" cy="125" r="6"/>
-          <circle class="pt on" cx="140" cy="125" r="6"/>
-          <circle class="pt on" cx="240" cy="125" r="6"/>
-          <circle class="pt" cx="240" cy="40" r="7" style="fill:var(--num);stroke:var(--num)"/>
-          <circle class="foot" id="foot" cx="190" cy="125" r="4.5"/>
-          <text class="lbl" x="276" y="44">n+1</text>
-          <text class="lbl" x="284" y="129">n</text>
-          <text class="lblm" x="28" y="152">i−2</text>
-          <text class="lblm" x="128" y="152">i−1</text>
-          <text class="lblm" x="236" y="152">i</text>
-          <text class="lbl" id="foot-lbl" x="190" y="112" text-anchor="middle">x<tspan dy="0">ᵢ − aΔt</tspan></text>
+        <svg id="stencil" viewBox="0 0 400 170" aria-label="Scheme stencil with characteristic line">
+          <line class="gl" x1="40" y1="40" x2="395" y2="40"/>
+          <line class="gl" x1="40" y1="125" x2="395" y2="125"/>
+          <rect class="zone" id="zone" x="170" y="119" width="100" height="12" rx="3"/>
+          <line class="st" x1="170" y1="125" x2="270" y2="40"/>
+          <line class="st" x1="270" y1="125" x2="270" y2="40"/>
+          <line class="st lw-only" x1="370" y1="125" x2="270" y2="40"/>
+          <line class="char" id="char" x1="270" y1="40" x2="220" y2="125"/>
+          <circle class="pt" cx="70" cy="125" r="6"/>
+          <circle class="pt on" cx="170" cy="125" r="6"/>
+          <circle class="pt on" cx="270" cy="125" r="6"/>
+          <circle class="pt" id="pt-ip1" cx="370" cy="125" r="6"/>
+          <circle class="pt" cx="270" cy="40" r="7" style="fill:var(--num);stroke:var(--num)"/>
+          <circle class="foot" id="foot" cx="220" cy="125" r="4.5"/>
+          <text class="lbl" x="4" y="44">n+1</text>
+          <text class="lbl" x="4" y="129">n</text>
+          <text class="lblm" x="58" y="152">i−2</text>
+          <text class="lblm" x="158" y="152">i−1</text>
+          <text class="lblm" x="266" y="152">i</text>
+          <text class="lblm" x="356" y="152">i+1</text>
+          <text class="lbl" id="foot-lbl" x="220" y="112" text-anchor="middle">xᵢ − aΔt</text>
         </svg>
-        <p class="cap">The dashed line is the characteristic. The true value at the new time comes from where it lands at time level n. The scheme only uses points i−1 and i, so that landing point has to fall between them, which means c ≤ 1.</p>
+        <p class="cap" id="stencil-cap">The dashed line is the characteristic. The true value at the new time comes from where it lands at time level n. The scheme only uses points i−1 and i, so that landing point has to fall between them, which means c ≤ 1.</p>
       </div>
     </aside>
   </div>
 
-  <section class="notes">
-    <div class="note">
-      <h3>c &lt; 1: numerical diffusion</h3>
-      <p>Rewrite the update as <i>u<sub>i</sub><sup>n+1</sup> = (1−c) u<sub>i</sub><sup>n</sup> + c u<sub>i−1</sub><sup>n</sup></i>. Each new value is a weighted average of two neighbors. Averaging rounds off sharp corners, so the shock front smears into a ramp. A smaller c needs more steps to reach the same time, so it smears more.</p>
+  <section class="notes-wrap">
+    <h2>Diffusion vs dispersion: the modified equation</h2>
+    <p class="lead">Each scheme really solves a slightly different PDE. Its leading error term decides how the numerical solution goes wrong.</p>
+    <div class="notes two">
+      <div class="note">
+        <h3>FTBS: numerical diffusion</h3>
+        <p class="meq">u<sub>t</sub> + a u<sub>x</sub> = (aΔx/2)(1 − c) u<sub>xx</sub></p>
+        <p>The error term has an even (second) derivative, like a viscous term. It damps short waves, so sharp jumps smear into ramps, and no new wiggles appear. You can see why from the update <i>u<sub>i</sub><sup>n+1</sup> = (1−c) u<sub>i</sub><sup>n</sup> + c u<sub>i−1</sub><sup>n</sup></i>: each new value is an average of two neighbors.</p>
+      </div>
+      <div class="note">
+        <h3>Lax–Wendroff: numerical dispersion</h3>
+        <p class="meq">u<sub>t</sub> + a u<sub>x</sub> = −(aΔx²/6)(1 − c²) u<sub>xxx</sub></p>
+        <p>The error term has an odd (third) derivative. It hardly damps waves. Instead, short waves travel slower than <i>a</i>. A jump is made of many wavelengths, so they separate and leave a train of wiggles behind the jump, undershooting and overshooting the exact solution.</p>
+      </div>
     </div>
-    <div class="note">
-      <h3>c = 1: exact shift</h3>
-      <p>The update becomes <i>u<sub>i</sub><sup>n+1</sup> = u<sub>i−1</sub><sup>n</sup></i>. Each step copies every value one cell to the right. That is exactly what the PDE does in one Δt, so the error stays at zero.</p>
-    </div>
-    <div class="note">
-      <h3>c &gt; 1: unstable</h3>
-      <p>The weight <i>1−c</i> turns negative, so the update is no longer an average. Small wiggles get amplified every step, and the solution grows without bound. This is the CFL condition in action.</p>
+    <div class="notes">
+      <div class="note">
+        <h3>c &lt; 1</h3>
+        <p>Both schemes are stable. FTBS smears; Lax–Wendroff wiggles. A smaller c makes both errors larger at the same time, because the error coefficients grow and more steps are needed.</p>
+      </div>
+      <div class="note">
+        <h3>c = 1</h3>
+        <p>Both error terms vanish, because (1 − c) = 0 and (1 − c²) = 0. Both schemes reduce to <i>u<sub>i</sub><sup>n+1</sup> = u<sub>i−1</sub><sup>n</sup></i>, an exact one-cell shift.</p>
+      </div>
+      <div class="note">
+        <h3>c &gt; 1</h3>
+        <p>Both schemes are unstable. The true value comes from outside the stencil, so small errors are amplified every step until the solution blows up. This is the CFL condition.</p>
+      </div>
     </div>
   </section>
 </div>
@@ -245,7 +279,7 @@ svg.bad .zone { fill: var(--warn-bg); }
   const canvas = $("plot"), ctx = canvas.getContext("2d");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  let c = 0.5, nx = 81, shape = "step", speed = 20;
+  let c = 0.5, nx = 81, shape = "step", speed = 20, scheme = "ftbs";
   let x, u, u0, dx, dt, n, t, blown, finished, playing = false;
 
   const f0 = xx =>
@@ -268,7 +302,13 @@ svg.bad .zone { fill: var(--warn-bg); }
     if (finished) return;
     if (t + dt > T_END + 1e-9) { finished = true; setPlaying(false); return; }
     const un = Float64Array.from(u);
-    for (let i = 1; i < nx; i++) u[i] = un[i] - c * (un[i] - un[i - 1]);
+    if (scheme === "ftbs") {
+      for (let i = 1; i < nx; i++) u[i] = un[i] - c * (un[i] - un[i - 1]);
+    } else {                               // Lax-Wendroff
+      for (let i = 1; i < nx - 1; i++)
+        u[i] = un[i] - 0.5 * c * (un[i + 1] - un[i - 1]) + 0.5 * c * c * (un[i + 1] - 2 * un[i] + un[i - 1]);
+      u[nx - 1] = un[nx - 1] - c * (un[nx - 1] - un[nx - 2]);   // outflow boundary: upwind
+    }
     n++; t = n * dt;
     u[0] = exact(0);                       // inflow boundary: value carried in from the left
     let m = 0; for (const v of u) m = Math.max(m, Math.abs(v));
@@ -293,7 +333,7 @@ svg.bad .zone { fill: var(--warn-bg); }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    const m = { l: 44, r: 12, t: 12, b: 34 };
+    const m = { l: 54, r: 12, t: 12, b: 34 };
     const pw = w - m.l - m.r, ph = h - m.t - m.b;
     const X = v => m.l + (v / L) * pw;
     const Y = v => m.t + (1 - (v - YMIN) / (YMAX - YMIN)) * ph;
@@ -361,27 +401,46 @@ svg.bad .zone { fill: var(--warn-bg); }
     $("r-err").style.color = blown || e > 2 ? col.warn : "";
   }
 
+  const SCHEMES = {
+    ftbs: {
+      name: "FTBS",
+      eq: '<span class="eq-label">FTBS</span>u<sub>i</sub><sup>n+1</sup> = u<sub>i</sub><sup>n</sup> − c (u<sub>i</sub><sup>n</sup> − u<sub>i−1</sub><sup>n</sup>)',
+      typical: '<span class="tag">Stable, diffusive · c &lt; 1</span><p>Stable, but the sharp front smears into a ramp. Try c = 0.2 to see more smearing.</p>',
+      cap: "The dashed line is the characteristic. The true value at the new time comes from where it lands at time level n. FTBS only uses points i−1 and i, so that landing point has to fall between them, which means c ≤ 1."
+    },
+    lw: {
+      name: "Lax–Wendroff",
+      eq: '<span class="eq-label">Lax–Wendroff</span>u<sub>i</sub><sup>n+1</sup> = u<sub>i</sub><sup>n</sup> − (c/2)(u<sub>i+1</sub><sup>n</sup> − u<sub>i−1</sub><sup>n</sup>) + (c²/2)(u<sub>i+1</sub><sup>n</sup> − 2u<sub>i</sub><sup>n</sup> + u<sub>i−1</sub><sup>n</sup>)',
+      typical: '<span class="tag">Stable, dispersive · c &lt; 1</span><p>The front stays sharper than with FTBS, but a train of wiggles appears behind it, dipping below the exact solution.</p>',
+      cap: "The dashed line is the characteristic. The true value at the new time comes from where it lands at time level n. Lax–Wendroff uses points i−1, i and i+1. For a > 0 the landing point still has to fall between i−1 and i, which again means c ≤ 1."
+    }
+  };
+
   function updateStatus() {
-    const s = $("status");
-    const eq1 = Math.abs(c - 1) < 1e-9;
+    const S = SCHEMES[scheme], s = $("status");
+    $("eq-scheme").innerHTML = S.eq;
+    $("leg-num").lastChild.textContent = S.name + " numerical solution";
+    $("stencil-cap").textContent = S.cap;
     if (c > 1 + 1e-9) {
       s.className = "status unstable";
       s.innerHTML = '<span class="tag">Unstable · c &gt; 1</span><p>The CFL condition is violated. Press Play and watch oscillations grow until the solution blows up.</p>';
-    } else if (eq1) {
+    } else if (Math.abs(c - 1) < 1e-9) {
       s.className = "status exact";
       s.innerHTML = '<span class="tag">Exact · c = 1</span><p>Each step shifts the profile exactly one cell. The numerical and exact solutions coincide.</p>';
     } else {
       s.className = "status smear";
-      s.innerHTML = '<span class="tag">Stable, diffusive · c &lt; 1</span><p>Stable, but sharp edges smear out. Try c = 0.2 to see more smearing.</p>';
+      s.innerHTML = S.typical;
     }
     document.querySelectorAll(".presets button").forEach(b =>
       b.setAttribute("aria-pressed", Math.abs(+b.dataset.c - c) < 1e-9 ? "true" : "false"));
 
     // stencil diagram: characteristic foot at x_i - c*dx
-    const xi = 240, sp = 100, foot = xi - c * sp;
+    const xi = 270, sp = 100, foot = xi - c * sp;
     $("char").setAttribute("x2", foot); $("foot").setAttribute("cx", foot);
-    $("foot-lbl").setAttribute("x", Math.max(60, foot));
+    $("foot-lbl").setAttribute("x", Math.max(100, foot));
     $("stencil").classList.toggle("bad", c > 1 + 1e-9);
+    $("stencil").classList.toggle("lw", scheme === "lw");
+    $("pt-ip1").classList.toggle("on", scheme === "lw");
   }
 
   function setPlaying(p) {
@@ -424,6 +483,7 @@ svg.bad .zone { fill: var(--warn-bg); }
     const wasPlaying = playing; setPlaying(false); init(); if (wasPlaying) setPlaying(true);
   });
   $("shape").addEventListener("change", e => { shape = e.target.value; setPlaying(false); init(); });
+  $("scheme").addEventListener("change", e => { scheme = e.target.value; setPlaying(false); init(); setPlaying(true); });
   document.querySelectorAll(".presets button").forEach(b => b.addEventListener("click", () => {
     setC(+b.dataset.c, true);
   }));

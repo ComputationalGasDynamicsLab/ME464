@@ -1,11 +1,16 @@
-"""Solve the 1D linear convection equation u_t + a u_x = 0 with the FTBS (upwind) scheme.
+"""Solve the 1D linear convection equation u_t + a u_x = 0.
 
-    u_i^{n+1} = u_i^n - c (u_i^n - u_{i-1}^n),   c = a dt / dx  (CFL number)
+Schemes (c = a dt / dx is the CFL number):
+    ftbs  FTBS / first-order upwind (numerical diffusion)
+          u_i^{n+1} = u_i^n - c (u_i^n - u_{i-1}^n)
+    lw    Lax-Wendroff, second order (numerical dispersion)
+          u_i^{n+1} = u_i^n - (c/2)(u_{i+1}^n - u_{i-1}^n) + (c^2/2)(u_{i+1}^n - 2 u_i^n + u_{i-1}^n)
 
 Examples:
     python ftbs_convection.py                 # c = 0.5, step initial condition
     python ftbs_convection.py --cfl 1.0       # exact shift
     python ftbs_convection.py --cfl 1.1       # unstable
+    python ftbs_convection.py --scheme lw     # Lax-Wendroff: wiggles behind the jump
     python ftbs_convection.py --animate       # also save an animated GIF
 """
 import argparse
@@ -35,6 +40,7 @@ def main():
     p.add_argument("--nx", type=int, default=81, help="number of grid points (default 81)")
     p.add_argument("--t-end", type=float, default=1.0, help="final time (default 1)")
     p.add_argument("--shape", choices=["step", "square", "gauss"], default="step")
+    p.add_argument("--scheme", choices=["ftbs", "lw"], default="ftbs", help="ftbs (default) or lw (Lax-Wendroff)")
     p.add_argument("--animate", action="store_true", help="save ftbs_convection.gif")
     args = p.parse_args()
 
@@ -49,7 +55,12 @@ def main():
     history = [u.copy()]
     for n in range(1, nt + 1):
         un = u.copy()
-        u[1:] = un[1:] - c * (un[1:] - un[:-1])
+        if args.scheme == "ftbs":
+            u[1:] = un[1:] - c * (un[1:] - un[:-1])
+        else:  # Lax-Wendroff
+            u[1:-1] = (un[1:-1] - 0.5 * c * (un[2:] - un[:-2])
+                       + 0.5 * c**2 * (un[2:] - 2 * un[1:-1] + un[:-2]))
+            u[-1] = un[-1] - c * (un[-1] - un[-2])  # outflow boundary: upwind
         u[0] = initial_condition(np.array([-a * n * dt]), args.shape)[0]  # inflow boundary
         history.append(u.copy())
 
@@ -62,8 +73,9 @@ def main():
     fig, ax = plt.subplots(figsize=(8, 4.5))
     ax.plot(xf, initial_condition(xf, args.shape), "k--", lw=1.2, label="Initial, t = 0")
     ax.plot(xf, initial_condition(xf - a * t, args.shape), "g-", lw=2, label=f"Exact, t = {t:.2f}")
-    ax.plot(x, u, "bo-", ms=3, label=f"FTBS, t = {t:.2f}")
-    ax.set(xlabel="x", ylabel="u", ylim=(0.5, 2.5), title=f"1D linear convection, FTBS (a = {a}, c = {c})")
+    name = {"ftbs": "FTBS", "lw": "Lax-Wendroff"}[args.scheme]
+    ax.plot(x, u, "bo-", ms=3, label=f"{name}, t = {t:.2f}")
+    ax.set(xlabel="x", ylabel="u", ylim=(0.5, 2.5), title=f"1D linear convection, {name} (a = {a}, c = {c})")
     ax.legend(); ax.grid(alpha=0.3)
     fig.savefig("ftbs_convection.png", dpi=120, bbox_inches="tight")
     print("saved ftbs_convection.png")
@@ -72,7 +84,7 @@ def main():
         fig, ax = plt.subplots(figsize=(8, 4.5))
         ax.plot(xf, initial_condition(xf, args.shape), "k--", lw=1.2, label="Initial")
         exact_line, = ax.plot([], [], "g-", lw=2, label="Exact")
-        num_line, = ax.plot([], [], "bo-", ms=3, label="FTBS")
+        num_line, = ax.plot([], [], "bo-", ms=3, label=name)
         ax.set(xlabel="x", ylabel="u", xlim=(0, L), ylim=(0.5, 2.5))
         ax.legend(loc="upper left"); ax.grid(alpha=0.3)
         frames = range(0, nt + 1, max(1, nt // 80))
@@ -81,7 +93,7 @@ def main():
             tk = k * dt
             exact_line.set_data(xf, initial_condition(xf - a * tk, args.shape))
             num_line.set_data(x, history[k])
-            ax.set_title(f"FTBS, a = {a}, c = {c}, t = {tk:.3f}")
+            ax.set_title(f"{name}, a = {a}, c = {c}, t = {tk:.3f}")
             return exact_line, num_line
 
         FuncAnimation(fig, update, frames=frames).save("ftbs_convection.gif", writer=PillowWriter(fps=15))

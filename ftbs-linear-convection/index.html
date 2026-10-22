@@ -197,8 +197,12 @@ svg.lw .lw-only { display: inline; }
           <button data-c="1.1"><span>Unstable</span><small>c = 1.1</small></button>
         </div>
         <div class="field">
-          <label for="nx">Grid points nx <b id="nx-v">81</b></label>
-          <input type="range" id="nx" min="21" max="201" step="20" value="81">
+          <label for="nx-num">Grid points nx</label>
+          <div class="cfl-row">
+            <input type="range" id="nx" min="21" max="2001" step="20" value="81" aria-label="Grid points slider">
+            <input type="number" id="nx-num" min="11" max="2001" step="1" value="81" inputmode="numeric">
+          </div>
+          <div class="hint">From 11 to 2001 points. More points means a smaller Δx and a smaller error.</div>
         </div>
         <div class="field">
           <label for="shape">Initial condition</label>
@@ -382,7 +386,8 @@ svg.lw .lw-only { display: inline; }
     ctx.stroke();
     ctx.fillStyle = blown ? col.warn : col.num;
     const r = nx > 121 ? 1.8 : 3;
-    for (let i = 0; i < nx; i++) { ctx.beginPath(); ctx.arc(X(x[i]), clampY(u[i]), r, 0, Math.PI * 2); ctx.fill(); }
+    if (nx <= 301)                         // on fine grids the dots would merge into a blur
+      for (let i = 0; i < nx; i++) { ctx.beginPath(); ctx.arc(X(x[i]), clampY(u[i]), r, 0, Math.PI * 2); ctx.fill(); }
 
     // flow direction arrow
     ctx.strokeStyle = col.muted; ctx.fillStyle = col.muted; ctx.lineWidth = 1.5;
@@ -452,9 +457,11 @@ svg.lw .lw-only { display: inline; }
   let last = 0, acc = 0;
   function loop(now) {
     if (!playing) return;
-    acc += (now - last) / 1000 * speed; last = now;
+    // steps per second scale with nx, so a run takes about the same wall time on any grid
+    acc += (now - last) / 1000 * speed * (nx - 1) / 80; last = now;
     let k = 0;
-    while (acc >= 1 && k < 50 && playing) { step(); acc -= 1; k++; }
+    while (acc >= 1 && k < 500 && playing) { step(); acc -= 1; k++; }
+    if (k === 500) acc = 0;
     render();
     if (playing) requestAnimationFrame(loop);
   }
@@ -478,10 +485,17 @@ svg.lw .lw-only { display: inline; }
   }
   $("cfl").addEventListener("input", e => setC(+e.target.value));
   $("cfl-num").addEventListener("change", e => setC(+e.target.value, true));
-  $("nx").addEventListener("input", e => {
-    nx = +e.target.value; $("nx-v").textContent = nx;
-    const wasPlaying = playing; setPlaying(false); init(); if (wasPlaying) setPlaying(true);
-  });
+  function setNx(v, autoplay) {
+    if (!isFinite(v) || v < 11 || v > 2001) {          // reject out-of-range input, restore current value
+      $("nx-num").value = nx; return;
+    }
+    nx = Math.round(v);
+    $("nx").value = nx; $("nx-num").value = nx;
+    const wasPlaying = playing; setPlaying(false); init();
+    if (wasPlaying || autoplay) setPlaying(true);
+  }
+  $("nx").addEventListener("input", e => setNx(+e.target.value));
+  $("nx-num").addEventListener("change", e => setNx(+e.target.value, true));
   $("shape").addEventListener("change", e => { shape = e.target.value; setPlaying(false); init(); });
   $("scheme").addEventListener("change", e => { scheme = e.target.value; setPlaying(false); init(); setPlaying(true); });
   document.querySelectorAll(".presets button").forEach(b => b.addEventListener("click", () => {

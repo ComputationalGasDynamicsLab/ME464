@@ -185,7 +185,7 @@ diaphragm gain momentum but no energy.
   crashing.
 - **AUSM+-up** fixes both: its pressure-diffusion term $`M_p`$ gives a nonzero mass flux at the
   diaphragm from the first step. It has no bump at $`x = 0.5`$ and runs at CFL 0.8 and 0.9, but
-  its L1 error is about 20–35% higher than AUSM+ because of the extra diffusion.
+  its L1 error is about 15–40% higher than AUSM+ because of the extra diffusion.
 
 ## Run the Python script on your own computer
 

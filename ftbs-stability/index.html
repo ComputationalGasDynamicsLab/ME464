@@ -134,7 +134,7 @@ a { color: var(--accent); }
     <div class="left">
       <section class="card" aria-label="Solution movie">
         <h2>Solution movie: the convection lab problem</h2>
-        <p class="sub">The same FTBS scheme and CFL number on the step from the <a href="../ftbs-linear-convection/">convection lab</a> (u = 1 for x &lt; 0.5, u = 2 after, 81 points, inflow u = 1, run to t = 1). It advances in step with the plots below: frame n here is step n there. Its error is the orange curve in the growth plot.</p>
+        <p class="sub">The same FTBS scheme and CFL number on the step from the <a href="../ftbs-linear-convection/">convection lab</a> (u = 1 for x &lt; 0.5, u = 2 after, inflow u = 1, run to t = 1). It uses the same Δx and Δt as the periodic runs below, so frame n here is step n and time t there. Its error is the orange curve in the growth plot.</p>
         <div class="legend">
           <span><i class="sw dash" style="border-color:var(--muted)"></i>Initial</span>
           <span><i class="sw" style="border-color:var(--fg)"></i>Exact u(x − at)</span>
@@ -163,7 +163,7 @@ a { color: var(--accent); }
         </div>
         <canvas id="cv-r" aria-label="Ratio of the error at each step to the error at the previous step"></canvas>
         <div class="readouts">
-          <div class="ro"><div class="k">step n</div><div class="v" id="r-n">0</div></div>
+          <div class="ro"><div class="k">step n · time t</div><div class="v" id="r-n">0</div></div>
           <div class="ro"><div class="k">max |δ|</div><div class="v" id="r-d">—</div></div>
           <div class="ro"><div class="k">ratio, last step</div><div class="v" id="r-g">—</div></div>
           <div class="ro"><div class="k">predicted |G|</div><div class="v" id="r-p">—</div></div>
@@ -181,7 +181,7 @@ a { color: var(--accent); }
 
       <section class="card" aria-label="Round-off perturbation">
         <h2>Round-off perturbation (periodic grid)</h2>
-        <p class="sub">Two runs with the same scheme on a smooth profile: one clean, one with a tiny perturbation δ added at the start. Top: the perturbed solution. Bottom: the size of the perturbation at each point, on a log scale.</p>
+        <p class="sub">Two runs with the same scheme, grid and time step on a smooth profile, periodic on 0 ≤ x &lt; 2: one clean, one with a tiny perturbation δ added at the start. Top: the perturbed solution. Bottom: the size of the perturbation at each point, on a log scale.</p>
         <div class="legend">
           <span><i class="sw" style="border-color:var(--fg)"></i>Exact u(x − at)</span>
           <span><i class="sw" style="border-color:var(--accent)"></i>FTBS, perturbed run</span>
@@ -226,12 +226,13 @@ a { color: var(--accent); }
         </div>
         <div class="field" id="mode-field" hidden>
           <label for="k">Mode k: θ = 2πk / N = <b id="theta-v">π</b></label>
-          <input type="range" id="k" min="1" max="25" step="1" value="25" aria-label="Fourier mode number">
+          <input type="range" id="k" min="1" max="40" step="1" value="40" aria-label="Fourier mode number">
           <div class="hint">k = N/2 is the sawtooth (θ = π, two points per wavelength). Small k is a long wave. Here δ is advanced on its own, so it stays one pure mode; with random noise, round-off always contains the sawtooth too.</div>
         </div>
         <div class="field">
-          <label for="nx">Grid points N (periodic) <b id="nx-v">50</b></label>
-          <input type="range" id="nx" min="10" max="200" step="2" value="50" aria-label="Grid points">
+          <label for="nx">Grid points N <b id="nx-v">80</b>, Δx = 2/N = <b id="dx-v">0.025</b></label>
+          <input type="range" id="nx" min="20" max="200" step="2" value="80" aria-label="Grid points">
+          <div class="hint">Shared by the movie (N + 1 points on 0 ≤ x ≤ 2) and the periodic runs (N points), so both use the same Δx and the same Δt = c Δx / a.</div>
         </div>
         <div class="status" id="status" aria-live="polite"></div>
       </section>
@@ -281,24 +282,28 @@ a { color: var(--accent); }
   const A = 1, NMAX = 800;
   const $ = id => document.getElementById(id);
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let c = 1.1, N = 50, ptype = "noise", eps = 1e-16, k = 25, speed = 25;
+  const L = 2;                                   // both problems live on 0 <= x <= 2 with the same dx = L / N
+  let c = 1.1, N = 80, ptype = "noise", eps = 1e-16, k = 40, speed = 25;
   let x, uC, uP, dP, n, hist, d0, blown, finished, playing = false;
   // noise: two full runs, delta = uP - uC (includes real round-off). mode: delta advanced on its own, so it stays one pure mode.
   const del = i => ptype === "mode" ? dP[i] : uP[i] - uC[i];
   const pert = i => ptype === "mode" ? uC[i] + dP[i] : uP[i];
 
-  // periodic Gaussian, centre 0.5
-  const f0 = xx => { const d = ((xx - 0.5) % 1 + 1.5) % 1 - 0.5; return Math.exp(-((d / 0.1) ** 2)); };
+  // periodic Gaussian on [0, L), centre 0.5
+  const f0 = xx => { const d = (((xx - 0.5) % L) + 1.5 * L) % L - 0.5 * L; return Math.exp(-((d / 0.1) ** 2)); };
+  const dxOf = () => L / N, dtOf = () => c * dxOf() / A;
   const theta = () => 2 * Math.PI * k / N;
   const absG = th => Math.sqrt(Math.max(0, 1 - 2 * c * (1 - c) * (1 - Math.cos(th))));
   // fastest-growing resolved mode: sawtooth for c > 1 (if N is even), otherwise the mean mode (|G| = 1)
   const predictedG = () => ptype === "mode" ? absG(theta()) : Math.max(1, ...Array.from({ length: Math.floor(N / 2) }, (_, j) => absG(2 * Math.PI * (j + 1) / N)));
 
   // ---------------- solution movie: the convection-lab problem, advanced in step with the round-off runs
-  const ML = 2, MNX = 81, MT = 1, mdx = ML / (MNX - 1);
+  const ML = L, MT = 1;                          // movie grid: N + 1 points on [0, 2], so mdx = dx and the same dt
+  let MNX, mdx;
   const mf0 = xx => (xx < 0.5 ? 1 : 2);
   let mx, mu, mn, mt, mdone, mblown, mhist;
   function minit() {
+    MNX = N + 1; mdx = ML / N;
     mx = Float64Array.from({ length: MNX }, (_, i) => i * mdx);
     mu = Float64Array.from(mx, mf0);
     mn = 0; mt = 0; mdone = false; mblown = false; mhist = [0];
@@ -320,7 +325,7 @@ a { color: var(--accent); }
   const rand = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
 
   function init() {
-    const dx = 1 / N;
+    const dx = dxOf();
     x = Float64Array.from({ length: N }, (_, i) => i * dx);
     uC = Float64Array.from(x, f0);
     seed = 1;
@@ -382,7 +387,7 @@ a { color: var(--accent); }
 
   function render() {
     const col = { fg: css("--fg"), muted: css("--muted"), accent: css("--accent"), warn: css("--warn"), ok: css("--ok"), disk: css("--disk"), line: css("--line") };
-    const t = n * c / N / A;   // dt = c dx / a with dx = 1/N
+    const t = n * dtOf();      // the same t as the movie: both use dt = c dx / a with dx = 2 / N
 
     // 0. solution movie
     { const { ctx, w, h } = setup($("cv-m"), 0.36, 190, 300);
@@ -407,10 +412,10 @@ a { color: var(--accent); }
 
     // 1. solution
     { const { ctx, w, h } = setup($("cv-u"), 0.32, 170, 260);
-      const { X, Y } = axes(ctx, w, h, { x0: 0, x1: 1, y0: -0.6, y1: 1.6, xt: range(0, 1, 0.1), yt: range(-0.5, 1.5, 0.5),
-        xf: v => v.toFixed(1), yf: v => v.toFixed(1), xl: "x", yl: "u" });
+      const { X, Y } = axes(ctx, w, h, { x0: 0, x1: L, y0: -0.6, y1: 1.6, xt: range(0, L, 0.25), yt: range(-0.5, 1.5, 0.5),
+        xf: v => (Math.abs(v * 2 - Math.round(v * 2)) < 1e-9 ? v.toFixed(1) : ""), yf: v => v.toFixed(1), xl: "x", yl: "u" });
       ctx.strokeStyle = col.fg; ctx.lineWidth = 2; ctx.beginPath();
-      for (let q = 0; q <= 600; q++) { const xv = q / 600; const yv = f0(xv - A * t); q ? ctx.lineTo(X(xv), Y(yv)) : ctx.moveTo(X(xv), Y(yv)); }
+      for (let q = 0; q <= 800; q++) { const xv = q / 800 * L; const yv = f0(xv - A * t); q ? ctx.lineTo(X(xv), Y(yv)) : ctx.moveTo(X(xv), Y(yv)); }
       ctx.stroke();
       const cl = v => Math.max(-50, Math.min(50, isFinite(v) ? v : 50));
       ctx.strokeStyle = blown ? col.warn : col.accent; ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = 1.5; ctx.beginPath();
@@ -421,10 +426,10 @@ a { color: var(--accent); }
 
     // 2. log10 |delta| at each point
     { const { ctx, w, h } = setup($("cv-d"), 0.26, 150, 220);
-      const { X, Y } = axes(ctx, w, h, { x0: 0, x1: 1, y0: -20, y1: 4, xt: range(0, 1, 0.1), yt: range(-20, 4, 4),
-        xf: v => v.toFixed(1), yf: v => (v === 0 ? "1" : sup(v)), xl: "x", yl: "|δ|" });
+      const { X, Y } = axes(ctx, w, h, { x0: 0, x1: L, y0: -20, y1: 4, xt: range(0, L, 0.25), yt: range(-20, 4, 4),
+        xf: v => (Math.abs(v * 2 - Math.round(v * 2)) < 1e-9 ? v.toFixed(1) : ""), yf: v => (v === 0 ? "1" : sup(v)), xl: "x", yl: "|δ|" });
       ctx.setLineDash([5, 4]); ctx.lineWidth = 1.2; ctx.strokeStyle = col.muted;
-      for (const yv of [Math.log10(eps), 0]) { ctx.beginPath(); ctx.moveTo(X(0), Y(yv)); ctx.lineTo(X(1), Y(yv)); ctx.stroke(); }
+      for (const yv of [Math.log10(eps), 0]) { ctx.beginPath(); ctx.moveTo(X(0), Y(yv)); ctx.lineTo(X(L), Y(yv)); ctx.stroke(); }
       ctx.setLineDash([]);
       ctx.fillStyle = blown ? col.warn : col.accent;
       for (let i = 0; i < N; i++) {
@@ -514,7 +519,7 @@ a { color: var(--accent); }
 
     // readouts
     const d = hist[hist.length - 1];
-    $("r-n").textContent = n;
+    $("r-n").textContent = n + " · " + t.toFixed(3);
     $("r-d").textContent = sci(d);
     $("r-d").className = "v" + (d > 1e-3 || !isFinite(d) ? " bad" : "");
     const g = n > 0 && hist[n - 1] > 0 ? d / hist[n - 1] : NaN;
@@ -581,7 +586,7 @@ a { color: var(--accent); }
   $("ptype").addEventListener("change", e => { ptype = e.target.value; restart(true); });
   $("eps").addEventListener("change", e => { eps = +e.target.value; restart(true); });
   $("k").addEventListener("input", e => { k = +e.target.value; restart(); });
-  $("nx").addEventListener("input", e => { N = +e.target.value; $("nx-v").textContent = N; if (ptype === "mode") k = Math.min(k, N / 2); restart(); });
+  $("nx").addEventListener("input", e => { N = +e.target.value; $("nx-v").textContent = N; $("dx-v").textContent = +(L / N).toFixed(4); if (ptype === "mode") k = Math.min(k, N / 2); restart(); });
 
   new ResizeObserver(() => render()).observe(document.querySelector(".wrap"));
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);

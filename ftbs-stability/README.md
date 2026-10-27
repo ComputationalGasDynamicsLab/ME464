@@ -10,13 +10,15 @@ damped or amplified. Companion to the [linear convection lab](../ftbs-linear-con
 
 **Open it here: https://computationalgasdynamicslab.github.io/ME464/ftbs-stability/**
 
-It runs in any web browser, with nothing to install. Three runs of FTBS with the same CFL number
-advance together, step by step:
+It runs in any web browser, with nothing to install. Three runs of FTBS advance together, step by
+step, with the **same CFL number, grid spacing and time step**: all live on $`0 \le x \le 2`$ with
+$`\Delta x = 2/N`$ (default $`N = 80`$, so $`\Delta x = 0.025`$ as in the convection lab) and
+$`\Delta t = c\,\Delta x / a`$, so step $`n`$ is the same time $`t = n\,\Delta t`$ in every panel:
 
 - a **solution movie** of the step problem from the [convection lab](../ftbs-linear-convection/)
   ($`u = 1`$ for $`x < 0.5`$, $`u = 2`$ after, run to $`t = 1`$), with the exact solution;
-- a clean run and a perturbed run on a periodic grid, starting from a smooth profile; the perturbed
-  run gets a perturbation $`\varepsilon`$ (default $`10^{-16}`$, the size of round-off).
+- a clean run and a perturbed run on a periodic grid with $`N`$ points, starting from a smooth profile;
+  the perturbed run gets a perturbation $`\varepsilon`$ (default $`10^{-16}`$, the size of round-off).
 
 The page shows, synced with the movie:
 
@@ -79,7 +81,8 @@ n \approx \frac{\ln(1/\varepsilon)}{\ln|1 - 2c|}
 
 steps. **An instability can hide:** a short run can look perfectly fine.
 
-Results with $`N = 50`$ points and $`\varepsilon = 10^{-16}`$:
+Results from the Python script ($`N = 50`$ points, $`\varepsilon = 10^{-16}`$; the growth per step does not
+depend on $`N`$ or $`\Delta x`$, only on $`c`$):
 
 | $`c`$ | $`\lvert G(\pi) \rvert = \lvert 1 - 2c \rvert`$ | measured growth per step | steps until $`\lvert\delta\rvert = 1`$ (predicted) |
 |---|---|---|---|

@@ -3,3 +3,4 @@ __pycache__/
 venv/
 *.png
 .DS_Store
+!ftbs-stability/ftbs_stability.png

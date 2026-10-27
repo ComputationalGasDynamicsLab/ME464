@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>FTBS Stability Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital@1&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: same lab bench as the other ME464 pages. Three stacked plots on the left, controls and the amplification factor on the right. */
+:root {
+  --bg: #f3f6f9;
+  --panel: #ffffff;
+  --fg: #15202b;
+  --muted: #5a6876;
+  --line: #d9e0e7;
+  --grid: #e6ebf0;
+  --accent: #2552c4;
+  --ok: #17795a;
+  --warn: #b42318;
+  --warn-bg: #fdecea;
+  --ok-bg: #e5f4ee;
+  --info-bg: #e8eefb;
+  --disk: #e5f4ee;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --math: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
+    --accent: #7ea4ff; --ok: #4cc596; --warn: #ff7b72; --warn-bg: #3a1a1a; --ok-bg: #12301f; --info-bg: #17233d; --disk: #12301f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
+  --accent: #7ea4ff; --ok: #4cc596; --warn: #ff7b72; --warn-bg: #3a1a1a; --ok-bg: #12301f; --info-bg: #17233d; --disk: #12301f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-block: 28px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1160px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: grid; gap: 6px; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 700 clamp(26px, 4vw, 36px)/1.1 var(--display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+.eqs { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: baseline; }
+.eq { font-family: var(--math); font-style: italic; font-size: 18px; }
+.eq sub, .eq sup { font-size: .7em; }
+.eq-label { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 8px; font-style: normal; }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+@media (max-width: 920px) { .main { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
+.left { display: grid; gap: 16px; min-width: 0; }
+h2 { font: 700 15px/1.2 var(--display); margin: 0; letter-spacing: .01em; }
+.sub { font-size: 13px; color: var(--muted); margin: -4px 0 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.sw { width: 22px; height: 0; border-top: 2.5px solid; display: inline-block; }
+.sw.dash { border-top-style: dashed; }
+canvas { width: 100%; display: block; }
+
+.readouts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 640px) { .readouts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.ro { border-top: 1px solid var(--line); padding-top: 8px; min-width: 0; }
+.ro .k { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ro .v { font: 500 18px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ro .v.bad { color: var(--warn); }
+.ro .v.good { color: var(--ok); }
+
+.transport { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: 500 14px var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 8px 14px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); min-width: 92px; }
+.spacer { flex: 1; }
+.speed { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+
+aside { display: grid; gap: 16px; min-width: 0; }
+.field { display: grid; gap: 6px; }
+.field > label { font-size: 13px; color: var(--muted); }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 10px; align-items: center; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+input[type=number] { font: 500 15px var(--mono); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; width: 100%; font-variant-numeric: tabular-nums; }
+select { font: 14px var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; width: 100%; }
+.hint { font-size: 12px; color: var(--muted); }
+.presets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.presets button { padding: 7px 4px; font-size: 13px; display: grid; gap: 1px; }
+.presets button small { font: 11px var(--mono); color: var(--muted); }
+.presets button[aria-pressed="true"] { border-color: var(--accent); background: var(--info-bg); }
+.status { border-radius: 8px; padding: 12px 14px; display: grid; gap: 4px; font-size: 14px; }
+.status .tag { font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.status.stable { background: var(--ok-bg); } .status.stable .tag { color: var(--ok); }
+.status.neutral { background: var(--info-bg); } .status.neutral .tag { color: var(--accent); }
+.status.unstable { background: var(--warn-bg); } .status.unstable .tag { color: var(--warn); }
+.status p { margin: 0; }
+
+.notes-wrap { display: grid; gap: 14px; }
+.notes-wrap .lead { margin: 0; color: var(--muted); max-width: 75ch; }
+.notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 900px) { .notes { grid-template-columns: minmax(0, 1fr); } }
+.note h3 { font: 700 14px var(--display); margin: 0 0 4px; }
+.note p { margin: 0 0 6px; color: var(--muted); font-size: 14px; max-width: 65ch; }
+.note i { font-family: var(--math); color: var(--fg); }
+.note .meq { font: italic 16px var(--math); color: var(--fg); margin: 2px 0 8px; overflow-x: auto; }
+.note b { color: var(--fg); font-weight: 600; }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">CFD · 1D linear convection · von Neumann stability analysis</div>
+    <h1>FTBS Stability Lab</h1>
+    <div class="eqs">
+      <span class="eq"><span class="eq-label">FTBS</span>u<sub>i</sub><sup>n+1</sup> = u<sub>i</sub><sup>n</sup> − c (u<sub>i</sub><sup>n</sup> − u<sub>i−1</sub><sup>n</sup>)</span>
+      <span class="eq"><span class="eq-label">Mode</span>δ<sub>j</sub><sup>n</sup> = G<sup>n</sup> e<sup>i j θ</sup></span>
+      <span class="eq"><span class="eq-label">Amplification</span>G(θ) = 1 − c + c e<sup>−iθ</sup></span>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="left">
+      <section class="card" aria-label="Solution and perturbation">
+        <h2>Solution and perturbation</h2>
+        <p class="sub">Two runs with the same scheme: one clean, one with a tiny perturbation δ added at the start. Top: the perturbed solution. Bottom: the size of the perturbation at each point, on a log scale.</p>
+        <div class="legend">
+          <span><i class="sw" style="border-color:var(--fg)"></i>Exact u(x − at)</span>
+          <span><i class="sw" style="border-color:var(--accent)"></i>FTBS, perturbed run</span>
+          <span><i class="sw dash" style="border-color:var(--muted)"></i>Initial size ε</span>
+        </div>
+        <canvas id="cv-u" aria-label="Perturbed FTBS solution compared with the exact solution"></canvas>
+        <canvas id="cv-d" aria-label="log10 of the perturbation at each grid point"></canvas>
+      </section>
+
+      <section class="card" aria-label="Growth history">
+        <h2>Growth of the perturbation</h2>
+        <p class="sub">Largest perturbation max|δ| against the time step n, with the von Neumann prediction ε |G|<sup>n</sup>. A straight line on this log scale means exponential growth or decay.</p>
+        <div class="legend">
+          <span><i class="sw" style="border-color:var(--accent)"></i>Measured max|δ|</span>
+          <span><i class="sw dash" style="border-color:var(--warn)"></i>Prediction ε·|G|ⁿ</span>
+          <span><i class="sw dash" style="border-color:var(--muted)"></i>|δ| = 1: visible in the solution</span>
+        </div>
+        <canvas id="cv-h" aria-label="Growth history of the perturbation"></canvas>
+        <div class="readouts">
+          <div class="ro"><div class="k">step n</div><div class="v" id="r-n">0</div></div>
+          <div class="ro"><div class="k">max |δ|</div><div class="v" id="r-d">—</div></div>
+          <div class="ro"><div class="k">measured growth</div><div class="v" id="r-g">—</div></div>
+          <div class="ro"><div class="k">predicted |G|</div><div class="v" id="r-p">—</div></div>
+          <div class="ro"><div class="k">steps to |δ| = 1</div><div class="v" id="r-s">—</div></div>
+        </div>
+        <div class="transport">
+          <button class="primary" id="play">Play</button>
+          <button id="stepbtn">Step +1</button>
+          <button id="reset">Reset</button>
+          <span class="spacer"></span>
+          <label class="speed" for="speed">Speed <input type="range" id="speed" min="2" max="120" value="25" style="width:110px"></label>
+        </div>
+      </section>
+    </div>
+
+    <aside>
+      <section class="card" aria-label="Parameters">
+        <h2>Parameters</h2>
+        <div class="field">
+          <label for="cfl-num">CFL number c = a Δt / Δx</label>
+          <div class="row">
+            <input type="range" id="cfl" min="0.1" max="1.5" step="0.01" value="1.1" aria-label="CFL number slider">
+            <input type="number" id="cfl-num" min="0.05" max="1.6" step="0.01" value="1.10" inputmode="decimal">
+          </div>
+        </div>
+        <div class="presets" role="group" aria-label="CFL presets">
+          <button data-c="0.8"><span>Stable</span><small>0.80</small></button>
+          <button data-c="1"><span>Neutral</span><small>1.00</small></button>
+          <button data-c="1.05"><span>Slow</span><small>1.05</small></button>
+          <button data-c="1.1"><span>Unstable</span><small>1.10</small></button>
+        </div>
+        <div class="field">
+          <label for="ptype">Perturbation</label>
+          <select id="ptype">
+            <option value="noise" selected>Random noise (like round-off)</option>
+            <option value="mode">Single Fourier mode</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="eps">Initial size ε</label>
+          <select id="eps">
+            <option value="1e-16" selected>10⁻¹⁶ (double-precision round-off)</option>
+            <option value="1e-12">10⁻¹²</option>
+            <option value="1e-8">10⁻⁸</option>
+            <option value="1e-4">10⁻⁴</option>
+          </select>
+        </div>
+        <div class="field" id="mode-field" hidden>
+          <label for="k">Mode k: θ = 2πk / N = <b id="theta-v">π</b></label>
+          <input type="range" id="k" min="1" max="25" step="1" value="25" aria-label="Fourier mode number">
+          <div class="hint">k = N/2 is the sawtooth (θ = π, two points per wavelength). Small k is a long wave. Here δ is advanced on its own, so it stays one pure mode; with random noise, round-off always contains the sawtooth too.</div>
+        </div>
+        <div class="field">
+          <label for="nx">Grid points N (periodic) <b id="nx-v">50</b></label>
+          <input type="range" id="nx" min="10" max="200" step="2" value="50" aria-label="Grid points">
+        </div>
+        <div class="status" id="status" aria-live="polite"></div>
+      </section>
+
+      <section class="card" aria-label="Amplification factor">
+        <h2>Amplification factor G(θ)</h2>
+        <p class="sub">As θ goes from −π to π, G traces a circle with center 1 − c and radius c. Stable means the circle stays inside the unit circle.</p>
+        <div class="legend">
+          <span><i class="sw dash" style="border-color:var(--ok)"></i>Unit circle |G| = 1</span>
+          <span><i class="sw" style="border-color:var(--accent)"></i>G(θ), stable</span>
+          <span><i class="sw" style="border-color:var(--warn)"></i>G(θ), unstable</span>
+        </div>
+        <canvas id="cv-g" aria-label="Amplification factor in the complex plane"></canvas>
+        <canvas id="cv-a" aria-label="Magnitude of the amplification factor against theta"></canvas>
+      </section>
+    </aside>
+  </div>
+
+  <section class="notes-wrap">
+    <h2>Why FTBS needs 0 ≤ c ≤ 1</h2>
+    <p class="lead">Von Neumann analysis follows one Fourier mode of the error through one time step. The scheme is linear, so every mode evolves on its own, and any error is a sum of modes. This page runs on a periodic grid so that the boundaries do not interfere. Back to the <a href="../ftbs-linear-convection/">convection lab</a>.</p>
+    <div class="notes">
+      <div class="note">
+        <h3>The amplification factor</h3>
+        <p>Put <i>δ<sub>j</sub><sup>n</sup> = G<sup>n</sup> e<sup>ijθ</sup></i> into the FTBS update. Every term shares the factor <i>G<sup>n</sup> e<sup>ijθ</sup></i>, which cancels and leaves</p>
+        <p class="meq">G = 1 − c + c e<sup>−iθ</sup>, &nbsp; |G|² = 1 − 2c(1 − c)(1 − cos θ)</p>
+        <p>A mode is multiplied by <i>G</i> every step. The scheme is stable if <i>|G| ≤ 1</i> for every θ. Since <i>1 − cos θ ≥ 0</i>, this holds exactly when <i>c(1 − c) ≥ 0</i>, that is <i>0 ≤ c ≤ 1</i>.</p>
+      </div>
+      <div class="note">
+        <h3>The worst mode is the sawtooth</h3>
+        <p>The largest <i>|G|</i> is at <i>θ = π</i>, the shortest wave the grid can hold (+, −, +, − at neighboring points). There <i>G = 1 − 2c</i>. For <i>c = 1.1</i> it is −1.2: the sawtooth flips sign and grows 20% every step. Choose the single-mode perturbation and move <i>k</i> to see that long waves grow much more slowly.</p>
+      </div>
+      <div class="note">
+        <h3>Round-off seeds every mode</h3>
+        <p>Every floating-point operation has a relative error of about 10<sup>−16</sup>. These errors contain all wavelengths, including the sawtooth. For <i>c ≤ 1</i> they stay at round-off level. For <i>c &gt; 1</i> the sawtooth part grows like <i>10<sup>−16</sup>·|1 − 2c|<sup>n</sup></i> until it swamps the solution.</p>
+      </div>
+      <div class="note">
+        <h3>An instability can hide</h3>
+        <p>Starting from 10<sup>−16</sup>, reaching size 1 takes <i>n ≈ ln(10<sup>16</sup>)/ln|1 − 2c|</i> steps: about 200 at <i>c = 1.1</i> and 390 at <i>c = 1.05</i>. A short run can look fine. In the convection lab, the step in the initial condition already contains short waves of size 1, so there the same instability shows up within a few dozen steps.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const A = 1, NMAX = 800;
+  const $ = id => document.getElementById(id);
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let c = 1.1, N = 50, ptype = "noise", eps = 1e-16, k = 25, speed = 25;
+  let x, uC, uP, dP, n, hist, d0, blown, finished, playing = false;
+  // noise: two full runs, delta = uP - uC (includes real round-off). mode: delta advanced on its own, so it stays one pure mode.
+  const del = i => ptype === "mode" ? dP[i] : uP[i] - uC[i];
+  const pert = i => ptype === "mode" ? uC[i] + dP[i] : uP[i];
+
+  // periodic Gaussian, centre 0.5
+  const f0 = xx => { const d = ((xx - 0.5) % 1 + 1.5) % 1 - 0.5; return Math.exp(-((d / 0.1) ** 2)); };
+  const theta = () => 2 * Math.PI * k / N;
+  const absG = th => Math.sqrt(Math.max(0, 1 - 2 * c * (1 - c) * (1 - Math.cos(th))));
+  // fastest-growing resolved mode: sawtooth for c > 1 (if N is even), otherwise the mean mode (|G| = 1)
+  const predictedG = () => ptype === "mode" ? absG(theta()) : Math.max(1, ...Array.from({ length: Math.floor(N / 2) }, (_, j) => absG(2 * Math.PI * (j + 1) / N)));
+
+  let seed = 1;
+  const rand = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+
+  function init() {
+    const dx = 1 / N;
+    x = Float64Array.from({ length: N }, (_, i) => i * dx);
+    uC = Float64Array.from(x, f0);
+    seed = 1;
+    uP = Float64Array.from(x, (xi, i) => uC[i] + eps * (2 * rand() - 1));
+    dP = Float64Array.from(x, (xi, i) => eps * Math.cos(theta() * i));
+    n = 0; blown = false; finished = false;
+    d0 = maxDelta(); hist = [d0];
+    updateStatus(); render();
+  }
+  function maxDelta() { let m = 0; for (let i = 0; i < N; i++) m = Math.max(m, Math.abs(del(i))); return m; }
+  function ftbs(u) {
+    const un = Float64Array.from(u);
+    for (let i = 0; i < N; i++) u[i] = un[i] - c * (un[i] - un[(i - 1 + N) % N]);   // periodic
+  }
+  function step() {
+    if (finished) return;
+    ftbs(uC); ftbs(ptype === "mode" ? dP : uP); n++;
+    const d = maxDelta(); hist.push(d);
+    if (!isFinite(d) || d > 1e6) { blown = true; finished = true; setPlaying(false); }
+    if (n >= NMAX) { finished = true; setPlaying(false); }
+  }
+
+  // ---------------- drawing helpers
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  function setup(cv, hRatio, hMin, hMax) {
+    const w = cv.clientWidth, h = Math.max(hMin, Math.min(hMax, w * hRatio)), dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); cv.style.height = h + "px";
+    }
+    const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+    return { ctx, w, h };
+  }
+  function axes(ctx, w, h, o) {
+    const m = { l: 58, r: 16, t: 10, b: 32 }, pw = w - m.l - m.r, ph = h - m.t - m.b;
+    const X = v => m.l + (v - o.x0) / (o.x1 - o.x0) * pw, Y = v => m.t + (1 - (v - o.y0) / (o.y1 - o.y0)) * ph;
+    ctx.font = "12px " + css("--mono"); ctx.lineWidth = 1;
+    ctx.fillStyle = css("--muted"); ctx.strokeStyle = css("--grid");
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (const xv of o.xt) { ctx.beginPath(); ctx.moveTo(X(xv), m.t); ctx.lineTo(X(xv), m.t + ph); ctx.stroke(); ctx.fillText(o.xf(xv), X(xv), m.t + ph + 6); }
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (const yv of o.yt) { ctx.beginPath(); ctx.moveTo(m.l, Y(yv)); ctx.lineTo(m.l + pw, Y(yv)); ctx.stroke(); ctx.fillText(o.yf(yv), m.l - 8, Y(yv)); }
+    ctx.strokeStyle = css("--line"); ctx.strokeRect(m.l, m.t, pw, ph);
+    ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(o.xl, m.l + pw, m.t + ph + 30);
+    ctx.save(); ctx.translate(12, m.t + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(o.yl, 0, 0); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(m.l, m.t, pw, ph); ctx.clip();
+    return { X, Y, m, pw, ph };
+  }
+  const range = (a, b, s) => { const r = []; for (let v = a; v <= b + 1e-9; v += s) r.push(+v.toFixed(10)); return r; };
+  const sup = e => { const map = { "-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹" }; return "10" + String(e).split("").map(ch => map[ch]).join(""); };
+  const sci = v => {
+    if (!isFinite(v)) return "∞";
+    if (v === 0) return "0";
+    const [mant, ex] = v.toExponential(1).split("e");
+    return mant + "×" + sup(+ex);
+  };
+
+  function render() {
+    const col = { fg: css("--fg"), muted: css("--muted"), accent: css("--accent"), warn: css("--warn"), ok: css("--ok"), disk: css("--disk"), line: css("--line") };
+    const t = n * c / N / A;   // dt = c dx / a with dx = 1/N
+
+    // 1. solution
+    { const { ctx, w, h } = setup($("cv-u"), 0.32, 170, 260);
+      const { X, Y } = axes(ctx, w, h, { x0: 0, x1: 1, y0: -0.6, y1: 1.6, xt: range(0, 1, 0.1), yt: range(-0.5, 1.5, 0.5),
+        xf: v => v.toFixed(1), yf: v => v.toFixed(1), xl: "x", yl: "u" });
+      ctx.strokeStyle = col.fg; ctx.lineWidth = 2; ctx.beginPath();
+      for (let q = 0; q <= 600; q++) { const xv = q / 600; const yv = f0(xv - A * t); q ? ctx.lineTo(X(xv), Y(yv)) : ctx.moveTo(X(xv), Y(yv)); }
+      ctx.stroke();
+      const cl = v => Math.max(-50, Math.min(50, isFinite(v) ? v : 50));
+      ctx.strokeStyle = blown ? col.warn : col.accent; ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = 1.5; ctx.beginPath();
+      for (let i = 0; i < N; i++) i ? ctx.lineTo(X(x[i]), Y(cl(pert(i)))) : ctx.moveTo(X(x[i]), Y(cl(pert(i))));
+      ctx.stroke();
+      if (N <= 120) for (let i = 0; i < N; i++) { ctx.beginPath(); ctx.arc(X(x[i]), Y(cl(pert(i))), 2.6, 0, 7); ctx.fill(); }
+      ctx.restore(); }
+
+    // 2. log10 |delta| at each point
+    { const { ctx, w, h } = setup($("cv-d"), 0.26, 150, 220);
+      const { X, Y } = axes(ctx, w, h, { x0: 0, x1: 1, y0: -20, y1: 4, xt: range(0, 1, 0.1), yt: range(-20, 4, 4),
+        xf: v => v.toFixed(1), yf: v => (v === 0 ? "1" : sup(v)), xl: "x", yl: "|δ|" });
+      ctx.setLineDash([5, 4]); ctx.lineWidth = 1.2; ctx.strokeStyle = col.muted;
+      for (const yv of [Math.log10(eps), 0]) { ctx.beginPath(); ctx.moveTo(X(0), Y(yv)); ctx.lineTo(X(1), Y(yv)); ctx.stroke(); }
+      ctx.setLineDash([]);
+      ctx.fillStyle = blown ? col.warn : col.accent;
+      for (let i = 0; i < N; i++) {
+        const d = Math.abs(del(i)), ly = d > 0 && isFinite(d) ? Math.max(-19.8, Math.min(3.8, Math.log10(d))) : -19.8;
+        ctx.beginPath(); ctx.arc(X(x[i]), Y(ly), 2.6, 0, 7); ctx.fill();
+      }
+      ctx.restore(); }
+
+    // 3. growth history
+    { const { ctx, w, h } = setup($("cv-h"), 0.34, 190, 300);
+      const nmax = Math.min(NMAX, Math.max(100, Math.ceil(n * 1.15 / 50) * 50));
+      const xs = nmax <= 200 ? 25 : nmax <= 400 ? 50 : 100;
+      const { X, Y } = axes(ctx, w, h, { x0: 0, x1: nmax, y0: -20, y1: 4, xt: range(0, nmax, xs), yt: range(-20, 4, 4),
+        xf: v => String(v), yf: v => (v === 0 ? "1" : sup(v)), xl: "step n", yl: "max |δ|" });
+      ctx.setLineDash([5, 4]); ctx.lineWidth = 1.2; ctx.strokeStyle = col.muted;
+      ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(nmax), Y(0)); ctx.stroke();
+      const lg = Math.log10(predictedG()), l0 = Math.log10(d0 > 0 ? d0 : eps);
+      ctx.strokeStyle = col.warn; ctx.lineWidth = 1.6; ctx.beginPath();
+      ctx.moveTo(X(0), Y(l0)); const nEnd = lg > 0 ? Math.min(nmax, (4 - l0) / lg) : nmax; ctx.lineTo(X(nEnd), Y(l0 + lg * nEnd)); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = blown ? col.warn : col.accent; ctx.lineWidth = 2; ctx.beginPath();
+      hist.forEach((d, j) => { const ly = d > 0 && isFinite(d) ? Math.max(-19.8, Math.min(3.9, Math.log10(d))) : (isFinite(d) ? -19.8 : 3.9); j ? ctx.lineTo(X(j), Y(ly)) : ctx.moveTo(X(j), Y(ly)); });
+      ctx.stroke();
+      ctx.restore(); }
+
+    // 4. complex plane
+    { const { ctx, w, h } = setup($("cv-g"), 0.8, 220, 300);
+      const x0 = -2.3, x1 = 1.4, s = Math.min((w - 20) / (x1 - x0), (h - 20) / 3.3);
+      const cx0 = 10 + (-x0) * s, cy0 = h / 2;
+      const P = (re, im) => [cx0 + re * s, cy0 - im * s];
+      ctx.strokeStyle = col.line; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(P(x0, 0)[0], cy0); ctx.lineTo(P(x1, 0)[0], cy0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx0, P(0, 1.6)[1]); ctx.lineTo(cx0, P(0, -1.6)[1]); ctx.stroke();
+      ctx.fillStyle = col.disk; ctx.beginPath(); ctx.arc(cx0, cy0, s, 0, 7); ctx.fill();
+      ctx.strokeStyle = col.ok; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.arc(cx0, cy0, s, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+      const unstable = c > 1 + 1e-9;
+      ctx.strokeStyle = unstable ? col.warn : col.accent; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(P(1 - c, 0)[0], cy0, c * s, 0, 7); ctx.stroke();
+      ctx.fillStyle = col.fg; ctx.beginPath(); ctx.arc(P(1 - c, 0)[0], cy0, 3, 0, 7); ctx.fill();
+      const th = ptype === "mode" ? theta() : Math.PI;
+      const G = [1 - c + c * Math.cos(th), -c * Math.sin(th)];
+      ctx.fillStyle = absG(th) > 1 + 1e-9 ? col.warn : col.accent; ctx.beginPath(); ctx.arc(...P(...G), 6, 0, 7); ctx.fill();
+      ctx.font = "12px " + css("--mono"); ctx.fillStyle = col.muted; ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText("Re G", P(x1, 0)[0], cy0 - 3);
+      ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText("Im G", cx0 + 4, P(0, 1.6)[1]);
+      ctx.textAlign = "center"; ctx.fillText("1 − c", P(1 - c, 0)[0], cy0 + 6);
+      ctx.fillStyle = absG(th) > 1 + 1e-9 ? col.warn : col.accent; ctx.textAlign = G[0] < 0 ? "right" : "left"; ctx.textBaseline = "bottom";
+      ctx.fillText("G(" + (ptype === "mode" ? "θ" : "π") + ")", P(...G)[0] + (G[0] < 0 ? -8 : 8), P(...G)[1] - 4); }
+
+    // 5. |G| against theta
+    { const { ctx, w, h } = setup($("cv-a"), 0.55, 160, 220);
+      const ymax = Math.max(1.4, Math.abs(1 - 2 * c) * 1.1);
+      const { X, Y } = axes(ctx, w, h, { x0: 0, x1: Math.PI, y0: 0, y1: ymax, xt: [0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4, Math.PI], yt: range(0, ymax, ymax > 2 ? 0.5 : 0.25),
+        xf: v => ["0", "π/4", "π/2", "3π/4", "π"][Math.round(v / (Math.PI / 4))], yf: v => v.toFixed(2), xl: "θ", yl: "|G|" });
+      ctx.setLineDash([5, 4]); ctx.strokeStyle = col.ok; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(X(0), Y(1)); ctx.lineTo(X(Math.PI), Y(1)); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = c > 1 + 1e-9 ? col.warn : col.accent; ctx.lineWidth = 2.5; ctx.beginPath();
+      for (let q = 0; q <= 200; q++) { const th = q / 200 * Math.PI; q ? ctx.lineTo(X(th), Y(absG(th))) : ctx.moveTo(X(th), Y(absG(th))); }
+      ctx.stroke();
+      ctx.fillStyle = col.muted;                       // resolved modes on this grid
+      for (let j = 1; j <= Math.floor(N / 2); j++) { const th = 2 * Math.PI * j / N; ctx.beginPath(); ctx.arc(X(th), Y(absG(th)), 2, 0, 7); ctx.fill(); }
+      if (ptype === "mode") { const th = theta(); ctx.fillStyle = absG(th) > 1 + 1e-9 ? col.warn : col.accent; ctx.beginPath(); ctx.arc(X(th), Y(absG(th)), 5.5, 0, 7); ctx.fill(); }
+      ctx.restore(); }
+
+    // readouts
+    const d = hist[hist.length - 1];
+    $("r-n").textContent = n;
+    $("r-d").textContent = sci(d);
+    $("r-d").className = "v" + (d > 1e-3 || !isFinite(d) ? " bad" : "");
+    const m = Math.min(10, n), g = m > 0 && hist[n - m] > 0 ? (d / hist[n - m]) ** (1 / m) : NaN;
+    $("r-g").textContent = isFinite(g) ? g.toFixed(4) : "—";
+    const pg = predictedG();
+    $("r-p").textContent = pg.toFixed(4); $("r-p").className = "v" + (pg > 1 + 1e-9 ? " bad" : " good");
+    $("r-s").textContent = pg > 1 + 1e-9 ? "≈ " + Math.round(Math.log(1 / (d0 > 0 ? d0 : eps)) / Math.log(pg)) : "never";
+  }
+
+  function updateStatus() {
+    const s = $("status"), gpi = Math.abs(1 - 2 * c);
+    $("mode-field").hidden = ptype !== "mode";
+    $("k").max = Math.floor(N / 2); if (k > N / 2) k = Math.floor(N / 2); $("k").value = k;
+    const th = theta(), frac = k / N * 2;
+    $("theta-v").textContent = Math.abs(frac - 1) < 1e-9 ? "π" : (frac).toFixed(3) + "π";
+    if (c > 1 + 1e-9) {
+      const gm = ptype === "mode" ? absG(th) : gpi, steps = gm > 1 + 1e-9 ? Math.round(Math.log(1 / eps) / Math.log(gm)) : Infinity;
+      const what = ptype === "mode" ? "This mode (θ = " + $("theta-v").textContent + ") has |G(θ)| = " + gm.toFixed(3)
+                                    : "|G(π)| = |1 − 2c| = " + gpi.toFixed(2) + ". The sawtooth mode, which round-off always contains,";
+      s.className = "status unstable";
+      s.innerHTML = '<span class="tag">Unstable · c &gt; 1</span><p>' + what + (ptype === "mode" ? ", so it grows " : " grows ") + gm.toFixed(3) + "× per step" +
+        (isFinite(steps) ? ": a perturbation of " + sup(Math.round(Math.log10(eps))) + " reaches size 1 after about " + steps + " steps." : ".") +
+        (ptype === "mode" ? " Other modes are not present, because δ is advanced on its own." : "") + "</p>";
+    } else if (Math.abs(c - 1) < 1e-9) {
+      s.className = "status neutral";
+      s.innerHTML = '<span class="tag">Neutral · c = 1</span><p>G = e<sup>−iθ</sup>: |G| = 1 for every mode. The scheme shifts everything exactly one cell per step, so the perturbation neither grows nor decays.</p>';
+    } else {
+      s.className = "status stable";
+      s.innerHTML = '<span class="tag">Stable · c ≤ 1</span><p>|G(θ)| ≤ 1 for every mode, so the perturbation never grows. Short waves are damped (|G(π)| = ' + gpi.toFixed(2) + "); new round-off keeps max|δ| near 10⁻¹⁶.</p>";
+    }
+    document.querySelectorAll(".presets button").forEach(b => b.setAttribute("aria-pressed", Math.abs(+b.dataset.c - c) < 1e-9 ? "true" : "false"));
+  }
+
+  // ---------------- playback and controls
+  let last = 0, acc = 0;
+  function setPlaying(p) {
+    playing = p;
+    $("play").textContent = p ? "Pause" : (finished ? "Replay" : "Play");
+    if (p) { last = performance.now(); acc = 0; requestAnimationFrame(loop); }
+  }
+  function loop(now) {
+    if (!playing) return;
+    acc += Math.min(0.1, (now - last) / 1000) * speed; last = now;
+    let j = 0;
+    while (acc >= 1 && j < 100 && playing) { step(); acc -= 1; j++; }
+    render();
+    if (playing) requestAnimationFrame(loop);
+  }
+  const restart = autoplay => { const was = playing; setPlaying(false); init(); if (was || autoplay) setPlaying(true); };
+  $("play").addEventListener("click", () => { if (finished) { init(); setPlaying(true); } else setPlaying(!playing); });
+  $("stepbtn").addEventListener("click", () => { setPlaying(false); step(); render(); });
+  $("reset").addEventListener("click", () => { setPlaying(false); init(); });
+  $("speed").addEventListener("input", e => { speed = +e.target.value; });
+  function setC(v, autoplay) {
+    if (!isFinite(v) || v < 0.05 || v > 1.6) { $("cfl-num").value = c.toFixed(2); return; }
+    c = Math.round(v * 100) / 100; $("cfl").value = Math.min(1.5, c); $("cfl-num").value = c.toFixed(2);
+    restart(autoplay);
+  }
+  $("cfl").addEventListener("input", e => setC(+e.target.value));
+  $("cfl-num").addEventListener("change", e => setC(+e.target.value, true));
+  document.querySelectorAll(".presets button").forEach(b => b.addEventListener("click", () => setC(+b.dataset.c, true)));
+  $("ptype").addEventListener("change", e => { ptype = e.target.value; restart(true); });
+  $("eps").addEventListener("change", e => { eps = +e.target.value; restart(true); });
+  $("k").addEventListener("input", e => { k = +e.target.value; restart(); });
+  $("nx").addEventListener("input", e => { N = +e.target.value; $("nx-v").textContent = N; if (ptype === "mode") k = Math.min(k, N / 2); restart(); });
+
+  new ResizeObserver(() => render()).observe(document.querySelector(".wrap"));
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+  new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  init();
+  if (!reduceMotion) setPlaying(true);
+})();
+</script>
+</body>
+</html>

@@ -85,6 +85,9 @@ new wiggles can be at most first-order accurate. FTBS and Lax–Wendroff are bot
 of them must either smear or wiggle. The limiter makes the scheme nonlinear: it switches between
 the two depending on the local solution.
 
+For why FTBS needs $`c \le 1`$, with round-off growth and the amplification factor, see the
+[FTBS stability example](../ftbs-stability/).
+
 ## Diffusion vs dispersion: the modified equation
 
 FTBS and Lax–Wendroff each really solve a slightly different PDE. Its leading error term decides

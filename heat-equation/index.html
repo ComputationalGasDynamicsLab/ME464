@@ -147,6 +147,25 @@ svg .s-ftcs { stroke: var(--ftcs); } svg .f-ftcs { fill: var(--ftcs); }
 svg .s-btcs { stroke: var(--btcs); } svg .f-btcs { fill: var(--btcs); }
 svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
 
+.conv { gap: 14px; }
+.conv .lead { margin: 0; color: var(--muted); max-width: 90ch; font-size: 14px; }
+.conv .lead i { font-family: var(--math); color: var(--fg); }
+.conv-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; align-items: end; }
+.conv-controls input[type=text] { font: 500 15px var(--mono); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; width: 100%; }
+.conv-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.conv-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+#cvplot { max-width: 760px; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+table.cv { border-collapse: collapse; width: 100%; font: 13px var(--mono); font-variant-numeric: tabular-nums; }
+table.cv th, table.cv td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.cv th { font: 500 11px var(--mono); letter-spacing: .04em; color: var(--muted); background: var(--bg); }
+table.cv th.ftcs { color: var(--ftcs); } table.cv th.btcs { color: var(--btcs); } table.cv th.cn { color: var(--cn); }
+table.cv td.ord { color: var(--fg); font-weight: 600; }
+table.cv td.bad { color: var(--warn); }
+table.cv tr:last-child td { border-bottom: 0; }
+.cv-expect { border-radius: 8px; padding: 10px 14px; background: var(--info-bg); font-size: 14px; margin: 0; }
+#cv-msg { margin: 0; }
+
 .notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 @media (max-width: 900px) { .notes { grid-template-columns: minmax(0, 1fr); } }
 .notes-wrap { display: grid; gap: 14px; }
@@ -326,6 +345,50 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
     </aside>
   </div>
 
+  <section class="panel conv" id="conv" aria-label="Grid convergence study">
+    <h2>Grid convergence study: measure the order of accuracy</h2>
+    <p class="lead">Run the problem chosen above (<span id="cv-problem">sin(πx), T = 0 at both ends</span>) on several grids, up to the same final time, and compare each error <i>E</i> with the exact solution. If <i>E ≈ C Δx<sup>p</sup></i>, the observed order between two grids is <i>p = ln(E<sub>coarse</sub> / E<sub>fine</sub>) / ln(Δx<sub>coarse</sub> / Δx<sub>fine</sub>)</i>. Halving Δx should cut the error by 2<sup>p</sup>: 2× for first order, 4× for second.</p>
+    <div class="conv-controls">
+      <div class="field">
+        <label for="cv-ns">Values of N (up to 10, each 4–1000)</label>
+        <input type="text" id="cv-ns" value="10, 20, 40, 80, 160" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="cv-mode">How Δt is refined</label>
+        <select id="cv-mode">
+          <option value="r" selected>Fixed r: Δt ∝ Δx²</option>
+          <option value="lam">Fixed Δt/Δx: Δt ∝ Δx</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="cv-par" id="cv-par-lab">r = αΔt/Δx²</label>
+        <input type="number" id="cv-par" min="0.001" max="50" step="any" value="0.25" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label for="cv-t">Final time (≤ 10)</label>
+        <input type="number" id="cv-t" min="0.001" max="10" step="any" value="1" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label for="cv-norm">Error norm</label>
+        <select id="cv-norm">
+          <option value="max" selected>Max error: largest |T − exact|</option>
+          <option value="rms">RMS error: root mean square</option>
+        </select>
+      </div>
+    </div>
+    <div class="conv-actions">
+      <button class="primary" id="cv-run">Run study</button>
+      <button id="cv-copy">Copy table as CSV</button>
+      <span class="hint" id="cv-msg" aria-live="polite"></span>
+    </div>
+    <p class="cv-expect" id="cv-expect"></p>
+    <div class="conv-body">
+      <div class="tablewrap"><table class="cv" id="cv-table"></table></div>
+      <canvas id="cvplot" role="img" aria-label="Log-log plot of error versus N for each scheme, with reference slopes"></canvas>
+    </div>
+    <p class="hint">Δt is rounded down slightly so every run lands exactly on the final time; the table shows the r actually used. Smooth initial conditions that match the boundary values show the design order. A discontinuous one (pulse, step) or one that disagrees with a fixed boundary value lowers the observed order, especially at early times.</p>
+  </section>
+
   <section class="notes-wrap">
     <h2>Three ways to step in time</h2>
     <p class="lead">All three schemes use the same central difference for ∂²T/∂x². They differ only in the time level at which it is evaluated: the old level (explicit), the new level (implicit), or the average of the two.</p>
@@ -379,7 +442,7 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
 
   let r = 0.4, N = 50, ic = "sine", bc = "dd", vL = 0, vR = 0, tEnd = 10, speed = 20;
   const on = { ftcs: true, btcs: false, cn: false };
-  let x, dx, dt, nt, n, t, sol, blown, finished, playing = false, buf, i0, i1;
+  let x, dx, dt, nt, n, t, sol, blown, finished, playing = false;
   const leftFixed = () => bc[0] === "d", rightFixed = () => bc[1] === "d";
 
   // ---- initial conditions, each a list of pieces on [a, b]: a polynomial c0 + c1 x + c2 x², or A sin(νx) / A cos(νx)
@@ -483,14 +546,20 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
     return sum;
   }
 
-  // ---- schemes. Unknown nodes are i0..i1. A Dirichlet end is a known value. A Neumann end ∂T/∂x = g uses a ghost node from
-  // the central difference (T(1) − T(−1)) / 2Δx = g, so T(−1) = T(1) − 2Δx g0 and T(N+1) = T(N−1) + 2Δx g1
-  function lapAt(A, i) {
-    const lft = i > 0 ? A[i - 1] : A[1] - 2 * dx * vL, rgt = i < N ? A[i + 1] : A[N - 1] + 2 * dx * vR;
+  // ---- schemes, on a grid g = { N, dx, r, i0, i1, buf }. Unknown nodes are i0..i1. A Dirichlet end is a known value.
+  // A Neumann end ∂T/∂x = g uses a ghost node from the central difference (T(1) − T(−1)) / 2Δx = g,
+  // so T(−1) = T(1) − 2Δx g0 and T(N+1) = T(N−1) + 2Δx g1
+  function makeGrid(Nn, rr) {
+    const M = Nn + 1, F = () => new Float64Array(M);
+    return { N: Nn, dx: L / Nn, r: rr, i0: leftFixed() ? 1 : 0, i1: rightFixed() ? Nn - 1 : Nn,
+             buf: { Tn: F(), a: F(), b: F(), c: F(), d: F(), cp: F(), dp: F() } };
+  }
+  function lapAt(A, i, g) {
+    const lft = i > 0 ? A[i - 1] : A[1] - 2 * g.dx * vL, rgt = i < g.N ? A[i + 1] : A[g.N - 1] + 2 * g.dx * vR;
     return lft - 2 * A[i] + rgt;
   }
-  function solveTri(m, out) {               // general Thomas algorithm: a[j] x[j−1] + b[j] x[j] + c[j] x[j+1] = d[j]
-    const { a, b, c, d, cp, dp } = buf;
+  function solveTri(m, out, g) {            // general Thomas algorithm: a[j] x[j−1] + b[j] x[j] + c[j] x[j+1] = d[j]
+    const { a, b, c, d, cp, dp } = g.buf, i0 = g.i0;
     cp[0] = c[0] / b[0]; dp[0] = d[0] / b[0];
     for (let j = 1; j < m; j++) {
       const den = b[j] - a[j] * cp[j - 1];
@@ -499,29 +568,33 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
     out[i0 + m - 1] = dp[m - 1];
     for (let j = m - 2; j >= 0; j--) out[i0 + j] = dp[j] - cp[j] * out[i0 + j + 1];
   }
-  function advance(key) {
-    const T = sol[key], Tn = buf.Tn;
+  function stepScheme(key, T, g) {          // advance T one time step in place; returns false once it has blown up
+    const { N: Nn, dx: h, r: rr, i0, i1 } = g, Tn = g.buf.Tn;
     Tn.set(T);
     if (key === "ftcs") {
-      for (let i = i0; i <= i1; i++) T[i] = Tn[i] + r * lapAt(Tn, i);
+      for (let i = i0; i <= i1; i++) T[i] = Tn[i] + rr * lapAt(Tn, i, g);
     } else {
-      const th = key === "btcs" ? 1 : 0.5, m = i1 - i0 + 1, { a, b, c, d } = buf;   // θ = 1 BTCS, ½ Crank–Nicolson
+      const th = key === "btcs" ? 1 : 0.5, m = i1 - i0 + 1, { a, b, c, d } = g.buf;   // θ = 1 BTCS, ½ Crank–Nicolson
       for (let j = 0; j < m; j++) {
         const i = i0 + j;
-        a[j] = (i === N ? -2 : -1) * th * r;     // the ghost node doubles the inner neighbor at a Neumann end
-        c[j] = (i === 0 ? -2 : -1) * th * r;
-        b[j] = 1 + 2 * th * r;
-        d[j] = Tn[i] + (1 - th) * r * lapAt(Tn, i);
+        a[j] = (i === Nn ? -2 : -1) * th * rr;   // the ghost node doubles the inner neighbor at a Neumann end
+        c[j] = (i === 0 ? -2 : -1) * th * rr;
+        b[j] = 1 + 2 * th * rr;
+        d[j] = Tn[i] + (1 - th) * rr * lapAt(Tn, i, g);
       }
-      if (i0 === 1) d[0] += th * r * Tn[0];      // Dirichlet end: the known value moves to the right-hand side
-      else d[0] -= th * r * 2 * dx * vL;         // Neumann end: so does the gradient part of the ghost node
-      if (i1 === N - 1) d[m - 1] += th * r * Tn[N];
-      else d[m - 1] += th * r * 2 * dx * vR;
+      if (i0 === 1) d[0] += th * rr * Tn[0];     // Dirichlet end: the known value moves to the right-hand side
+      else d[0] -= th * rr * 2 * h * vL;         // Neumann end: so does the gradient part of the ghost node
+      if (i1 === Nn - 1) d[m - 1] += th * rr * Tn[Nn];
+      else d[m - 1] += th * rr * 2 * h * vR;
       a[0] = 0; c[m - 1] = 0;
-      solveTri(m, T);
+      solveTri(m, T, g);
     }
     let mx = 0; for (const v of T) mx = Math.max(mx, Math.abs(v));
-    if (!isFinite(mx) || mx > 1e6) blown[key] = n + 1;
+    return isFinite(mx) && mx <= 1e6;
+  }
+  let G;                                    // the grid of the main animation
+  function advance(key) {
+    if (!stepScheme(key, sol[key], G)) blown[key] = n + 1;
   }
 
   function init() {
@@ -529,10 +602,7 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
     dt = r * dx * dx / ALPHA;
     nt = Math.max(1, Math.floor(tEnd / dt + 1e-9));
     x = Float64Array.from({ length: N + 1 }, (_, i) => i * dx);
-    i0 = leftFixed() ? 1 : 0; i1 = rightFixed() ? N - 1 : N;
-    const M = N + 1;
-    buf = { Tn: new Float64Array(M), a: new Float64Array(M), b: new Float64Array(M), c: new Float64Array(M),
-            d: new Float64Array(M), cp: new Float64Array(M), dp: new Float64Array(M) };
+    G = makeGrid(N, r);
     setupExact(); setFullView();
     const T0 = Float64Array.from(x, f0);
     if (leftFixed()) T0[0] = vL;
@@ -760,6 +830,7 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
         h += ` Heat needs a time of order L²/α = ${L * L / ALPHA} to spread over the rod, so at t<sub>end</sub> = ${+tEnd.toFixed(3)} the solution is still on its way there.`;
     }
     $("bc-hint").innerHTML = h;
+    $("cv-problem").textContent = $("ic").selectedOptions[0].text.replace(" (as in the report)", "") + "; " + $("eq-bc").textContent.replace(/^BC/, "").trim();
   }
 
   // ---- animation: steps per second scale so one run to t_end takes about 10 s at the default speed
@@ -873,7 +944,189 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
     render();
   });
 
-  const redraw = () => { render(); renderG(); };
+
+  // ---- grid convergence study: run every N to the same final time, compare with the exact solution
+  const cvc = $("cvplot"), cvx = cvc.getContext("2d");
+  let cv = null;                            // the current or last study
+  function cvExpect() {
+    const mode = $("cv-mode").value, par = +$("cv-par").value;
+    $("cv-par-lab").textContent = mode === "r" ? "r = αΔt/Δx²" : "λ = Δt/Δx";
+    let h;
+    if (mode === "r") {
+      h = "Expected with fixed r: Δt = rΔx²/α shrinks like Δx², so the O(Δt) time error of FTCS and BTCS also behaves like Δx². All three schemes should show order 2.";
+      if (Math.abs(par - 1 / 6) < 2e-3) h += " At r = 1/6 the leading FTCS error cancels, so FTCS should show order 4.";
+      if (par > 0.5) h += " With r > ½, FTCS is unstable on every grid.";
+    } else {
+      h = "Expected with fixed Δt/Δx: now Δt shrinks only like Δx. BTCS, first order in time, should drop to order 1, while Crank–Nicolson (second order in time) stays at order 2. FTCS has r = αλ/Δx, which grows on fine grids: it becomes unstable once r > ½. Because its r also changes from grid to grid (and passes the special value 1/6), the FTCS orders on the stable grids jump around.";
+    }
+    $("cv-expect").textContent = h;
+  }
+  function parseNs() {
+    const vals = $("cv-ns").value.split(/[\s,;]+/).filter(Boolean).map(Number);
+    if (!vals.length || vals.some(v => !Number.isInteger(v) || v < 4 || v > 1000)) return null;
+    const u = [...new Set(vals)].sort((p, q) => p - q);
+    return u.length >= 2 && u.length <= 10 ? u : null;
+  }
+  function runStudy() {
+    if (cv && cv.running) { cv.running = false; $("cv-run").textContent = "Run study"; $("cv-msg").textContent = "Stopped."; return; }
+    const Ns = parseNs(), mode = $("cv-mode").value, par = +$("cv-par").value, tE = +$("cv-t").value;
+    if (!Ns) { $("cv-msg").textContent = "Enter 2 to 10 whole numbers between 4 and 1000, e.g. 10, 20, 40, 80."; return; }
+    if (!(par > 0 && par <= 50)) { $("cv-msg").textContent = "Enter a positive " + (mode === "r" ? "r" : "Δt/Δx") + "."; return; }
+    if (!(tE > 0 && tE <= 10)) { $("cv-msg").textContent = "The final time must be between 0 and 10."; return; }
+    const runs = Ns.map(Nn => {
+      const h = L / Nn, dt0 = mode === "r" ? par * h * h / ALPHA : par * h;
+      const steps = Math.max(1, Math.ceil(tE / dt0 - 1e-9)), dtn = tE / steps;
+      return { N: Nn, dx: h, dt: dtn, steps, r: ALPHA * dtn / (h * h), err: {}, done: false };
+    });
+    cv = { runs, tE, mode, par, key: [ic, bc, vL, vR].join("|"), running: true, k: 0, cur: null };
+    $("cv-run").textContent = "Stop"; $("cv-msg").textContent = "";
+    renderStudy();
+    setTimeout(studyChunk, 0);
+  }
+  function studyChunk() {
+    if (!cv || !cv.running) return;
+    if (cv.key !== [ic, bc, vL, vR].join("|")) {
+      cv.running = false; $("cv-run").textContent = "Run study";
+      $("cv-msg").textContent = "The initial or boundary conditions changed, so the study stopped. Press Run study again."; return;
+    }
+    const t0 = performance.now();
+    while (performance.now() - t0 < 25) {
+      const run = cv.runs[cv.k];
+      if (!cv.cur) {                         // start this grid
+        const g = makeGrid(run.N, run.r), xs = Float64Array.from({ length: run.N + 1 }, (_, i) => i * g.dx);
+        const T0 = Float64Array.from(xs, f0);
+        if (leftFixed()) T0[0] = vL;
+        if (rightFixed()) T0[run.N] = vR;
+        cv.cur = { g, xs, n: 0, T: {}, ok: {} };
+        for (const k of KEYS) { cv.cur.T[k] = Float64Array.from(T0); cv.cur.ok[k] = true; }
+      }
+      const c = cv.cur;
+      for (const k of KEYS) if (c.ok[k]) c.ok[k] = stepScheme(k, c.T[k], c.g);
+      c.n++;
+      if (c.n >= run.steps) {                // finished this grid: errors at the final time
+        for (const k of KEYS) {
+          if (!c.ok[k]) { run.err[k] = null; continue; }
+          let emax = 0, s2 = 0;
+          for (let i = 0; i <= run.N; i++) { const e = Math.abs(c.T[k][i] - exact(c.xs[i], cv.tE)); emax = Math.max(emax, e); s2 += e * e; }
+          run.err[k] = { max: emax, rms: Math.sqrt(s2 / (run.N + 1)) };
+        }
+        run.done = true; cv.cur = null; cv.k++;
+        if (cv.k >= cv.runs.length) { cv.running = false; break; }
+      }
+    }
+    if (cv.running) {
+      const run = cv.runs[cv.k], pct = cv.cur ? Math.round(100 * cv.cur.n / run.steps) : 0;
+      $("cv-msg").textContent = `Running N = ${run.N}: step ${cv.cur ? cv.cur.n : 0} of ${run.steps} (${pct}%)`;
+      setTimeout(studyChunk, 0);
+    } else {
+      $("cv-run").textContent = "Run study";
+      const last = cv.runs.slice(-2), o = KEYS.map(k => {
+        const p = order(last[0], last[1], k);
+        return `${k === "cn" ? "CN" : k.toUpperCase()} ${p === null ? "—" : p.toFixed(2)}`;
+      });
+      $("cv-msg").textContent = "Done. Observed order on the two finest grids: " + o.join(", ") + ".";
+    }
+    renderStudy();
+  }
+  const normOf = () => $("cv-norm").value;
+  const errOf = (run, k) => run.done && run.err[k] ? run.err[k][normOf()] : null;
+  function order(a, b, k) {
+    const ea = errOf(a, k), eb = errOf(b, k);
+    return ea && eb && ea > 0 && eb > 0 ? Math.log(ea / eb) / Math.log(a.dx / b.dx) : null;
+  }
+  const fmtE = e => e === 0 ? "0" : e.toExponential(3);
+  function renderStudy() {
+    const tb = $("cv-table");
+    const head = '<tr><th>N</th><th>Δx</th><th>Δt</th><th>r</th><th>steps</th>' +
+      KEYS.map(k => `<th class="${k}">${k === "cn" ? "CN" : k.toUpperCase()} error</th><th class="${k}">order</th>`).join("") + "</tr>";
+    if (!cv) { tb.innerHTML = head; renderStudyPlot(); return; }
+    tb.innerHTML = head + cv.runs.map((run, j) => {
+      const cells = KEYS.map(k => {
+        if (!run.done) return '<td>…</td><td></td>';
+        if (!run.err[k]) return '<td class="bad">unstable</td><td></td>';
+        const p = j ? order(cv.runs[j - 1], run, k) : null;
+        return `<td>${fmtE(errOf(run, k))}</td><td class="ord">${p === null ? (j ? "—" : "") : p.toFixed(2)}</td>`;
+      }).join("");
+      return `<tr><td>${run.N}</td><td>${+run.dx.toPrecision(4)}</td><td>${run.dt < 1e-3 ? run.dt.toExponential(2) : +run.dt.toPrecision(4)}</td><td class="${run.r > 0.5 ? "bad" : ""}">${+run.r.toPrecision(3)}</td><td>${run.steps}</td>${cells}</tr>`;
+    }).join("");
+    renderStudyPlot();
+  }
+  function renderStudyPlot() {
+    const w = cvc.clientWidth, h = Math.round(Math.max(240, Math.min(380, w * 0.72)));
+    sizeCanvas(cvc, cvx, w, h);
+    const c = cvx, m = { l: 62, r: 14, t: 12, b: 38 }, pw = w - m.l - m.r, ph = h - m.t - m.b;
+    const pts = [];
+    if (cv) for (const run of cv.runs) for (const k of KEYS) { const e = errOf(run, k); if (e > 0) pts.push(e); }
+    const Ns = cv ? cv.runs.map(q => q.N) : [10, 160];
+    const xlo = Math.log10(Ns[0] / 1.3), xhi = Math.log10(Ns[Ns.length - 1] * 1.3);
+    let ylo = pts.length ? Math.floor(Math.log10(Math.min(...pts)) - 0.3) : -8, yhi = pts.length ? Math.ceil(Math.log10(Math.max(...pts)) + 0.3) : -2;
+    if (yhi - ylo < 2) ylo = yhi - 2;
+    const X = v => m.l + (Math.log10(v) - xlo) / (xhi - xlo) * pw, Y = e => m.t + (yhi - Math.log10(e)) / (yhi - ylo) * ph;
+    c.font = "11px " + css("--mono"); c.lineWidth = 1;
+    c.fillStyle = css("--muted"); c.strokeStyle = css("--grid");
+    c.textAlign = "right"; c.textBaseline = "middle";
+    const ystep = Math.max(1, Math.ceil((yhi - ylo) / 8));
+    for (let p = ylo; p <= yhi; p += ystep) { c.beginPath(); c.moveTo(m.l, Y(10 ** p)); c.lineTo(m.l + pw, Y(10 ** p)); c.stroke(); c.fillText("1e" + p, m.l - 6, Y(10 ** p)); }
+    c.textAlign = "center"; c.textBaseline = "top";
+    for (const v of Ns) { c.beginPath(); c.moveTo(X(v), m.t); c.lineTo(X(v), m.t + ph); c.stroke(); c.fillText(v, X(v), m.t + ph + 5); }
+    c.textAlign = "right"; c.textBaseline = "bottom"; c.fillText("N (Δx = 1/N), log scale", m.l + pw, m.t + ph + 34);
+    c.save(); c.translate(12, m.t + ph / 2); c.rotate(-Math.PI / 2); c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText((normOf() === "max" ? "max" : "RMS") + " error", 0, 0); c.restore();
+    c.strokeStyle = css("--line"); c.strokeRect(m.l, m.t, pw, ph);
+    if (!cv || !pts.length) {
+      c.fillStyle = css("--muted"); c.textAlign = "center"; c.textBaseline = "middle";
+      c.fillText(cv ? "running…" : "Press Run study", m.l + pw / 2, m.t + ph / 2); return;
+    }
+    c.save(); c.beginPath(); c.rect(m.l, m.t, pw, ph); c.clip();
+    // reference slopes through the largest error on the coarsest grid
+    const N0 = Ns[0], e0 = Math.max(...KEYS.map(k => errOf(cv.runs[0], k) || 0)) * 2.5, N1 = Ns[Ns.length - 1];
+    const slopes = [1, 2]; if (cv.mode === "r" && Math.abs(cv.par - 1 / 6) < 2e-3) slopes.push(4);
+    if (e0 > 0) for (const sl of slopes) {
+      c.strokeStyle = css("--muted"); c.setLineDash([5, 5]); c.lineWidth = 1.2;
+      c.beginPath(); c.moveTo(X(N0), Y(e0)); c.lineTo(X(N1), Y(e0 * (N0 / N1) ** sl)); c.stroke(); c.setLineDash([]);
+      c.fillStyle = css("--muted"); c.textAlign = "left"; c.textBaseline = "bottom";
+      const lx = Math.min(N1, N0 * (N1 / N0) ** 0.8);
+      c.fillText("slope −" + sl, X(lx) + 4, Y(e0 * (N0 / lx) ** sl) - 2);
+    }
+    for (const k of KEYS) {
+      c.strokeStyle = c.fillStyle = css("--" + k); c.lineWidth = 2;
+      c.beginPath(); let started = false;
+      for (const run of cv.runs) { const e = errOf(run, k); if (!(e > 0)) { started = false; continue; }
+        started ? c.lineTo(X(run.N), Y(e)) : c.moveTo(X(run.N), Y(e)); started = true; }
+      c.stroke();
+      for (const run of cv.runs) { const e = errOf(run, k); if (e > 0) { c.beginPath(); c.arc(X(run.N), Y(e), 4, 0, 2 * Math.PI); c.fill(); } }
+    }
+    c.restore();
+    // legend
+    c.font = "12px " + css("--body"); c.textAlign = "left"; c.textBaseline = "middle";
+    KEYS.forEach((k, j) => { const ly = m.t + ph - 14 - 18 * (2 - j); c.fillStyle = css("--" + k);
+      c.fillRect(m.l + 10, ly - 1.5, 18, 3); c.fillText(k === "cn" ? "Crank–Nicolson" : k.toUpperCase(), m.l + 34, ly); });
+  }
+  function studyCSV() {
+    if (!cv) return "";
+    const rows = [["N", "dx", "dt", "r", "steps", ...KEYS.flatMap(k => [k + "_" + normOf() + "_error", k + "_order"])]];
+    cv.runs.forEach((run, j) => rows.push([run.N, run.dx, run.dt, run.r, run.steps, ...KEYS.flatMap(k => {
+      const e = errOf(run, k), p = j ? order(cv.runs[j - 1], run, k) : null;
+      return [e === null ? (run.done ? "unstable" : "") : e.toExponential(6), p === null ? "" : p.toFixed(4)];
+    })]));
+    return rows.map(r => r.join(",")).join("\n");
+  }
+  $("cv-run").addEventListener("click", runStudy);
+  $("cv-norm").addEventListener("change", renderStudy);
+  $("cv-mode").addEventListener("change", e => {
+    $("cv-par").value = e.target.value === "r" ? 0.25 : 1; cvExpect();
+  });
+  $("cv-par").addEventListener("input", cvExpect);
+  $("cv-copy").addEventListener("click", async () => {
+    const text = studyCSV();
+    if (!text) { $("cv-msg").textContent = "Run the study first."; return; }
+    try { await navigator.clipboard.writeText(text); $("cv-msg").textContent = "Copied. Paste it into a spreadsheet."; }
+    catch { $("cv-msg").textContent = "Copy is blocked here. The CSV is:\n" + text; }
+  });
+  new ResizeObserver(renderStudyPlot).observe(cvc);
+  cvExpect(); renderStudy();
+
+  const redraw = () => { render(); renderG(); renderStudyPlot(); };
   new ResizeObserver(redraw).observe(canvas);
   new ResizeObserver(renderG).observe(gcan);
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw);

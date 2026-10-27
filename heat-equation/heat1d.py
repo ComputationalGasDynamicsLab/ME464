@@ -22,6 +22,8 @@ Examples:
     python heat1d.py --bc dn --v1 1 --ic zero     # heat flux in at x = 1
     python heat1d.py --bc nn --v0 0 --v1 1 --ic zero   # net heating: no steady state
     python heat1d.py --animate                    # also save an animated GIF
+    python heat1d.py --study 10 20 40 80 160 --r 0.25 --t-end 1     # grid convergence, fixed r (dt ~ dx^2)
+    python heat1d.py --study 10 20 40 80 160 --lam 1 --t-end 1      # grid convergence, fixed dt/dx (dt ~ dx)
 """
 import argparse
 import numpy as np
@@ -199,6 +201,44 @@ def make_stepper(N, dx, r, bc, v0, v1):
     return step
 
 
+def study(Ns, a):
+    """Grid convergence: run every N to the same final time and print the error and observed order of each scheme."""
+    exact = Exact(a.ic, a.bc, a.v0, a.v1)
+    mode = f"fixed dt/dx = {a.lam:g}" if a.lam else f"fixed r = {a.r:g}"
+    print(f"Grid convergence, {mode}, t = {a.t_end:g}, {BCS[a.bc]}, initial condition {a.ic}")
+    print("dt is rounded down slightly so every run lands exactly on t; r is the value actually used.\n")
+    hdr = f"{'N':>5} {'dx':>9} {'dt':>10} {'r':>7} {'steps':>7}" + "".join(f" {s.upper() + ' max err':>13} {'order':>6}" for s in a.scheme)
+    print(hdr)
+    prev = None
+    for N in sorted(set(Ns)):
+        dx = L / N
+        dt0 = a.lam * dx if a.lam else a.r * dx**2 / ALPHA
+        nt = max(1, int(np.ceil(a.t_end / dt0 - 1e-9)))
+        dt = a.t_end / nt
+        r = ALPHA * dt / dx**2
+        x = np.linspace(0, L, N + 1)
+        step = make_stepper(N, dx, r, a.bc, a.v0, a.v1)
+        T0, Te = exact(x, 0), exact(x, a.t_end)
+        errs = {}
+        for s in a.scheme:
+            T = T0.copy()
+            with np.errstate(all="ignore"):
+                for _ in range(nt):
+                    step(T, s)
+                    if not np.all(np.isfinite(T)) or np.abs(T).max() > 1e6:
+                        break
+            ok = np.all(np.isfinite(T)) and np.abs(T).max() <= 1e6
+            errs[s] = np.abs(T - Te).max() if ok else None
+        line = f"{N:5d} {dx:9.5f} {dt:10.3e} {r:7.3g} {nt:7d}"
+        for s in a.scheme:
+            e = errs[s]
+            o = (np.log(prev[1][s] / e) / np.log(prev[0] / dx)
+                 if prev and e and prev[1][s] else None)
+            line += f" {('unstable' if e is None else f'{e:.4e}'):>13} {('' if o is None else f'{o:.3f}'):>6}"
+        print(line)
+        prev = (dx, errs)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--scheme", nargs="+", choices=list(NAMES), default=list(NAMES), help="schemes to run")
@@ -211,9 +251,16 @@ def main():
     p.add_argument("--v0", type=float, default=0.0, help="boundary value at x = 0: T or dT/dx (default 0)")
     p.add_argument("--v1", type=float, default=0.0, help="boundary value at x = 1: T or dT/dx (default 0)")
     p.add_argument("--animate", action="store_true", help="also save heat1d.gif")
+    p.add_argument("--study", type=int, nargs="+", metavar="N", help="grid convergence study over these N values")
+    p.add_argument("--lam", type=float, default=None, help="with --study: fix dt/dx = lam instead of r (dt ~ dx)")
     a = p.parse_args()
     if not 0 < a.t_end <= 10:
         p.error("--t-end must be between 0 and 10")
+    if a.study:
+        if len(set(a.study)) < 2 or min(a.study) < 4:
+            p.error("--study needs at least two different N values, each 4 or more")
+        study(a.study, a)
+        return
 
     dx = L / a.N
     dt = a.r * dx**2 / ALPHA

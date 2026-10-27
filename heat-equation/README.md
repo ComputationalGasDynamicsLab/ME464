@@ -24,6 +24,9 @@ It runs in any web browser, with nothing to install. You can:
 - try the **Neumann examples**: an insulated rod, heat flux in at one end, flux straight through, and net
   heating with no steady state
 - read the maximum error of each scheme against the exact solution, and zoom in to see it
+- run a **grid convergence study**: list several $`N`$ values, refine with fixed $`r`$ or fixed
+  $`\Delta t/\Delta x`$, and get a table of errors and observed orders plus a log-log plot with
+  reference slopes; copy the table as CSV for a report
 - see the amplification factor $`G(\theta)`$ of each scheme against the exact decay, and the
   explicit and implicit stencils
 
@@ -77,6 +80,27 @@ With Neumann conditions at both ends, the total heat changes only through the bo
 
 With $`g_0 = g_1`$ the mean is conserved and the profile settles to a straight line. With $`g_0 \ne g_1`$ there
 is no steady state: the temperature keeps rising (or falling) at the rate $`\alpha (g_1 - g_0)`$.
+
+## Grid convergence: observing the order
+
+If the error behaves like $`E \approx C \Delta x^p`$, two grids give the observed order
+
+```math
+p = \frac{\ln(E_{coarse} / E_{fine})}{\ln(\Delta x_{coarse} / \Delta x_{fine})}
+```
+
+so halving $`\Delta x`$ cuts the error by $`2^p`$. How $`\Delta t`$ is refined decides what you see:
+
+| Refinement | FTCS | BTCS | Crank–Nicolson |
+|---|---|---|---|
+| fixed $`r`$, so $`\Delta t \propto \Delta x^2`$ | 2 (4 at $`r = 1/6`$); unstable for $`r > 1/2`$ | 2 | 2 |
+| fixed $`\Delta t/\Delta x`$, so $`\Delta t \propto \Delta x`$ | unstable once $`r > 1/2`$ on fine grids | 1 | 2 |
+
+With fixed $`r`$ the first-order time error of FTCS and BTCS is $`O(\Delta t) = O(\Delta x^2)`$, so every scheme
+looks second order. Only with $`\Delta t \propto \Delta x`$ does the time order show: BTCS drops to first
+order and Crank–Nicolson stays second order. Both the page and `python heat1d.py --study ...` print this
+table. Smooth initial conditions that match the boundary values give the design order; a discontinuous one
+lowers it.
 
 ## Scheme 1: FTCS (explicit)
 
@@ -209,6 +233,8 @@ python heat1d.py --scheme ftcs --N 10 --r 0.1 --t-end 0.1   # the coarse-mesh ca
 python heat1d.py --bc nn --ic hat           # Neumann, insulated rod: relaxes to its mean
 python heat1d.py --bc dn --v1 1 --ic zero   # Dirichlet T = 0 at x = 0, heat flux in at x = 1
 python heat1d.py --bc nn --v1 1 --ic zero   # Neumann, net heating: no steady state
+python heat1d.py --study 10 20 40 80 160 --r 0.25 --t-end 1   # convergence, fixed r
+python heat1d.py --study 10 20 40 80 160 --lam 1 --t-end 1    # convergence, fixed dt/dx
 python heat1d.py --animate                  # also saves an animated GIF
 python heat1d.py --help                     # all options
 ```
@@ -229,6 +255,8 @@ Options you can combine:
 | `--bc` | boundary conditions at $`x = 0`$ then $`x = 1`$: `d` = Dirichlet, `n` = Neumann, e.g. `dd`, `dn`, `nd`, `nn` | `dd` |
 | `--v0`, `--v1` | boundary values at $`x = 0`$ and $`x = 1`$: $`T`$ for Dirichlet, $`\partial T/\partial x`$ for Neumann | 0 |
 | `--animate` | also save `heat1d.gif` | off |
+| `--study` | grid convergence study over these $`N`$ values (prints a table of errors and orders) | off |
+| `--lam` | with `--study`: fix $`\Delta t/\Delta x`$ instead of $`r`$ | off (fixed $`r`$) |
 
 Expected output of `python heat1d.py`:
 

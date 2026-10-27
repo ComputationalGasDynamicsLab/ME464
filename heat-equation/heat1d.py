@@ -47,7 +47,7 @@ def exact(x, t, ic):
     if t == 0:
         return initial(x, ic)
     a, b = PULSE                                     # Fourier sine series of the pulse
-    k = np.arange(1, 4001)
+    k = np.arange(1, 8001)
     bk = 2 / (k * np.pi) * (np.cos(k * np.pi * a / L) - np.cos(k * np.pi * b / L)) * decay(k)
     return np.sin(np.outer(x, k) * np.pi / L) @ bk
 

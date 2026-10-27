@@ -13,7 +13,7 @@ It runs in any web browser, with nothing to install. You can:
 
 - play the solution, or step through it one time step at a time
 - show FTCS, BTCS and Crank–Nicolson together; all three use the same $`\Delta x`$ and $`\Delta t`$
-- type any diffusion number $`r`$ (0.01 to 50) and number of intervals $`N`$ (4 to 400), or pick a
+- type any diffusion number $`r`$ (0.01 to 50) and number of intervals $`N`$ (4 to 1000, so $`\Delta x`$ down to 0.001), or pick a
   preset: $`r = 1/6`$ (most accurate FTCS), 0.4 (as in the course report), 0.5 (stability limit),
   0.52 and 0.6 (FTCS unstable), 5 (implicit schemes only)
 - choose the initial condition: $`\sin(\pi x)`$, two sine modes, or a square pulse

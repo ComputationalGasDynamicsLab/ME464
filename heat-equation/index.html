@@ -226,10 +226,10 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
         <div class="field">
           <label for="N-num">Intervals N <b id="dx-show">Δx = 0.02</b></label>
           <div class="num-row">
-            <input type="range" id="N" min="4" max="200" step="1" value="50" aria-label="Number of intervals slider">
-            <input type="number" id="N-num" min="4" max="400" step="1" value="50" inputmode="numeric">
+            <input type="range" id="N" min="4" max="1000" step="1" value="50" aria-label="Number of intervals slider">
+            <input type="number" id="N-num" min="4" max="1000" step="1" value="50" inputmode="numeric">
           </div>
-          <div class="hint">N + 1 grid points, Δx = 1/N. Halving Δx at fixed r makes Δt four times smaller.</div>
+          <div class="hint">From 4 to 1000 intervals (Δx down to 0.001), N + 1 grid points. Halving Δx at fixed r makes Δt four times smaller, so the number of steps grows like N²: at N = 1000 and r = 0.4 it takes 250,000 steps to reach t = 10.</div>
         </div>
         <div class="field">
           <label for="ic">Initial condition</label>
@@ -313,7 +313,7 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
 
 <script>
 (() => {
-  const L = 1, ALPHA = 0.01, PA = 0.4, PB = 0.6, NSERIES = 4000;
+  const L = 1, ALPHA = 0.01, PA = 0.4, PB = 0.6, NSERIES = 8000;
   const KEYS = ["ftcs", "btcs", "cn"];
   const $ = id => document.getElementById(id);
   const canvas = $("plot"), ctx = canvas.getContext("2d");
@@ -322,7 +322,9 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
 
   let r = 0.4, N = 50, ic = "sine", tEnd = 10, speed = 20;
   const on = { ftcs: true, btcs: false, cn: false };
-  let x, dx, dt, nt, n, t, sol, blown, finished, playing = false, bk;
+  let x, dx, dt, nt, n, t, sol, blown, finished, playing = false, bk, buf;
+  let ckT = -1, ckN = 0;
+  const ck = new Float64Array(NSERIES + 1);
 
   // ---- initial and exact solutions
   function f0(xx) {
@@ -337,15 +339,20 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
     if (ic === "modes") return Math.sin(Math.PI * xx / L) * decay(1, tt) + 0.4 * Math.sin(6 * Math.PI * xx / L) * decay(6, tt);
     if (tt <= 0) return f0(xx);
     // Fourier sine series of the pulse; stop once the terms are below round-off
-    const kmax = Math.min(NSERIES, Math.ceil(Math.sqrt(40 / (ALPHA * Math.PI * Math.PI * tt)) * L) + 2);
-    let s = 0;
-    for (let k = 1; k <= kmax; k++) s += bk[k] * Math.sin(k * Math.PI * xx / L) * decay(k, tt);
-    return s;
+    if (tt !== ckT) {                      // coefficients b_k e^(-α k²π² t) for this time, cached
+      ckT = tt;
+      ckN = Math.min(NSERIES, Math.ceil(Math.sqrt(40 / (ALPHA * Math.PI * Math.PI * tt)) * L) + 2);
+      for (let k = 1; k <= ckN; k++) ck[k] = bk[k] * decay(k, tt);
+    }
+    const ph = Math.PI * xx / L, c2 = 2 * Math.cos(ph);
+    let s0 = 0, s1 = Math.sin(ph), sum = 0;   // sin(kφ) by the recurrence sin((k+1)φ) = 2cos φ sin(kφ) − sin((k−1)φ)
+    for (let k = 1; k <= ckN; k++) { sum += ck[k] * s1; const s2 = c2 * s1 - s0; s0 = s1; s1 = s2; }
+    return sum;
   }
 
   // ---- schemes
   function thomas(sub, diag, rhs, out) {      // sub*x[i-1] + diag*x[i] + sub*x[i+1] = rhs[i], i = 0..m-1, written into out[1..m]
-    const m = rhs.length, cp = new Float64Array(m), dp = new Float64Array(m);
+    const m = rhs.length, cp = buf.cp, dp = buf.dp;
     cp[0] = sub / diag; dp[0] = rhs[0] / diag;
     for (let i = 1; i < m; i++) {
       const den = diag - sub * cp[i - 1];
@@ -355,13 +362,14 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
     for (let i = m - 2; i >= 0; i--) out[i + 1] = dp[i] - cp[i] * out[i + 2];
   }
   function advance(key) {
-    const T = sol[key], Tn = Float64Array.from(T);
+    const T = sol[key], Tn = buf.Tn;
+    Tn.set(T);
     if (key === "ftcs") {
       for (let i = 1; i < N; i++) T[i] = Tn[i] + r * (Tn[i + 1] - 2 * Tn[i] + Tn[i - 1]);
     } else if (key === "btcs") {
       thomas(-r, 1 + 2 * r, Tn.subarray(1, N), T);
     } else {
-      const rhs = new Float64Array(N - 1);
+      const rhs = buf.rhs;
       for (let i = 1; i < N; i++) rhs[i - 1] = Tn[i] + 0.5 * r * (Tn[i + 1] - 2 * Tn[i] + Tn[i - 1]);
       thomas(-r / 2, 1 + r, rhs, T);
     }
@@ -375,6 +383,8 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
     dt = r * dx * dx / ALPHA;
     nt = Math.max(1, Math.floor(tEnd / dt + 1e-9));
     x = Float64Array.from({ length: N + 1 }, (_, i) => i * dx);
+    buf = { Tn: new Float64Array(N + 1), rhs: new Float64Array(N - 1), cp: new Float64Array(N - 1), dp: new Float64Array(N - 1) };
+    ckT = -1;
     bk = new Float64Array(NSERIES + 1);
     for (let k = 1; k <= NSERIES; k++) bk[k] = 2 / (k * Math.PI) * (Math.cos(k * Math.PI * PA / L) - Math.cos(k * Math.PI * PB / L));
     const T0 = Float64Array.from(x, f0);
@@ -580,9 +590,9 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
   function loop(now) {
     if (!playing) return;
     acc += (now - last) / 1000 * Math.max(1.5, speed / 20 * nt / 10); last = now;
-    let k = 0;
-    while (acc >= 1 && k < 2000 && playing) { step(); acc -= 1; k++; }
-    if (k === 2000) acc = 0;
+    const t0 = performance.now();          // at most ~30 ms of computing per frame, so large grids stay responsive
+    while (acc >= 1 && playing && performance.now() - t0 < 30) { step(); acc -= 1; }
+    if (acc >= 1) acc = 0;
     render();
     if (playing) requestAnimationFrame(loop);
   }
@@ -609,9 +619,9 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
   $("r-num").addEventListener("change", e => setR(+e.target.value, true));
   document.querySelectorAll(".presets button").forEach(b => b.addEventListener("click", () => setR(+b.dataset.r, true)));
   function setN(v, autoplay) {
-    if (!isFinite(v) || v < 4 || v > 400) { $("N-num").value = N; return; }
+    if (!isFinite(v) || v < 4 || v > 1000) { $("N-num").value = N; return; }
     N = Math.round(v);
-    $("N").value = Math.min(200, N); $("N-num").value = N;
+    $("N").value = N; $("N-num").value = N;
     restart(autoplay);
   }
   $("N").addEventListener("input", e => setN(+e.target.value));

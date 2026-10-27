@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Thomas Algorithm Stepper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,600;1,8..60,400;1,8..60,600&display=swap" rel="stylesheet">
+<style>
+/* Layout: sticky stepper bar on top; wide left column holds the matrix and working vectors, right column holds the step explanation, pseudocode and solution plot. */
+:root {
+  --bg: #f3f6f7;
+  --surface: #ffffff;
+  --ink: #15212a;
+  --muted: #5b6a75;
+  --faint: #a9b5bd;
+  --line: #d7dee3;
+  --fwd: #1d5ea8;
+  --fwd-soft: #e2ecf8;
+  --back: #b0501a;
+  --back-soft: #fbe9dd;
+  --ok: #2a7a4a;
+  --ok-soft: #e1f2e7;
+  --warn: #b1352a;
+  --warn-soft: #fbe3e0;
+  --row-hl: #fff6d6;
+  --f-display: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f151a; --surface: #161f26; --ink: #e3e9ed; --muted: #93a2ad; --faint: #4c5a64; --line: #28343d;
+    --fwd: #72aaea; --fwd-soft: #172a3e; --back: #f09a62; --back-soft: #3a2415;
+    --ok: #63c58f; --ok-soft: #15301f; --warn: #f0806f; --warn-soft: #3a1b17; --row-hl: #2b2814;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f151a; --surface: #161f26; --ink: #e3e9ed; --muted: #93a2ad; --faint: #4c5a64; --line: #28343d;
+  --fwd: #72aaea; --fwd-soft: #172a3e; --back: #f09a62; --back-soft: #3a2415;
+  --ok: #63c58f; --ok-soft: #15301f; --warn: #f0806f; --warn-soft: #3a1b17; --row-hl: #2b2814;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+
+.pane { --phase: var(--fwd); --phase-soft: var(--fwd-soft); }
+.pane[data-phase="intro"] { --phase: var(--ink); --phase-soft: var(--bg); }
+.pane[data-phase="back"] { --phase: var(--back); --phase-soft: var(--back-soft); }
+.pane[data-phase="done"] { --phase: var(--ok); --phase-soft: var(--ok-soft); }
+.pane[data-phase="error"] { --phase: var(--warn); --phase-soft: var(--warn-soft); }
+
+/* tabs */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin-top: 8px; }
+.tabs button { font: inherit; font-weight: 600; font-size: 15px; background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; padding: 8px 14px; color: var(--muted); cursor: pointer; }
+.tabs button:hover { color: var(--ink); }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--fwd); }
+
+/* derivation */
+.dbody { display: grid; gap: 10px; }
+.dbody p { margin: 0; max-width: 64ch; }
+mjx-container[jax="SVG"][display="true"] { overflow-x: auto; overflow-y: hidden; margin: 6px 0 !important; padding-block: 4px; }
+mjx-container .hl { fill: var(--phase); }
+mjx-container .zz { fill: var(--faint); }
+.algo { display: grid; gap: 6px; }
+.algo-sec { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-top: 4px; }
+.algo-line { padding: 2px 10px; border-radius: 6px; border: 1px solid transparent; }
+.algo-line.new { background: var(--phase-soft); border-color: var(--phase); }
+.algo mjx-container[display="true"] { text-align: left !important; }
+.algo-empty { color: var(--muted); font-size: 14px; margin: 0; }
+.d-matrix { grid-area: matrix; } .d-algo { grid-area: algo; }
+
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.wrap { padding-block: 28px 8px; display: grid; gap: 8px; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+h1 { font-family: var(--f-display); font-weight: 600; font-size: clamp(28px, 4vw, 40px); line-height: 1.1; margin: 0; text-wrap: balance; }
+.lede { margin: 0; max-width: 72ch; color: var(--muted); }
+.lede var, .math var { font-family: var(--f-display); font-style: italic; font-size: 1.08em; }
+var { font-family: var(--f-display); font-style: italic; }
+sub { font-size: .72em; }
+
+/* setup row */
+.setup { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding-block: 14px 4px; }
+.field { display: flex; align-items: center; gap: 8px; }
+.field label, .lbl { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+select, .btn, .num-in { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+select { padding: 6px 8px; max-width: 100%; }
+.btn { padding: 6px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; line-height: 1.3; }
+.btn:hover:not(:disabled) { border-color: var(--phase); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.primary { background: var(--phase); border-color: var(--phase); color: var(--surface); font-weight: 600; }
+.btn.sq { width: 32px; height: 32px; padding: 0; justify-content: center; }
+:focus-visible { outline: 2px solid var(--phase); outline-offset: 2px; }
+.nval { font-family: var(--f-mono); min-width: 2ch; text-align: center; font-weight: 600; }
+.toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+.toggle input { width: 16px; height: 16px; accent-color: var(--fwd); }
+.badge { font-size: 13px; padding: 3px 10px; border-radius: 999px; font-weight: 500; }
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+.note { margin: 0; color: var(--muted); font-size: 14px; max-width: 90ch; padding-bottom: 6px; }
+
+/* sticky step controls */
+.controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.controls .wrap { padding-block: 10px; display: grid; gap: 8px; }
+.ctl-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ctl-row .spacer { flex: 1; }
+.counter { font-family: var(--f-mono); font-size: 13px; color: var(--muted); }
+.phase-chip { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: var(--phase); background: var(--phase-soft); padding: 3px 10px; border-radius: 4px; }
+.track { display: flex; gap: 3px; }
+.track button { flex: 1; height: 10px; border: 0; padding: 0; border-radius: 2px; cursor: pointer; background: var(--line); }
+.track button.fwd { background: color-mix(in srgb, var(--fwd) 30%, var(--line)); }
+.track button.back { background: color-mix(in srgb, var(--back) 30%, var(--line)); }
+.track button.done.f, .track button.fwd.f { background: var(--fwd); }
+.track button.back.f { background: var(--back); }
+.track button.done.f { background: var(--ok); }
+.track button.intro.f { background: var(--muted); }
+.track button.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
+.track-legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.track-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+
+/* main grid */
+main.wrap { padding-block: 20px 56px; display: grid; gap: 20px; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-areas: "matrix step" "table code" "table plot"; align-items: start; }
+.a-matrix { grid-area: matrix; } .a-table { grid-area: table; } .a-step { grid-area: step; } .a-code { grid-area: code; } .a-plot { grid-area: plot; }
+@media (max-width: 980px) {
+  main.wrap { grid-template-columns: minmax(0, 1fr); grid-template-areas: "step" "matrix" "table" "code" "plot"; }
+}
+main.wrap.dgrid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-areas: "step matrix" "step algo"; }
+@media (max-width: 980px) {
+  main.wrap.dgrid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "step" "matrix" "algo"; }
+}
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: grid; gap: 12px; min-width: 0; }
+.panel-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.panel-h h3 { margin: 0; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.panel-h .hint { font-size: 13px; color: var(--muted); }
+.scroll { overflow-x: auto; }
+
+/* matrix */
+table { border-collapse: collapse; font-family: var(--f-mono); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.mx td, .mx th { padding: 5px 8px; text-align: right; white-space: nowrap; min-width: 4.2em; }
+.mx th { font-family: var(--f-body); font-weight: 500; color: var(--muted); font-size: 12px; }
+.mx th.rowh { min-width: 0; text-align: left; padding-right: 10px; }
+.mx td.z { color: var(--faint); }
+.mx td.first { border-left: 2px solid var(--ink); }
+.mx td.last { border-right: 2px solid var(--ink); }
+.mx td.rhs { border-left: 2px dashed var(--muted); border-right: 2px solid var(--ink); }
+.mx tr.top td.first, .mx tr.top td.rhs { border-top: 2px solid var(--ink); }
+.mx tr.bot td.first, .mx tr.bot td.rhs { border-bottom: 2px solid var(--ink); }
+.mx tr.top td.first { border-top-left-radius: 4px; }
+.mx tr.active td { background: var(--row-hl); }
+.mx tr.ref td.band, .mx tr.ref td.rhs { color: var(--phase); }
+.mx tr.ref th.rowh { color: var(--phase); }
+.mx tr.active th.rowh { color: var(--ink); font-weight: 600; }
+.mx td.chg { color: var(--phase); font-weight: 600; background: var(--phase-soft); }
+.mx td.norm { font-weight: 500; }
+.mx td.one { font-weight: 600; }
+
+/* working table */
+.wt { width: 100%; }
+.wt th, .wt td { padding: 4px 6px; text-align: right; white-space: nowrap; }
+.wt thead th { font-family: var(--f-body); font-weight: 500; font-size: 14px; color: var(--muted); border-bottom: 1px solid var(--line); padding-block: 6px; }
+.wt thead th var { color: var(--ink); font-size: 1.1em; }
+.wt thead tr.grp th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; border-bottom: 0; padding-bottom: 0; text-align: center; }
+.wt th.gsep, .wt td.gsep { border-left: 1px solid var(--line); }
+.wt tbody th { color: var(--muted); font-weight: 500; text-align: left; }
+.wt tbody tr.active { background: var(--row-hl); }
+.wt td.empty { color: var(--faint); }
+.wt td.rd { box-shadow: inset 0 0 0 2px var(--phase); border-radius: 4px; }
+.wt td.wr { background: var(--phase-soft); color: var(--phase); font-weight: 600; border-radius: 4px; }
+.wt td.bad { background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+.num-in { width: 5.2em; padding: 3px 5px; text-align: right; font-family: var(--f-mono); font-size: 13px; }
+td.rd .num-in { border-color: var(--phase); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); align-items: center; }
+.sw { display: inline-block; width: 22px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+.sw.rd { box-shadow: inset 0 0 0 2px var(--phase); }
+.sw.wr { background: var(--phase-soft); }
+.sw.hl { background: var(--row-hl); border: 1px solid var(--line); }
+
+/* step panel */
+.a-step { border-color: var(--phase); border-width: 1.5px; }
+.step-title { font-family: var(--f-display); font-size: 24px; font-weight: 600; margin: 0; line-height: 1.2; text-wrap: balance; }
+.explain { margin: 0; max-width: 62ch; }
+.eqs { display: grid; gap: 10px; }
+.eq { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 10px 12px; border-radius: 6px; background: var(--bg); font-size: 16px; }
+.eq .l { font-family: var(--f-display); font-size: 18px; }
+.eq .op { color: var(--muted); }
+.eq .sym { font-family: var(--f-display); font-size: 17px; }
+.eq .numx { font-family: var(--f-mono); font-size: 14px; color: var(--muted); }
+.eq .res { font-family: var(--f-mono); font-size: 15px; font-weight: 600; color: var(--phase); background: var(--phase-soft); padding: 1px 8px; border-radius: 4px; }
+.eq .why { flex-basis: 100%; font-size: 13px; color: var(--muted); }
+.reveal-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 14px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-family: var(--f-mono); }
+.xs { font-family: var(--f-mono); font-size: 14px; word-break: break-word; }
+
+/* pseudocode */
+.code { margin: 0; padding: 0; list-style: none; font-family: var(--f-mono); font-size: 13.5px; counter-reset: ln; }
+.code li { padding: 3px 10px 3px 0; border-radius: 4px; white-space: pre; display: flex; gap: 12px; overflow-x: auto; }
+.code li::before { counter-increment: ln; content: counter(ln); color: var(--faint); width: 2ch; text-align: right; flex: none; }
+.code li.cmt { color: var(--muted); font-style: italic; }
+.code li.cmt::before { content: ""; counter-increment: none; }
+.code li.on { background: var(--phase-soft); color: var(--ink); box-shadow: inset 3px 0 0 var(--phase); }
+.code var { font-family: var(--f-mono); font-style: normal; }
+.code .tag { margin-left: auto; color: var(--phase); font-weight: 600; font-size: 12px; }
+
+/* plot */
+.plot svg { width: 100%; height: auto; display: block; }
+.plot .ax { stroke: var(--line); }
+.plot .tick { fill: var(--muted); font-family: var(--f-mono); font-size: 11px; }
+.plot .axl { fill: var(--muted); font-family: var(--f-body); font-size: 12px; }
+.plot .ln { stroke: var(--back); fill: none; stroke-width: 2; }
+.plot .pt { fill: var(--surface); stroke: var(--back); stroke-width: 2; }
+.plot .pt.cur { fill: var(--back); }
+.plot .ghost { fill: none; stroke: var(--faint); stroke-dasharray: 3 3; }
+.plot .msg { fill: var(--muted); font-family: var(--f-body); font-size: 13px; }
+
+.foot { color: var(--muted); font-size: 13px; }
+.keys kbd { font-family: var(--f-mono); font-size: 11.5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); }
+
+@keyframes flash { from { background: var(--phase); color: var(--surface); } }
+.mx td.chg, .wt td.wr { animation: flash .7s ease-out; }
+@media (prefers-reduced-motion: reduce) { .mx td.chg, .wt td.wr { animation: none; } }
+</style>
+<style>
+body { margin: 0; } img { max-width: 100%; } [hidden] { display: none !important; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+</style>
+</head>
+<body>
+
+<div class="app" id="app" data-phase="intro">
+  <header class="wrap">
+    <div class="eyebrow">Tridiagonal matrix algorithm (TDMA)</div>
+    <h1>Thomas Algorithm Stepper</h1>
+    <p class="lede">Solves <var>a</var><sub>i</sub><var>x</var><sub>i−1</sub> + <var>b</var><sub>i</sub><var>x</var><sub>i</sub> + <var>c</var><sub>i</sub><var>x</var><sub>i+1</sub> = <var>d</var><sub>i</sub> in two passes. Part 1 derives the algorithm in symbols, one row operation at a time. Part 2 runs it on CFD example systems with real numbers.</p>
+    <nav class="tabs" role="tablist">
+      <button role="tab" id="tab-derive" data-goto="derive" aria-selected="true">1 · Derive the algorithm</button>
+      <button role="tab" id="tab-example" data-goto="example" aria-selected="false">2 · Run an example</button>
+    </nav>
+  </header>
+
+  <div class="pane" id="der" data-phase="intro">
+    <div class="controls">
+      <div class="wrap">
+        <div class="ctl-row">
+          <button class="btn" id="d-first" aria-label="Back to start">⏮ Start</button>
+          <button class="btn" id="d-prev">◀ Prev</button>
+          <button class="btn primary" id="d-next">Next ▶</button>
+          <button class="btn" id="d-play">▶ Play</button>
+          <button class="btn" id="d-last" aria-label="Jump to end">End ⏭</button>
+          <span class="spacer"></span>
+          <span class="phase-chip" id="d-chip">Setup</span>
+          <span class="counter" id="d-counter"></span>
+        </div>
+        <div class="track" id="d-track"></div>
+        <div class="track-legend">
+          <span style="--c: var(--muted)">Problem and plan</span>
+          <span style="--c: var(--fwd)">Forward sweep</span>
+          <span style="--c: var(--back)">Back substitution</span>
+          <span style="--c: var(--ok)">Summary</span>
+        </div>
+      </div>
+    </div>
+    <main class="wrap dgrid">
+      <section class="panel a-step" id="d-step" aria-live="polite"></section>
+      <section class="panel d-matrix">
+        <div class="panel-h"><h3>Augmented matrix [ A | d ], n = 5</h3><span class="hint" id="d-op"></span></div>
+        <div class="scroll" id="d-mx"></div>
+      </section>
+      <section class="panel d-algo">
+        <div class="panel-h"><h3>The algorithm so far</h3><span class="hint">Builds up as each formula is derived</span></div>
+        <div class="algo" id="d-algo"></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="pane" id="ex" data-phase="intro" hidden>
+   <div class="wrap">
+    <div class="setup">
+      <div class="field"><label for="preset">System</label><select id="preset"></select></div>
+      <div class="field"><span class="lbl">Unknowns n</span>
+        <button class="btn sq" id="nminus" aria-label="Fewer unknowns">−</button>
+        <span class="nval" id="nval">4</span>
+        <button class="btn sq" id="nplus" aria-label="More unknowns">+</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="predict"> Pause to predict each value</label>
+      <span id="dom" class="badge"></span>
+    </div>
+    <p class="note" id="note"></p>
+   </div>
+
+  <div class="controls">
+    <div class="wrap">
+      <div class="ctl-row">
+        <button class="btn" id="first" aria-label="Back to start">⏮ Start</button>
+        <button class="btn" id="prev">◀ Prev</button>
+        <button class="btn primary" id="next">Next ▶</button>
+        <button class="btn" id="play">▶ Play</button>
+        <button class="btn" id="last" aria-label="Jump to end">End ⏭</button>
+        <span class="spacer"></span>
+        <span class="phase-chip" id="chip">Setup</span>
+        <span class="counter" id="counter"></span>
+      </div>
+      <div class="track" id="track"></div>
+      <div class="track-legend">
+        <span style="--c: var(--fwd)">Forward sweep (rows 1 → n)</span>
+        <span style="--c: var(--back)">Back substitution (rows n → 1)</span>
+        <span class="keys">Keys: <kbd>→</kbd> next · <kbd>←</kbd> prev · <kbd>Space</kbd> play</span>
+      </div>
+    </div>
+  </div>
+
+  <main class="wrap">
+    <section class="panel a-step" id="step" aria-live="polite"></section>
+
+    <section class="panel a-matrix">
+      <div class="panel-h"><h3>Augmented matrix [ A | d ]</h3><span class="hint" id="mxhint"></span></div>
+      <div class="scroll"><table class="mx" id="mx"></table></div>
+    </section>
+
+    <section class="panel a-table">
+      <div class="panel-h"><h3>Working vectors</h3><span class="hint">Only these 4 + 3 arrays are stored. Edit <var>a</var>, <var>b</var>, <var>c</var>, <var>d</var> directly.</span></div>
+      <div class="legend">
+        <span><span class="sw rd"></span>read this step</span>
+        <span><span class="sw wr"></span>written this step</span>
+        <span><span class="sw hl"></span>active row</span>
+      </div>
+      <div class="scroll"><table class="wt" id="wt"></table></div>
+    </section>
+
+    <section class="panel a-code">
+      <div class="panel-h"><h3>Pseudocode</h3><span class="hint">Highlighted lines run in this step</span></div>
+      <ol class="code" id="code"></ol>
+    </section>
+
+    <section class="panel a-plot plot">
+      <div class="panel-h"><h3>Solution <var>x</var><sub>i</sub> by node</h3><span class="hint">Fills in from the right during back substitution</span></div>
+      <div id="plot"></div>
+    </section>
+  </main>
+  </div>
+</div>
+
+<script>
+window.MathJax = {
+  loader: { load: ["[tex]/html"] },
+  tex: { packages: { "[+]": ["html"] } },
+  svg: { fontCache: "local" },
+  startup: {
+    typeset: false,
+    ready() {
+      MathJax.startup.defaultReady();
+      MathJax.startup.promise.then(() => window.__dRender && window.__dRender());
+    },
+  },
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" async></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const fill = (n, v) => Array.from({ length: n }, (_, i) => (typeof v === "function" ? v(i) : v));
+  const rint = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
+
+  const PRESETS = {
+    warmup: {
+      label: "Warm-up (exact answer x = 1)", n: 4,
+      note: "A small hand-checkable system: 2 on the diagonal, −1 beside it. Every unknown comes out exactly 1, so you can verify each step on paper.",
+      gen: (n) => ({ a: fill(n, -1), b: fill(n, 2), c: fill(n, -1), d: fill(n, (i) => (i === 0 || i === n - 1 ? 1 : 0)) }),
+    },
+    conduction: {
+      label: "1D steady conduction", n: 6,
+      note: "d²T/dx² = 0 with central differences on n interior nodes: Tᵢ₋₁ − 2Tᵢ + Tᵢ₊₁ = 0. Wall temperatures T = 100 (left) and T = 20 (right) are known, so they move to the right-hand side as d₁ = −100 and dₙ = −20. The exact answer is a straight line.",
+      gen: (n) => ({ a: fill(n, 1), b: fill(n, -2), c: fill(n, 1), d: fill(n, (i) => (i === 0 ? -100 : i === n - 1 ? -20 : 0)) }),
+    },
+    btcs: {
+      label: "Implicit heat equation (BTCS)", n: 6,
+      note: "One backward-Euler time step of ∂T/∂t = α ∂²T/∂x² with r = αΔt/Δx² = 0.5: −r Tᵢ₋₁ⁿ⁺¹ + (1+2r) Tᵢⁿ⁺¹ − r Tᵢ₊₁ⁿ⁺¹ = Tᵢⁿ. The rod starts at 20; the left wall is held at 100, so d₁ = 20 + 0.5·100.",
+      gen: (n) => ({ a: fill(n, -0.5), b: fill(n, 2), c: fill(n, -0.5), d: fill(n, (i) => 20 + (i === 0 ? 50 : 0) + (i === n - 1 ? 10 : 0)) }),
+    },
+    convdiff: {
+      label: "Convection–diffusion (cell Péclet 1)", n: 6,
+      note: "Steady u dφ/dx = Γ d²φ/dx² with central differences: −(1 + Pe/2) φᵢ₋₁ + 2φᵢ − (1 − Pe/2) φᵢ₊₁ = 0 with Pe = uΔx/Γ = 1. Inlet φ = 1, outlet φ = 0. Try editing a and c to see what happens as Pe grows past 2.",
+      gen: (n) => ({ a: fill(n, -1.5), b: fill(n, 2), c: fill(n, -0.5), d: fill(n, (i) => (i === 0 ? 1.5 : 0)) }),
+    },
+    random: {
+      label: "Random diagonally dominant", n: 5,
+      note: "Random integer coefficients with |bᵢ| > |aᵢ| + |cᵢ|. Pick it again for a new system to practise on.",
+      gen: (n) => {
+        const a = fill(n, () => rint(-3, 3)), c = fill(n, () => rint(-3, 3));
+        a[0] = 0; c[n - 1] = 0;
+        const b = fill(n, (i) => (Math.abs(a[i]) + Math.abs(c[i]) + rint(1, 3)) * (Math.random() < 0.8 ? 1 : -1));
+        return { a, b, c, d: fill(n, () => rint(-9, 9)) };
+      },
+    },
+    custom: { label: "Custom (edited)", note: "You edited the coefficients. Every value below is recomputed from your numbers." },
+  };
+
+  const S = { preset: "warmup", n: 4, a: [], b: [], c: [], d: [], step: 0, revealed: false, predict: false, timer: null };
+
+  function load(p, n) {
+    const P = PRESETS[p];
+    S.n = n || P.n;
+    Object.assign(S, P.gen(S.n));
+    S.a[0] = 0; S.c[S.n - 1] = 0;
+    S.preset = p; S.step = 0; S.revealed = false;
+  }
+
+  function resize(n) {
+    n = Math.max(3, Math.min(10, n));
+    if (n === S.n) return;
+    if (S.preset !== "custom") { load(S.preset, n); return; }
+    const t = S.n > 2 ? 1 : 0, old = S.n;
+    const tmpl = { a: S.a[t], b: S.b[t], c: S.c[t] };
+    for (const k of ["a", "b", "c", "d"]) S[k] = fill(n, (i) => (i < old ? S[k][i] : k === "d" ? 0 : tmpl[k]));
+    if (n > old) S.c[old - 1] = tmpl.c;
+    S.n = n; S.a[0] = 0; S.c[n - 1] = 0; S.step = 0; S.revealed = false;
+  }
+
+  function compute() {
+    const { n, a, b, c, d } = S;
+    const m = [], cp = [], dp = [], x = [];
+    let err = -1;
+    for (let i = 0; i < n; i++) {
+      m[i] = i === 0 ? b[0] : b[i] - a[i] * cp[i - 1];
+      if (!isFinite(m[i]) || Math.abs(m[i]) < 1e-12) { err = i; break; }
+      cp[i] = i === n - 1 ? 0 : c[i] / m[i];
+      dp[i] = i === 0 ? d[0] / m[0] : (d[i] - a[i] * dp[i - 1]) / m[i];
+    }
+    if (err < 0) {
+      x[n - 1] = dp[n - 1];
+      for (let i = n - 2; i >= 0; i--) x[i] = dp[i] - cp[i] * x[i + 1];
+    }
+    const last = err >= 0 ? err + 1 : 2 * n + 1;
+    return { m, cp, dp, x, err, last };
+  }
+
+  function info(k, R) {
+    const n = S.n;
+    if (k === 0) return { phase: "intro", row: -1 };
+    if (R.err >= 0 && k === R.err + 1) return { phase: "error", row: R.err };
+    if (k <= n) return { phase: "fwd", row: k - 1 };
+    if (k <= 2 * n) return { phase: "back", row: 2 * n - k };
+    return { phase: "done", row: -1 };
+  }
+
+  // ---------- formatting ----------
+  function fmt(v) {
+    if (v === undefined || v === null || Number.isNaN(v)) return "";
+    if (!isFinite(v)) return "∞";
+    let r = Math.round(v * 1e4) / 1e4;
+    if (Object.is(r, -0)) r = 0;
+    let s = Math.abs(r) >= 1e5 ? r.toExponential(3) : r.toFixed(4).replace(/\.?0+$/, "");
+    return s.replace("-", "−");
+  }
+  const par = (v) => (v < 0 ? `(${fmt(v)})` : fmt(v));
+  const sym = (s, i, p) => `<var>${s}</var>${p ? "′" : ""}<sub>${i}</sub>`;
+
+  function dominance() {
+    let strict = false, ok = true, bad = -1;
+    for (let i = 0; i < S.n; i++) {
+      const off = Math.abs(S.a[i]) + Math.abs(S.c[i]), dia = Math.abs(S.b[i]);
+      if (dia < off - 1e-12) { ok = false; if (bad < 0) bad = i; }
+      if (dia > off + 1e-12) strict = true;
+    }
+    return { ok: ok && strict, bad };
+  }
+
+  // ---------- render ----------
+  function render() {
+    const R = compute();
+    if (S.step > R.last) S.step = R.last;
+    const I = info(S.step, R);
+    const masked = S.predict && !S.revealed && (I.phase === "fwd" || I.phase === "back");
+    $("ex").dataset.phase = I.phase;
+    $("nval").textContent = S.n;
+    $("nminus").disabled = S.n <= 3;
+    $("nplus").disabled = S.n >= 10;
+    $("preset").value = S.preset;
+    $("note").textContent = PRESETS[S.preset].note;
+
+    const dm = dominance();
+    const dom = $("dom");
+    dom.className = "badge " + (dm.ok ? "ok" : "warn");
+    dom.textContent = dm.ok ? "✓ Diagonally dominant: stable without pivoting" : `⚠ Not diagonally dominant${dm.bad >= 0 ? " at row " + (dm.bad + 1) : ""}: no stability guarantee`;
+
+    renderControls(R, I, masked);
+    renderStep(R, I, masked);
+    renderMatrix(R, I, masked);
+    renderTable(R, I, masked);
+    renderCode(I);
+    renderPlot(R, I, masked);
+  }
+
+  function renderControls(R, I, masked) {
+    const names = { intro: "Setup", fwd: "Forward sweep", back: "Back substitution", done: "Solved", error: "Zero pivot" };
+    $("chip").textContent = names[I.phase];
+    $("counter").textContent = `Step ${S.step} of ${R.last}`;
+    $("prev").disabled = $("first").disabled = S.step === 0;
+    const atEnd = S.step >= R.last && !masked;
+    $("next").disabled = atEnd;
+    $("last").disabled = S.step >= R.last;
+    $("next").textContent = masked ? "Reveal ✓" : "Next ▶";
+    $("play").textContent = S.timer ? "❚❚ Pause" : "▶ Play";
+    const tr = $("track");
+    let h = "";
+    for (let k = 0; k <= R.last; k++) {
+      const p = info(k, R).phase;
+      const cls = [p === "error" ? "back" : p, k <= S.step ? "f" : "", k === S.step ? "cur" : ""].join(" ");
+      h += `<button class="${cls}" data-k="${k}" aria-label="Go to step ${k}"></button>`;
+    }
+    tr.innerHTML = h;
+  }
+
+  function eq(l, symb, num, res, why) {
+    return `<div class="eq"><span class="l">${l}</span><span class="op">=</span><span class="sym">${symb}</span>` +
+      (num !== null ? `<span class="op">=</span><span class="numx">${num}</span>` : "") +
+      `<span class="op">=</span><span class="res">${res}</span>${why ? `<span class="why">${why}</span>` : ""}</div>`;
+  }
+
+  function renderStep(R, I, masked) {
+    const { n, a, b, c, d } = S;
+    const { m, cp, dp, x } = R;
+    const q = (v) => (masked ? "?" : fmt(v));
+    let h = "";
+    if (I.phase === "intro") {
+      const ex = Math.min(n, 3);
+      h = `<div class="eyebrow">Step 0 · the problem</div>
+        <h2 class="step-title">${n} equations, 3 unknowns per row</h2>
+        <p class="explain">Each row couples a node only to its two neighbours, so the matrix has nonzeros on just three diagonals. Instead of an <var>n</var>×<var>n</var> array, the algorithm stores four vectors: sub-diagonal <var>a</var>, diagonal <var>b</var>, super-diagonal <var>c</var> and right-hand side <var>d</var> (with <var>a</var><sub>1</sub> = <var>c</var><sub>n</sub> = 0).</p>
+        <div class="eqs">${eq(`Row ${ex === 3 ? 2 : 1}`, ex === 3 ? `${sym("a", 2)}${sym("x", 1)} + ${sym("b", 2)}${sym("x", 2)} + ${sym("c", 2)}${sym("x", 3)}` : `${sym("b", 1)}${sym("x", 1)} + ${sym("c", 1)}${sym("x", 2)}`, null,
+          ex === 3 ? fmt(d[1]) : fmt(d[0]))}</div>
+        <p class="explain">This is Gaussian elimination that skips every zero. <strong style="color:var(--fwd)">Forward sweep</strong>: for rows 1 to <var>n</var>, remove <var>a</var><sub>i</sub> using the row above and divide by the pivot so the diagonal becomes 1. <strong style="color:var(--back)">Back substitution</strong>: the last row is then solved, and each row above needs only the value below it.</p>
+        <p class="explain" style="color:var(--muted)">Press <strong>Next</strong> to start.</p>`;
+    } else if (I.phase === "fwd") {
+      const i = I.row, k = i + 1;
+      if (i === 0) {
+        h = `<div class="eyebrow">Forward sweep · row 1 of ${n}</div>
+          <h2 class="step-title">Normalize row 1</h2>
+          <p class="explain">Row 1 has no sub-diagonal term, so there is nothing to eliminate. Divide the whole row by its pivot <var>b</var><sub>1</sub> to make the diagonal 1.</p>
+          <div class="eqs">
+            ${eq(sym("c", 1, 1), `${sym("c", 1)} / ${sym("b", 1)}`, `${fmt(c[0])} / ${par(b[0])}`, q(cp[0]))}
+            ${eq(sym("d", 1, 1), `${sym("d", 1)} / ${sym("b", 1)}`, `${fmt(d[0])} / ${par(b[0])}`, q(dp[0]))}
+          </div>
+          <p class="explain">Row 1 now reads <var>x</var><sub>1</sub> + ${masked ? "?" : par(cp[0])}·<var>x</var><sub>2</sub> = ${masked ? "?" : fmt(dp[0])}.</p>`;
+      } else {
+        const lastRow = i === n - 1;
+        h = `<div class="eyebrow">Forward sweep · row ${k} of ${n}</div>
+          <h2 class="step-title">Eliminate ${sym("a", k)} using row ${k - 1}</h2>
+          <p class="explain">Row ${k - 1} already reads <var>x</var><sub>${k - 1}</sub> + ${sym("c", k - 1, 1)}<var>x</var><sub>${k}</sub> = ${sym("d", k - 1, 1)}. Subtract ${sym("a", k)} × (row ${k - 1}) from row ${k}: the ${sym("x", k - 1)} term vanishes and the diagonal becomes the new pivot ${sym("m", k)}. Then divide row ${k} by ${sym("m", k)}.</p>
+          <div class="eqs">
+            ${eq(sym("m", k), `${sym("b", k)} − ${sym("a", k)}·${sym("c", k - 1, 1)}`, `${par(b[i])} − ${par(a[i])}·${par(cp[i - 1])}`, q(m[i]), "New diagonal after elimination (the pivot).")}
+            ${lastRow
+              ? eq(sym("c", k, 1), `${sym("c", k)} / ${sym("m", k)}`, null, "0", "Last row has no super-diagonal, so there is nothing to store.")
+              : eq(sym("c", k, 1), `${sym("c", k)} / ${sym("m", k)}`, `${par(c[i])} / ${masked ? "?" : par(m[i])}`, q(cp[i]))}
+            ${eq(sym("d", k, 1), `(${sym("d", k)} − ${sym("a", k)}·${sym("d", k - 1, 1)}) / ${sym("m", k)}`, `(${fmt(d[i])} − ${par(a[i])}·${par(dp[i - 1])}) / ${masked ? "?" : par(m[i])}`, q(dp[i]))}
+          </div>
+          <p class="explain">Row ${k} now reads <var>x</var><sub>${k}</sub>${lastRow ? "" : ` + ${masked ? "?" : par(cp[i])}·<var>x</var><sub>${k + 1}</sub>`} = ${masked ? "?" : fmt(dp[i])}.${lastRow ? " The forward sweep is finished: the matrix is upper bidiagonal with 1s on the diagonal." : ""}</p>`;
+      }
+    } else if (I.phase === "back") {
+      const i = I.row, k = i + 1;
+      if (i === n - 1) {
+        h = `<div class="eyebrow">Back substitution · row ${n}</div>
+          <h2 class="step-title">The last row is already solved</h2>
+          <p class="explain">After the forward sweep, row ${n} reads 1·${sym("x", n)} = ${sym("d", n, 1)}. No arithmetic is needed.</p>
+          <div class="eqs">${eq(sym("x", n), sym("d", n, 1), null, q(x[i]))}</div>`;
+      } else {
+        h = `<div class="eyebrow">Back substitution · row ${k}</div>
+          <h2 class="step-title">Substitute ${sym("x", k + 1)} into row ${k}</h2>
+          <p class="explain">Row ${k} reads ${sym("x", k)} + ${sym("c", k, 1)}${sym("x", k + 1)} = ${sym("d", k, 1)}, and ${sym("x", k + 1)} was found in the previous step. Move it to the right-hand side.</p>
+          <div class="eqs">${eq(sym("x", k), `${sym("d", k, 1)} − ${sym("c", k, 1)}·${sym("x", k + 1)}`, `${par(dp[i])} − ${par(cp[i])}·${par(x[i + 1])}`, q(x[i]))}</div>`;
+      }
+      h += `<p class="explain" style="color:var(--muted)">${i === 0 ? "This was the last unknown." : `${i} unknown${i > 1 ? "s" : ""} left, each costing one multiply and one subtract.`}</p>`;
+    } else if (I.phase === "error") {
+      const i = I.row, k = i + 1;
+      h = `<div class="eyebrow">Forward sweep · row ${k}</div>
+        <h2 class="step-title">Zero pivot: the algorithm breaks down</h2>
+        <p class="explain">${k === 1 ? `${sym("b", 1)} = 0` : `${sym("m", k)} = ${sym("b", k)} − ${sym("a", k)}·${sym("c", k - 1, 1)} = ${par(b[i])} − ${par(a[i])}·${par(cp[i - 1])} = 0`}, and the next operation divides by it. The Thomas algorithm never swaps rows, so it cannot recover. If |${sym("b", "i")}| ≥ |${sym("a", "i")}| + |${sym("c", "i")}| on every row (strictly on at least one), every pivot is guaranteed nonzero. Edit the coefficients to fix it.</p>`;
+    } else {
+      let res = 0;
+      for (let i = 0; i < n; i++) {
+        const r = (i > 0 ? a[i] * x[i - 1] : 0) + b[i] * x[i] + (i < n - 1 ? c[i] * x[i + 1] : 0) - d[i];
+        res = Math.max(res, Math.abs(r));
+      }
+      const thomas = 8 * n - 7, gauss = Math.round((2 * n ** 3) / 3);
+      h = `<div class="eyebrow">Done</div>
+        <h2 class="step-title">Solved: the matrix is now the identity</h2>
+        <p class="explain">Each back-substitution step cleared one super-diagonal entry, so [A | d] became [I | x].</p>
+        <div class="xs">x = [ ${x.map(fmt).join(", ")} ]</div>
+        <dl class="kv">
+          <dt>Check, max |Ax − d|</dt><dd>${res < 1e-10 ? "≈ 0" : res.toExponential(2)} (${res < 1e-8 ? "correct to round-off" : "check the input"})</dd>
+          <dt>Thomas, about 8n − 7 ops</dt><dd>${thomas.toLocaleString()} ops for n = ${n}</dd>
+          <dt>Dense Gauss, about 2n³/3</dt><dd>${gauss.toLocaleString()} ops for n = ${n}</dd>
+          <dt>At n = 1000</dt><dd>7,993 vs 666,666,667</dd>
+        </dl>
+        <p class="explain">The cost grows linearly with <var>n</var>, which is why implicit CFD schemes (and line-by-line ADI sweeps in 2D/3D) rely on it.</p>`;
+    }
+    if (masked) h += `<div class="reveal-row"><strong>Predict the highlighted value${I.phase === "fwd" ? "s" : ""}, then press Reveal.</strong></div>`;
+    $("step").innerHTML = h;
+  }
+
+  function rowState(r, I, R) {
+    const n = S.n;
+    let fwd = false, back = false;
+    if (I.phase === "fwd") fwd = r <= I.row;
+    else if (I.phase === "error") fwd = r < I.row;
+    else if (I.phase === "back") { fwd = true; back = r >= I.row; }
+    else if (I.phase === "done") { fwd = true; back = true; }
+    return { fwd, back };
+  }
+
+  function renderMatrix(R, I, masked) {
+    const { n, a, b, c, d } = S;
+    let h = "<thead><tr><th class='rowh'></th>";
+    for (let j = 0; j < n; j++) h += `<th>${sym("x", j + 1)}</th>`;
+    h += `<th>${I.phase === "done" ? "x" : "rhs"}</th></tr></thead><tbody>`;
+    for (let r = 0; r < n; r++) {
+      const st = rowState(r, I, R);
+      const active = r === I.row;
+      const ref = (I.phase === "fwd" && r === I.row - 1) || (I.phase === "back" && r === I.row + 1);
+      const cls = [r === 0 ? "top" : "", r === n - 1 ? "bot" : "", active ? "active" : "", ref ? "ref" : ""].join(" ");
+      h += `<tr class="${cls}"><th class="rowh">row ${r + 1}</th>`;
+      for (let j = 0; j <= n; j++) {
+        const isR = j === n, band = !isR && Math.abs(j - r) <= 1;
+        let v;
+        if (st.back) v = isR ? R.x[r] : j === r ? 1 : 0;
+        else if (st.fwd) v = isR ? R.dp[r] : j === r ? 1 : j === r + 1 ? R.cp[r] : 0;
+        else v = isR ? d[r] : j === r - 1 ? a[r] : j === r ? b[r] : j === r + 1 ? c[r] : 0;
+        let chg = false;
+        if (active && I.phase === "fwd") chg = isR || (band && !(j === r + 1 && r === n - 1));
+        if (active && I.phase === "back") chg = isR || (j === r + 1);
+        const c2 = ["", band ? "band" : "", !band && !isR ? "z" : "", isR ? "rhs" : "", j === 0 ? "first" : "", j === n - 1 ? "last" : "", chg ? "chg" : "", band && st.fwd && j === r ? "one" : ""];
+        const shown = chg && masked ? "?" : fmt(v);
+        h += `<td class="${c2.join(" ").trim()}">${shown}</td>`;
+      }
+      h += "</tr>";
+    }
+    $("mx").innerHTML = h + "</tbody>";
+    const hint = {
+      intro: "Original system",
+      fwd: `Row ${I.row + 1} is rewritten${I.row > 0 ? ` using row ${I.row}` : ""}`,
+      back: `Row ${I.row + 1} loses its super-diagonal`,
+      done: "Reduced to [ I | x ]",
+      error: `Pivot on row ${I.row + 1} is zero`,
+    };
+    $("mxhint").textContent = hint[I.phase];
+  }
+
+  function renderTable(R, I, masked) {
+    const { n, a, b, c, d } = S;
+    const focusId = document.activeElement && document.activeElement.id;
+    let h = `<thead><tr class="grp"><th></th><th colspan="4">input coefficients</th><th colspan="3" class="gsep">forward sweep</th><th class="gsep">back sub.</th></tr>
+      <tr><th style="text-align:left">i</th><th>${sym("a", "i")}</th><th>${sym("b", "i")}</th><th>${sym("c", "i")}</th><th>${sym("d", "i")}</th>
+      <th class="gsep">${sym("m", "i")}</th><th>${sym("c", "i", 1)}</th><th>${sym("d", "i", 1)}</th><th class="gsep">${sym("x", "i")}</th></tr></thead><tbody>`;
+    for (let r = 0; r < n; r++) {
+      const st = rowState(r, I, R);
+      const f = I.phase === "fwd" || I.phase === "error", bk = I.phase === "back";
+      const rd = new Set(), wr = new Set();
+      if (f && r === I.row) { if (r > 0) rd.add("a"); rd.add("b"); if (r < n - 1) rd.add("c"); rd.add("d"); wr.add("m"); wr.add("cp"); wr.add("dp"); }
+      if (f && r === I.row - 1) { rd.add("cp"); rd.add("dp"); }
+      if (bk && r === I.row) { rd.add("dp"); if (r < n - 1) rd.add("cp"); wr.add("x"); }
+      if (bk && r === I.row + 1) rd.add("x");
+      if (I.phase === "error") wr.clear();
+      const cell = (key, inner, extra = "") => {
+        const cls = [extra, rd.has(key) ? "rd" : "", wr.has(key) ? "wr" : ""].join(" ").trim();
+        return `<td class="${cls}">${inner}</td>`;
+      };
+      const input = (key) => {
+        if ((key === "a" && r === 0) || (key === "c" && r === n - 1)) return cell(key, "—", "empty");
+        return cell(key, `<input class="num-in" type="number" step="any" id="in-${key}-${r}" data-k="${key}" data-r="${r}" value="${S[key][r]}" aria-label="${key} row ${r + 1}">`);
+      };
+      const out = (key, arr, visible, extra = "") => {
+        if (!visible) return cell(key, "", (extra + " empty").trim());
+        const w = wr.has(key) && masked;
+        return cell(key, w ? "?" : fmt(arr[r]), extra);
+      };
+      const isErr = I.phase === "error" && r === I.row;
+      h += `<tr class="${r === I.row ? "active" : ""}"><th>${r + 1}</th>${input("a")}${input("b")}${input("c")}${input("d")}`;
+      h += isErr ? `<td class="gsep bad">0</td>` : out("m", R.m, st.fwd, "gsep");
+      h += out("cp", R.cp, st.fwd) + out("dp", R.dp, st.fwd) + out("x", R.x, st.back, "gsep") + "</tr>";
+    }
+    $("wt").innerHTML = h + "</tbody>";
+    if (focusId && focusId.startsWith("in-") && $(focusId)) $(focusId).focus();
+  }
+
+  const CODE = [
+    { t: "// forward sweep", cmt: true },
+    { t: "c′[1] ← c[1] / b[1];  d′[1] ← d[1] / b[1]" },
+    { t: "for i = 2 … n:" },
+    { t: "    m     ← b[i] − a[i]·c′[i−1]" },
+    { t: "    c′[i] ← c[i] / m" },
+    { t: "    d′[i] ← (d[i] − a[i]·d′[i−1]) / m" },
+    { t: "// back substitution", cmt: true },
+    { t: "x[n] ← d′[n]" },
+    { t: "for i = n−1 … 1:" },
+    { t: "    x[i] ← d′[i] − c′[i]·x[i+1]" },
+  ];
+  function renderCode(I) {
+    let on = [], tagAt = -1;
+    const k = I.row + 1;
+    if (I.phase === "fwd" || I.phase === "error") {
+      if (I.row === 0) on = [1];
+      else { on = I.phase === "error" ? [2, 3] : [2, 3, 4, 5]; tagAt = 2; }
+    } else if (I.phase === "back") {
+      if (I.row === S.n - 1) on = [7];
+      else { on = [8, 9]; tagAt = 8; }
+    }
+    $("code").innerHTML = CODE.map((l, idx) =>
+      `<li class="${l.cmt ? "cmt" : ""} ${on.includes(idx) ? "on" : ""}"><span>${l.t}</span>${idx === tagAt ? `<span class="tag">i = ${k}</span>` : ""}</li>`
+    ).join("");
+  }
+
+  function renderPlot(R, I, masked) {
+    const n = S.n, W = 560, H = 220, L = 52, Rm = 16, T = 14, B = 36;
+    let h = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Solution values by node">`;
+    if (R.err >= 0) {
+      h += `<text class="msg" x="${W / 2}" y="${H / 2}" text-anchor="middle">No solution: zero pivot at row ${R.err + 1}</text></svg>`;
+      $("plot").innerHTML = h; return;
+    }
+    let lo = Math.min(...R.x), hi = Math.max(...R.x);
+    if (hi - lo < 1e-9) { lo -= 1; hi += 1; }
+    const pad = (hi - lo) * 0.1; lo -= pad; hi += pad;
+    const X = (i) => L + (n === 1 ? 0 : (i * (W - L - Rm)) / (n - 1));
+    const Y = (v) => T + ((hi - v) * (H - T - B)) / (hi - lo);
+    for (let t = 0; t <= 4; t++) {
+      const v = lo + ((hi - lo) * t) / 4, y = Y(v);
+      h += `<line class="ax" x1="${L}" x2="${W - Rm}" y1="${y}" y2="${y}"/><text class="tick" x="${L - 6}" y="${y + 4}" text-anchor="end">${fmt(Math.round(v * 100) / 100)}</text>`;
+    }
+    for (let i = 0; i < n; i++) {
+      h += `<line class="ghost" x1="${X(i)}" x2="${X(i)}" y1="${T}" y2="${H - B}"/><text class="tick" x="${X(i)}" y="${H - B + 16}" text-anchor="middle">${i + 1}</text>`;
+    }
+    h += `<text class="axl" x="${(L + W - Rm) / 2}" y="${H - 4}" text-anchor="middle">node i</text>`;
+    const vis = [];
+    for (let i = 0; i < n; i++) {
+      const st = rowState(i, I, R);
+      if (st.back && !(masked && i === I.row)) vis.push(i);
+    }
+    if (vis.length) {
+      h += `<polyline class="ln" points="${vis.map((i) => `${X(i)},${Y(R.x[i])}`).join(" ")}"/>`;
+      for (const i of vis) h += `<circle class="pt ${i === I.row ? "cur" : ""}" cx="${X(i)}" cy="${Y(R.x[i])}" r="${i === I.row ? 6 : 4.5}"><title>x${i + 1} = ${fmt(R.x[i])}</title></circle>`;
+    } else {
+      h += `<text class="msg" x="${(L + W - Rm) / 2}" y="${(T + H - B) / 2}" text-anchor="middle">No x values yet. The forward sweep only prepares c′ and d′.</text>`;
+    }
+    $("plot").innerHTML = h + "</svg>";
+  }
+
+  // ---------- actions ----------
+  function maxStep() { return compute().last; }
+  function next() {
+    const R = compute(), I = info(S.step, R);
+    const masked = S.predict && !S.revealed && (I.phase === "fwd" || I.phase === "back");
+    if (masked) S.revealed = true;
+    else if (S.step < R.last) { S.step++; S.revealed = false; }
+    else stop();
+    render();
+  }
+  function go(k) { S.step = Math.max(0, Math.min(maxStep(), k)); S.revealed = k < S.step || true; render(); }
+  function stop() { if (S.timer) { clearInterval(S.timer); S.timer = null; } }
+  function togglePlay() {
+    if (S.timer) { stop(); render(); return; }
+    if (S.step >= maxStep()) { S.step = 0; S.revealed = false; }
+    S.timer = setInterval(() => {
+      if (S.step >= maxStep()) { stop(); render(); return; }
+      next();
+    }, 1700);
+    render();
+  }
+
+  const sel = $("preset");
+  sel.innerHTML = Object.entries(PRESETS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join("");
+  sel.addEventListener("change", () => { stop(); if (sel.value === "custom") { S.preset = "custom"; render(); return; } load(sel.value); render(); });
+  $("nminus").addEventListener("click", () => { stop(); resize(S.n - 1); render(); });
+  $("nplus").addEventListener("click", () => { stop(); resize(S.n + 1); render(); });
+  $("predict").addEventListener("change", (e) => { S.predict = e.target.checked; S.revealed = false; render(); });
+  $("next").addEventListener("click", () => { stop(); next(); });
+  $("prev").addEventListener("click", () => { stop(); if (S.step > 0) { S.step--; S.revealed = true; } render(); });
+  $("first").addEventListener("click", () => { stop(); S.step = 0; S.revealed = false; render(); });
+  $("last").addEventListener("click", () => { stop(); S.step = maxStep(); S.revealed = true; render(); });
+  $("play").addEventListener("click", togglePlay);
+  $("track").addEventListener("click", (e) => {
+    const k = e.target.dataset && e.target.dataset.k;
+    if (k !== undefined) { stop(); S.step = +k; S.revealed = true; render(); }
+  });
+  $("wt").addEventListener("change", (e) => {
+    const t = e.target;
+    if (!t.dataset || !t.dataset.k) return;
+    const v = parseFloat(t.value);
+    if (!isFinite(v)) { t.value = S[t.dataset.k][+t.dataset.r]; return; }
+    S[t.dataset.k][+t.dataset.r] = v;
+    S.preset = "custom";
+    setTimeout(render, 0);
+  });
+  // ---------- derivation (symbolic) ----------
+  const T = String.raw;
+  const DSTEPS = [
+    {
+      phase: "intro", st: "ooooo", hl: [], op: "",
+      title: "A tridiagonal system",
+      body: T`<p>A three-point stencil, such as the central difference for \(\partial^2\phi/\partial x^2\), links each node only to its two neighbours. One equation per node gives</p>
+\[\begin{aligned} b_1x_1 + c_1x_2 &= d_1\\ a_ix_{i-1} + b_ix_i + c_ix_{i+1} &= d_i, \qquad i = 2,\dots,n-1\\ a_nx_{n-1} + b_nx_n &= d_n \end{aligned}\]
+<p>In matrix form \(A\mathbf{x} = \mathbf{d}\), the only nonzeros lie on three diagonals: sub-diagonal \(a_i\), diagonal \(b_i\), super-diagonal \(c_i\). By convention \(a_1 = 0\) and \(c_n = 0\).</p>
+<p>Example: \(\phi_{i-1} - 2\phi_i + \phi_{i+1} = 0\) has \(a_i = 1,\ b_i = -2,\ c_i = 1\). The matrix on the right shows \(n = 5\).</p>`,
+    },
+    {
+      phase: "intro", st: "ooooo", hl: [], op: "",
+      title: "The plan: make it bidiagonal",
+      body: T`<p>Dense Gaussian elimination costs \(\mathcal{O}(n^3)\). Here each column has only one entry below the diagonal, so eliminating it changes only the next row. The forward sweep rewrites every row in the form</p>
+\[x_i + c'_i\,x_{i+1} = d'_i \quad (i \lt n), \qquad x_n = d'_n\]
+<p>which is the unit upper-bidiagonal system</p>
+\[\begin{bmatrix}1 & c'_1 \\ & 1 & c'_2 \\ & & \ddots & \ddots \\ & & & 1 & c'_{n-1}\\ & & & & 1\end{bmatrix}\begin{bmatrix} x_1\\ x_2\\ \vdots\\ x_{n-1}\\ x_n\end{bmatrix} = \begin{bmatrix} d'_1\\ d'_2\\ \vdots\\ d'_{n-1}\\ d'_n\end{bmatrix}\]
+<p>Back substitution then solves it from the bottom up. The task is to find formulas for the new coefficients \(c'_i\) and \(d'_i\).</p>`,
+    },
+    {
+      phase: "fwd", st: "foooo", hl: ["1,1", "1,2", "1,6"], op: T`R_1 \leftarrow R_1 / b_1`,
+      title: "Row 1: divide by the pivot",
+      body: T`<p>Row 1 has no \(x_0\) term, so there is nothing to eliminate. Divide it by its diagonal \(b_1\):</p>
+\[b_1x_1 + c_1x_2 = d_1 \quad\xrightarrow{\ \div\, b_1\ }\quad x_1 + \underbrace{\frac{c_1}{b_1}}_{\class{hl}{c'_1}}\,x_2 = \underbrace{\frac{d_1}{b_1}}_{\class{hl}{d'_1}}\]
+<p>Row 1 is now in the target form \(x_1 + c'_1x_2 = d'_1\).</p>`,
+    },
+    {
+      phase: "fwd", st: "feooo", hl: ["2,1", "2,2", "2,6"], op: T`R_2 \leftarrow R_2 - a_2R_1`,
+      title: T`Row 2: eliminate \(x_1\)`,
+      body: T`<p>Row 2 contains \(x_1\). Remove it by subtracting \(a_2\) times the new row 1:</p>
+\[\begin{array}{rrrcl} a_2x_1 & +\;b_2x_2 & +\;c_2x_3 & = & d_2\\ -\;a_2x_1 & -\;a_2c'_1x_2 & & = & -\;a_2d'_1\\ \hline \class{hl}{0} & +\;\class{hl}{(b_2 - a_2c'_1)}\,x_2 & +\;c_2x_3 & = & \class{hl}{d_2 - a_2d'_1}\end{array}\]
+<p>The sub-diagonal entry is gone. Only the diagonal and the right-hand side changed. \(c_2\) is untouched because row 1 has no \(x_3\) term.</p>`,
+    },
+    {
+      phase: "fwd", st: "ffooo", hl: ["2,2", "2,3", "2,6"], op: T`R_2 \leftarrow R_2 / m_2`,
+      title: "Row 2: divide by the new pivot",
+      body: T`<p>Call the new diagonal the <strong>pivot</strong>, \(m_2 = b_2 - a_2c'_1\), and divide row 2 by it:</p>
+\[x_2 + \underbrace{\frac{c_2}{m_2}}_{\class{hl}{c'_2}}\,x_3 = \underbrace{\frac{d_2 - a_2d'_1}{m_2}}_{\class{hl}{d'_2}}\]
+<p>Row 2 now has exactly the same form as row 1. This is the key observation: the same two moves work on row 3, then row 4, and so on down the matrix.</p>`,
+    },
+    {
+      phase: "fwd", st: "ffffo", hl: ["3,2", "3,3", "3,4", "3,6", "4,3", "4,4", "4,5", "4,6"], op: T`R_i \leftarrow (R_i - a_iR_{i-1})/m_i,\ \ i = 3,4`,
+      title: T`Any row \(i\): the recurrence`,
+      body: T`<p>Suppose row \(i-1\) is already \(x_{i-1} + c'_{i-1}x_i = d'_{i-1}\). Row \(i\) is \(a_ix_{i-1} + b_ix_i + c_ix_{i+1} = d_i\). Apply \(R_i \leftarrow R_i - a_iR_{i-1}\):</p>
+\[(b_i - a_ic'_{i-1})\,x_i + c_ix_{i+1} = d_i - a_id'_{i-1}\]
+<p>Then divide by the pivot. This is the forward-sweep recurrence:</p>
+\[\boxed{\;m_i = b_i - a_i\,c'_{i-1},\qquad c'_i = \frac{c_i}{m_i},\qquad d'_i = \frac{d_i - a_i\,d'_{i-1}}{m_i}\;}\]
+<p>Each row needs only two numbers from the row above, \(c'_{i-1}\) and \(d'_{i-1}\). Rows 3 and 4 in the matrix were done this way.</p>`,
+    },
+    {
+      phase: "fwd", st: "fffff", hl: ["5,4", "5,5", "5,6"], op: T`R_5 \leftarrow (R_5 - a_5R_4)/m_5`,
+      title: "Last row: the sweep ends",
+      body: T`<p>The last row has no super-diagonal (\(c_n = 0\)), so \(c'_n = 0\) and the recurrence leaves</p>
+\[\class{hl}{x_n = d'_n} = \frac{d_n - a_n\,d'_{n-1}}{b_n - a_n\,c'_{n-1}}\]
+<p>The forward sweep is complete. The matrix is unit upper bidiagonal and the last unknown is already determined.</p>`,
+    },
+    {
+      phase: "back", st: "ffffb", hl: ["5,6"], op: T`x_5 = d'_5`,
+      title: T`Back substitution starts at \(x_n\)`,
+      body: T`<p>Read the last row: \(1\cdot x_n = d'_n\), so</p>
+\[\class{hl}{x_n = d'_n}\]
+<p>Back substitution now runs upward, from row \(n-1\) to row 1. Each row has one unknown left once the one below it is known.</p>`,
+    },
+    {
+      phase: "back", st: "fffbb", hl: ["4,5", "4,6"], op: T`R_4 \leftarrow R_4 - c'_4R_5`,
+      title: T`Row \(n-1\): substitute \(x_n\)`,
+      body: T`<p>Row 4 reads \(x_4 + c'_4x_5 = d'_4\), and \(x_5\) is known. Move it to the right-hand side:</p>
+\[\class{hl}{x_4 = d'_4 - c'_4\,x_5}\]
+<p>In matrix terms this is \(R_4 \leftarrow R_4 - c'_4R_5\), which clears the super-diagonal entry of row 4.</p>`,
+    },
+    {
+      phase: "back", st: "bbbbb", hl: ["3,4", "3,6", "2,3", "2,6", "1,2", "1,6"], op: T`R_i \leftarrow R_i - c'_iR_{i+1},\ \ i = 3,2,1`,
+      title: "All remaining rows",
+      body: T`<p>Every row above works the same way, using the value just found below it:</p>
+\[\boxed{\;x_i = d'_i - c'_i\,x_{i+1},\qquad i = n-1,\,n-2,\,\dots,\,1\;}\]
+<p>The augmented matrix has become \([\,I \mid \mathbf{x}\,]\): the system is solved.</p>`,
+    },
+    {
+      phase: "done", st: "bbbbb", hl: [], op: T`[\,I \mid \mathbf{x}\,]`,
+      title: "Why it works, and when it can fail",
+      body: T`<p><strong>Cost.</strong> The forward sweep does about 6 operations per row and back substitution 2, so the total is about \(8n\), which is \(\mathcal{O}(n)\). Dense Gaussian elimination needs about \(\tfrac{2}{3}n^3\). Storage is four vectors instead of an \(n\times n\) array.</p>
+<p><strong>Stability.</strong> The algorithm never swaps rows, so every pivot \(m_i\) must be nonzero. Diagonal dominance, \(|b_i| \ge |a_i| + |c_i|\) with strict inequality in row 1, guarantees this. By induction, if \(|c'_{i-1}| \lt 1\) and \(a_i \ne 0\):</p>
+\[|m_i| \;\ge\; |b_i| - |a_i|\,|c'_{i-1}| \;\gt\; |b_i| - |a_i| \;\ge\; |c_i| \quad\Longrightarrow\quad m_i \neq 0,\quad |c'_i| = \frac{|c_i|}{|m_i|} \lt 1\]
+<p>Because \(|c'_i| \lt 1\), a round-off error in \(x_{i+1}\) shrinks when it passes into \(x_i\). Diffusion and implicit heat-equation matrices in CFD meet this condition, which is why the Thomas algorithm is the standard line solver for implicit and ADI schemes.</p>
+<p><button class="btn primary" data-goto="example">Run it on an example ▶</button></p>`,
+    },
+  ];
+
+  const ALG = {
+    a1: T`c'_1 = \dfrac{c_1}{b_1},\qquad d'_1 = \dfrac{d_1}{b_1}`,
+    a2: T`m_2 = b_2 - a_2c'_1,\quad c'_2 = \dfrac{c_2}{m_2},\quad d'_2 = \dfrac{d_2 - a_2d'_1}{m_2}`,
+    ag: T`\begin{aligned}&\textbf{for } i = 2,\dots,n:\\ &\quad m_i = b_i - a_i\,c'_{i-1}\\ &\quad c'_i = c_i / m_i \qquad (c'_n = 0)\\ &\quad d'_i = (d_i - a_i\,d'_{i-1}) / m_i\end{aligned}`,
+    xn: T`x_n = d'_n`,
+    x4: T`x_{n-1} = d'_{n-1} - c'_{n-1}\,x_n`,
+    ab: T`\begin{aligned}&\textbf{for } i = n-1,\dots,1:\\ &\quad x_i = d'_i - c'_i\,x_{i+1}\end{aligned}`,
+  };
+  function algoLines(k) {
+    const f = [], b = [];
+    if (k >= 2) f.push({ t: ALG.a1, n: k === 2 });
+    if (k === 4) f.push({ t: ALG.a2, n: true });
+    if (k >= 5) f.push({ t: ALG.ag, n: k === 5 });
+    if (k >= 7) b.push({ t: ALG.xn, n: k === 7 });
+    if (k === 8) b.push({ t: ALG.x4, n: true });
+    if (k >= 9) b.push({ t: ALG.ab, n: k === 9 });
+    return { f, b };
+  }
+
+  function dCell(state, r, c, h) {
+    let s;
+    if (c === 6) s = { o: `d_{${r}}`, e: `d_{${r}} - a_{${r}}d'_{${r - 1}}`, f: `d'_{${r}}`, b: `x_{${r}}` }[state];
+    else if (state === "o") s = c === r - 1 ? `a_{${r}}` : c === r ? `b_{${r}}` : c === r + 1 ? `c_{${r}}` : "0";
+    else if (state === "e") s = c === r - 1 ? "0" : c === r ? `b_{${r}} - a_{${r}}c'_{${r - 1}}` : c === r + 1 ? `c_{${r}}` : "0";
+    else if (state === "f") s = c === r ? "1" : c === r + 1 ? `c'_{${r}}` : "0";
+    else s = c === r ? "1" : "0";
+    if (h) return `\\class{hl}{${s}}`;
+    return s === "0" ? "\\class{zz}{0}" : s;
+  }
+  function dMatrix(st, hl) {
+    const H = new Set(hl), rows = [], labs = [];
+    for (let r = 1; r <= 5; r++) {
+      const cells = [];
+      for (let c = 1; c <= 6; c++) cells.push(dCell(st[r - 1], r, c, H.has(`${r},${c}`)));
+      rows.push(cells.join(" & "));
+      const act = hl.some((k) => k.startsWith(r + ","));
+      labs.push(`\\vphantom{c'_{1}b_{1}}` + (act ? `\\class{hl}{R_{${r}}}` : `R_{${r}}`));
+    }
+    return "\\[\\begin{array}{r}" + labs.join("\\\\[6pt]") + "\\end{array}\\;\\left[\\begin{array}{ccccc|c}" + rows.join("\\\\[6pt]") + "\\end{array}\\right]\\]";
+  }
+
+  let mjq = Promise.resolve();
+  function typeset(els) {
+    if (!window.MathJax || !MathJax.typesetPromise) return;
+    mjq = mjq.then(() => { MathJax.typesetClear(els); return MathJax.typesetPromise(els); }).catch((e) => console.warn(e));
+  }
+
+  const D = { step: 0, timer: null };
+  const DLAST = DSTEPS.length - 1;
+  function dRender() {
+    const s = DSTEPS[D.step];
+    $("der").dataset.phase = s.phase;
+    const names = { intro: D.step === 0 ? "Problem" : "Plan", fwd: "Forward sweep", back: "Back substitution", done: "Summary" };
+    $("d-chip").textContent = names[s.phase];
+    $("d-counter").textContent = `Step ${D.step} of ${DLAST}`;
+    $("d-prev").disabled = $("d-first").disabled = D.step === 0;
+    $("d-next").disabled = $("d-last").disabled = D.step === DLAST;
+    $("d-play").textContent = D.timer ? "❚❚ Pause" : "▶ Play";
+    $("d-track").innerHTML = DSTEPS.map((x, k) =>
+      `<button class="${x.phase} ${k <= D.step ? "f" : ""} ${k === D.step ? "cur" : ""}" data-k="${k}" aria-label="Go to step ${k}"></button>`).join("");
+    $("d-step").innerHTML = `<div class="eyebrow">Step ${D.step} · ${names[s.phase]}</div><h2 class="step-title">${s.title}</h2><div class="dbody">${s.body}</div>` +
+      (D.step < DLAST ? `<p class="explain" style="color:var(--muted)">Press <strong>Next</strong> or <kbd>→</kbd> to continue.</p>` : "");
+    $("d-mx").innerHTML = dMatrix(s.st, s.hl);
+    $("d-op").innerHTML = s.op ? `\\(${s.op}\\)` : "Original system";
+    const A = algoLines(D.step);
+    const line = (l) => `<div class="algo-line ${l.n ? "new" : ""}">\\[${l.t}\\]</div>`;
+    $("d-algo").innerHTML = !A.f.length
+      ? `<p class="algo-empty">Nothing yet. Formulas appear here as they are derived, starting at step 2.</p>`
+      : `<div class="algo-sec">Forward sweep</div>${A.f.map(line).join("")}` + (A.b.length ? `<div class="algo-sec">Back substitution</div>${A.b.map(line).join("")}` : "");
+    typeset([$("d-step"), $("d-mx"), $("d-op"), $("d-algo")]);
+  }
+  window.__dRender = dRender;
+  function dStop() { if (D.timer) { clearInterval(D.timer); D.timer = null; } }
+  function dGo(k) { D.step = Math.max(0, Math.min(DLAST, k)); dRender(); }
+  function dPlay() {
+    if (D.timer) { dStop(); dRender(); return; }
+    if (D.step >= DLAST) D.step = 0;
+    D.timer = setInterval(() => { if (D.step >= DLAST) { dStop(); dRender(); } else dGo(D.step + 1); }, 4500);
+    dRender();
+  }
+  $("d-next").addEventListener("click", () => { dStop(); dGo(D.step + 1); });
+  $("d-prev").addEventListener("click", () => { dStop(); dGo(D.step - 1); });
+  $("d-first").addEventListener("click", () => { dStop(); dGo(0); });
+  $("d-last").addEventListener("click", () => { dStop(); dGo(DLAST); });
+  $("d-play").addEventListener("click", dPlay);
+  $("d-track").addEventListener("click", (e) => { const k = e.target.dataset && e.target.dataset.k; if (k !== undefined) { dStop(); dGo(+k); } });
+
+  // ---------- tabs ----------
+  function showTab(t) {
+    const derive = t !== "example";
+    $("der").hidden = !derive;
+    $("ex").hidden = derive;
+    $("tab-derive").setAttribute("aria-selected", derive);
+    $("tab-example").setAttribute("aria-selected", !derive);
+    dStop(); stop();
+    try { history.replaceState(null, "", "#" + (derive ? "derive" : "example")); } catch (e) {}
+    if (derive) dRender(); else render();
+  }
+  document.addEventListener("click", (e) => {
+    const g = e.target.closest && e.target.closest("[data-goto]");
+    if (g) { showTab(g.dataset.goto); window.scrollTo({ top: 0 }); }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "select" || tag === "textarea") return;
+    const derive = !$("der").hidden;
+    if (e.key === "ArrowRight") { e.preventDefault(); if (derive) { dStop(); dGo(D.step + 1); } else { stop(); next(); } }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); $(derive ? "d-prev" : "prev").click(); }
+    else if (e.key === " " && tag !== "button") { e.preventDefault(); derive ? dPlay() : togglePlay(); }
+  });
+
+  load("warmup");
+  render();
+  showTab(location.hash === "#example" ? "example" : "derive");
+})();
+</script>
+</body>
+</html>

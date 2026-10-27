@@ -24,6 +24,7 @@
   --ok-bg: #e5f4ee;
   --info-bg: #e8eefb;
   --disk: #e5f4ee;
+  --movie: #c2410c;
   --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --math: "IBM Plex Serif", Georgia, "Times New Roman", serif;
@@ -32,13 +33,13 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
-    --accent: #7ea4ff; --ok: #4cc596; --warn: #ff7b72; --warn-bg: #3a1a1a; --ok-bg: #12301f; --info-bg: #17233d; --disk: #12301f;
+    --accent: #7ea4ff; --ok: #4cc596; --warn: #ff7b72; --warn-bg: #3a1a1a; --ok-bg: #12301f; --info-bg: #17233d; --disk: #12301f; --movie: #fb923c;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
-  --accent: #7ea4ff; --ok: #4cc596; --warn: #ff7b72; --warn-bg: #3a1a1a; --ok-bg: #12301f; --info-bg: #17233d; --disk: #12301f;
+  --accent: #7ea4ff; --ok: #4cc596; --warn: #ff7b72; --warn-bg: #3a1a1a; --ok-bg: #12301f; --info-bg: #17233d; --disk: #12301f; --movie: #fb923c;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -70,7 +71,7 @@ h2 { font: 700 15px/1.2 var(--display); margin: 0; letter-spacing: .01em; }
 .sw.dash { border-top-style: dashed; }
 canvas { width: 100%; display: block; }
 
-.readouts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.readouts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 640px) { .readouts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .ro { border-top: 1px solid var(--line); padding-top: 8px; min-width: 0; }
 .ro .k { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
@@ -131,33 +132,43 @@ a { color: var(--accent); }
 
   <div class="main">
     <div class="left">
-      <section class="card" aria-label="Solution and perturbation">
-        <h2>Solution and perturbation</h2>
-        <p class="sub">Two runs with the same scheme: one clean, one with a tiny perturbation δ added at the start. Top: the perturbed solution. Bottom: the size of the perturbation at each point, on a log scale.</p>
+      <section class="card" aria-label="Solution movie">
+        <h2>Solution movie: the convection lab problem</h2>
+        <p class="sub">The same FTBS scheme and CFL number on the step from the <a href="../ftbs-linear-convection/">convection lab</a> (u = 1 for x &lt; 0.5, u = 2 after, 81 points, inflow u = 1, run to t = 1). It advances in step with the plots below: frame n here is step n there. Its error is the orange curve in the growth plot.</p>
         <div class="legend">
+          <span><i class="sw dash" style="border-color:var(--muted)"></i>Initial</span>
           <span><i class="sw" style="border-color:var(--fg)"></i>Exact u(x − at)</span>
-          <span><i class="sw" style="border-color:var(--accent)"></i>FTBS, perturbed run</span>
-          <span><i class="sw dash" style="border-color:var(--muted)"></i>Initial size ε</span>
+          <span><i class="sw" style="border-color:var(--movie)"></i>FTBS</span>
         </div>
-        <canvas id="cv-u" aria-label="Perturbed FTBS solution compared with the exact solution"></canvas>
-        <canvas id="cv-d" aria-label="log10 of the perturbation at each grid point"></canvas>
+        <canvas id="cv-m" aria-label="FTBS solution of the step problem compared with the exact solution"></canvas>
       </section>
 
       <section class="card" aria-label="Growth history">
         <h2>Growth of the perturbation</h2>
-        <p class="sub">Largest perturbation max|δ| against the time step n, with the von Neumann prediction ε |G|<sup>n</sup>. A straight line on this log scale means exponential growth or decay.</p>
+        <p class="sub">Largest perturbation max|δ| against the time step n, with the von Neumann prediction ε |G|<sup>n</sup>, and the error of the solution movie. A straight line on this log scale means exponential growth or decay; for c &gt; 1 both errors rise with the same slope |1 − 2c| but start from very different levels.</p>
         <div class="legend">
-          <span><i class="sw" style="border-color:var(--accent)"></i>Measured max|δ|</span>
+          <span><i class="sw" style="border-color:var(--accent)"></i>Round-off max|δ|</span>
+          <span><i class="sw" style="border-color:var(--movie)"></i>Movie error max|u − u<sub>exact</sub>|</span>
           <span><i class="sw dash" style="border-color:var(--warn)"></i>Prediction ε·|G|ⁿ</span>
           <span><i class="sw dash" style="border-color:var(--muted)"></i>|δ| = 1: visible in the solution</span>
         </div>
         <canvas id="cv-h" aria-label="Growth history of the perturbation"></canvas>
+        <h2>Growth ratio: this step's error ÷ the previous step's</h2>
+        <p class="sub">max|δ<sup>n</sup>| / max|δ<sup>n−1</sup>| for both runs. Once one mode dominates, this ratio is the amplification factor |G| measured directly. Above 1 the error grows; below 1 it decays. At round-off level the ratio is just noise around 1.</p>
+        <div class="legend">
+          <span><i class="sw" style="border-color:var(--accent)"></i>Round-off ratio</span>
+          <span><i class="sw" style="border-color:var(--movie)"></i>Movie ratio</span>
+          <span><i class="sw dash" style="border-color:var(--warn)"></i>Predicted |G|</span>
+          <span><i class="sw dash" style="border-color:var(--ok)"></i>Ratio = 1</span>
+        </div>
+        <canvas id="cv-r" aria-label="Ratio of the error at each step to the error at the previous step"></canvas>
         <div class="readouts">
           <div class="ro"><div class="k">step n</div><div class="v" id="r-n">0</div></div>
           <div class="ro"><div class="k">max |δ|</div><div class="v" id="r-d">—</div></div>
-          <div class="ro"><div class="k">measured growth</div><div class="v" id="r-g">—</div></div>
+          <div class="ro"><div class="k">ratio, last step</div><div class="v" id="r-g">—</div></div>
           <div class="ro"><div class="k">predicted |G|</div><div class="v" id="r-p">—</div></div>
           <div class="ro"><div class="k">steps to |δ| = 1</div><div class="v" id="r-s">—</div></div>
+          <div class="ro"><div class="k">movie error</div><div class="v" id="r-m">—</div></div>
         </div>
         <div class="transport">
           <button class="primary" id="play">Play</button>
@@ -166,6 +177,18 @@ a { color: var(--accent); }
           <span class="spacer"></span>
           <label class="speed" for="speed">Speed <input type="range" id="speed" min="2" max="120" value="25" style="width:110px"></label>
         </div>
+      </section>
+
+      <section class="card" aria-label="Round-off perturbation">
+        <h2>Round-off perturbation (periodic grid)</h2>
+        <p class="sub">Two runs with the same scheme on a smooth profile: one clean, one with a tiny perturbation δ added at the start. Top: the perturbed solution. Bottom: the size of the perturbation at each point, on a log scale.</p>
+        <div class="legend">
+          <span><i class="sw" style="border-color:var(--fg)"></i>Exact u(x − at)</span>
+          <span><i class="sw" style="border-color:var(--accent)"></i>FTBS, perturbed run</span>
+          <span><i class="sw dash" style="border-color:var(--muted)"></i>Initial size ε</span>
+        </div>
+        <canvas id="cv-u" aria-label="Perturbed FTBS solution compared with the exact solution"></canvas>
+        <canvas id="cv-d" aria-label="log10 of the perturbation at each grid point"></canvas>
       </section>
     </div>
 
@@ -247,7 +270,7 @@ a { color: var(--accent); }
       </div>
       <div class="note">
         <h3>An instability can hide</h3>
-        <p>Starting from 10<sup>−16</sup>, reaching size 1 takes <i>n ≈ ln(10<sup>16</sup>)/ln|1 − 2c|</i> steps: about 200 at <i>c = 1.1</i> and 390 at <i>c = 1.05</i>. A short run can look fine. In the convection lab, the step in the initial condition already contains short waves of size 1, so there the same instability shows up within a few dozen steps.</p>
+        <p>Starting from 10<sup>−16</sup>, reaching size 1 takes <i>n ≈ ln(10<sup>16</sup>)/ln|1 − 2c|</i> steps: about 200 at <i>c = 1.1</i> and 390 at <i>c = 1.05</i>. A short run can look fine. In the solution movie, the step in the initial condition already contains short waves of size 1. Its error grows with the same slope but starts about 16 orders of magnitude higher, so the movie breaks down within a few dozen steps.</p>
       </div>
     </div>
   </section>
@@ -271,6 +294,28 @@ a { color: var(--accent); }
   // fastest-growing resolved mode: sawtooth for c > 1 (if N is even), otherwise the mean mode (|G| = 1)
   const predictedG = () => ptype === "mode" ? absG(theta()) : Math.max(1, ...Array.from({ length: Math.floor(N / 2) }, (_, j) => absG(2 * Math.PI * (j + 1) / N)));
 
+  // ---------------- solution movie: the convection-lab problem, advanced in step with the round-off runs
+  const ML = 2, MNX = 81, MT = 1, mdx = ML / (MNX - 1);
+  const mf0 = xx => (xx < 0.5 ? 1 : 2);
+  let mx, mu, mn, mt, mdone, mblown, mhist;
+  function minit() {
+    mx = Float64Array.from({ length: MNX }, (_, i) => i * mdx);
+    mu = Float64Array.from(mx, mf0);
+    mn = 0; mt = 0; mdone = false; mblown = false; mhist = [0];
+  }
+  function merr() { let e = 0; for (let i = 0; i < MNX; i++) e = Math.max(e, Math.abs(mu[i] - mf0(mx[i] - A * mt))); return e; }
+  function mstep() {
+    if (mdone) return;
+    const dt = c * mdx / A;
+    if (mt + dt > MT + 1e-9) { mdone = true; return; }
+    const un = Float64Array.from(mu);
+    for (let i = 1; i < MNX; i++) mu[i] = un[i] - c * (un[i] - un[i - 1]);
+    mu[0] = 1;                                       // inflow boundary
+    mn++; mt = mn * dt;
+    const e = merr(); mhist.push(e);
+    if (!isFinite(e) || e > 1e8) { mblown = true; mdone = true; }
+  }
+
   let seed = 1;
   const rand = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
 
@@ -283,6 +328,7 @@ a { color: var(--accent); }
     dP = Float64Array.from(x, (xi, i) => eps * Math.cos(theta() * i));
     n = 0; blown = false; finished = false;
     d0 = maxDelta(); hist = [d0];
+    minit();
     updateStatus(); render();
   }
   function maxDelta() { let m = 0; for (let i = 0; i < N; i++) m = Math.max(m, Math.abs(del(i))); return m; }
@@ -293,6 +339,7 @@ a { color: var(--accent); }
   function step() {
     if (finished) return;
     ftbs(uC); ftbs(ptype === "mode" ? dP : uP); n++;
+    mstep();
     const d = maxDelta(); hist.push(d);
     if (!isFinite(d) || d > 1e6) { blown = true; finished = true; setPlaying(false); }
     if (n >= NMAX) { finished = true; setPlaying(false); }
@@ -337,6 +384,27 @@ a { color: var(--accent); }
     const col = { fg: css("--fg"), muted: css("--muted"), accent: css("--accent"), warn: css("--warn"), ok: css("--ok"), disk: css("--disk"), line: css("--line") };
     const t = n * c / N / A;   // dt = c dx / a with dx = 1/N
 
+    // 0. solution movie
+    { const { ctx, w, h } = setup($("cv-m"), 0.36, 190, 300);
+      const { X, Y } = axes(ctx, w, h, { x0: 0, x1: ML, y0: 0.5, y1: 2.5, xt: range(0, 2, 0.25), yt: range(0.5, 2.5, 0.5),
+        xf: v => (Math.abs(v * 2 - Math.round(v * 2)) < 1e-9 ? v.toFixed(1) : ""), yf: v => v.toFixed(1), xl: "x", yl: "u" });
+      const curve = (fn, color, width, dash) => {
+        ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.beginPath();
+        for (let q = 0; q <= 800; q++) { const xv = q / 800 * ML; q ? ctx.lineTo(X(xv), Y(fn(xv))) : ctx.moveTo(X(xv), Y(fn(xv))); }
+        ctx.stroke(); ctx.setLineDash([]);
+      };
+      curve(mf0, col.muted, 1.3, [6, 5]);
+      curve(xv => mf0(xv - A * mt), col.fg, 2);
+      const mc = mblown ? col.warn : css("--movie"), cl = v => Math.max(-100, Math.min(100, isFinite(v) ? v : 100));
+      ctx.strokeStyle = mc; ctx.fillStyle = mc; ctx.lineWidth = 1.6; ctx.beginPath();
+      for (let i = 0; i < MNX; i++) i ? ctx.lineTo(X(mx[i]), Y(cl(mu[i]))) : ctx.moveTo(X(mx[i]), Y(cl(mu[i])));
+      ctx.stroke();
+      for (let i = 0; i < MNX; i++) { ctx.beginPath(); ctx.arc(X(mx[i]), Y(cl(mu[i])), 2.6, 0, 7); ctx.fill(); }
+      ctx.restore();
+      ctx.font = "12px " + css("--mono"); ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillStyle = col.muted;
+      const tag = mblown ? "blown up" : mdone ? "end of run, t = 1 (frame held)" : "";
+      ctx.fillText("step " + mn + " · t = " + mt.toFixed(3) + (tag ? " · " + tag : ""), X(0) + 10, Y(2.5) + 8); }
+
     // 1. solution
     { const { ctx, w, h } = setup($("cv-u"), 0.32, 170, 260);
       const { X, Y } = axes(ctx, w, h, { x0: 0, x1: 1, y0: -0.6, y1: 1.6, xt: range(0, 1, 0.1), yt: range(-0.5, 1.5, 0.5),
@@ -369,7 +437,7 @@ a { color: var(--accent); }
     { const { ctx, w, h } = setup($("cv-h"), 0.34, 190, 300);
       const nmax = Math.min(NMAX, Math.max(100, Math.ceil(n * 1.15 / 50) * 50));
       const xs = nmax <= 200 ? 25 : nmax <= 400 ? 50 : 100;
-      const { X, Y } = axes(ctx, w, h, { x0: 0, x1: nmax, y0: -20, y1: 4, xt: range(0, nmax, xs), yt: range(-20, 4, 4),
+      const { X, Y } = axes(ctx, w, h, { x0: 0, x1: nmax, y0: -20, y1: 6, xt: range(0, nmax, xs), yt: range(-20, 4, 4),
         xf: v => String(v), yf: v => (v === 0 ? "1" : sup(v)), xl: "step n", yl: "max |δ|" });
       ctx.setLineDash([5, 4]); ctx.lineWidth = 1.2; ctx.strokeStyle = col.muted;
       ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(nmax), Y(0)); ctx.stroke();
@@ -378,7 +446,30 @@ a { color: var(--accent); }
       ctx.moveTo(X(0), Y(l0)); const nEnd = lg > 0 ? Math.min(nmax, (4 - l0) / lg) : nmax; ctx.lineTo(X(nEnd), Y(l0 + lg * nEnd)); ctx.stroke();
       ctx.setLineDash([]);
       ctx.strokeStyle = blown ? col.warn : col.accent; ctx.lineWidth = 2; ctx.beginPath();
-      hist.forEach((d, j) => { const ly = d > 0 && isFinite(d) ? Math.max(-19.8, Math.min(3.9, Math.log10(d))) : (isFinite(d) ? -19.8 : 3.9); j ? ctx.lineTo(X(j), Y(ly)) : ctx.moveTo(X(j), Y(ly)); });
+      hist.forEach((d, j) => { const ly = d > 0 && isFinite(d) ? Math.max(-19.8, Math.min(5.9, Math.log10(d))) : (isFinite(d) ? -19.8 : 5.9); j ? ctx.lineTo(X(j), Y(ly)) : ctx.moveTo(X(j), Y(ly)); });
+      ctx.stroke();
+      ctx.strokeStyle = mblown ? col.warn : css("--movie"); ctx.lineWidth = 2; ctx.beginPath();   // movie error, from step 1
+      mhist.forEach((e, j) => { if (j === 0) return; const ly = e > 0 && isFinite(e) ? Math.max(-19.8, Math.min(5.9, Math.log10(e))) : 5.9; j === 1 ? ctx.moveTo(X(j), Y(ly)) : ctx.lineTo(X(j), Y(ly)); });
+      ctx.stroke();
+      if (mdone && mn > 0) { ctx.fillStyle = mblown ? col.warn : css("--movie"); const e = mhist[mn]; ctx.beginPath(); ctx.arc(X(mn), Y(Math.max(-19.8, Math.min(5.9, Math.log10(e)))), 4, 0, 7); ctx.fill(); }
+      ctx.restore(); }
+
+    // 3b. step-to-step growth ratio, same step axis as the history plot
+    { const { ctx, w, h } = setup($("cv-r"), 0.26, 160, 230);
+      const nmax = Math.min(NMAX, Math.max(100, Math.ceil(n * 1.15 / 50) * 50));
+      const xs = nmax <= 200 ? 25 : nmax <= 400 ? 50 : 100, pg = predictedG(), ymax = Math.max(2, Math.ceil((Math.abs(1 - 2 * c) + 0.3) * 4) / 4);
+      const { X, Y } = axes(ctx, w, h, { x0: 0, x1: nmax, y0: 0, y1: ymax, xt: range(0, nmax, xs), yt: range(0, ymax, 0.25),
+        xf: v => String(v), yf: v => v.toFixed(2), xl: "step n", yl: "ratio" });
+      ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5;
+      ctx.strokeStyle = col.ok; ctx.beginPath(); ctx.moveTo(X(0), Y(1)); ctx.lineTo(X(nmax), Y(1)); ctx.stroke();
+      ctx.strokeStyle = col.warn; ctx.beginPath(); ctx.moveTo(X(0), Y(pg)); ctx.lineTo(X(nmax), Y(pg)); ctx.stroke();
+      ctx.setLineDash([]);
+      const cy = v => Y(Math.max(0, Math.min(ymax, v)));
+      ctx.fillStyle = col.accent;                       // round-off: dots, since it is noisy at round-off level
+      for (let j = 1; j < hist.length; j++) { const r = hist[j] / hist[j - 1]; if (isFinite(r)) { ctx.beginPath(); ctx.arc(X(j), cy(r), 1.8, 0, 7); ctx.fill(); } }
+      ctx.strokeStyle = mblown ? col.warn : css("--movie"); ctx.lineWidth = 2; ctx.beginPath();
+      let started = false;
+      for (let j = 2; j < mhist.length; j++) { const r = mhist[j] / mhist[j - 1]; if (!isFinite(r)) continue; started ? ctx.lineTo(X(j), cy(r)) : ctx.moveTo(X(j), cy(r)); started = true; }
       ctx.stroke();
       ctx.restore(); }
 
@@ -426,11 +517,13 @@ a { color: var(--accent); }
     $("r-n").textContent = n;
     $("r-d").textContent = sci(d);
     $("r-d").className = "v" + (d > 1e-3 || !isFinite(d) ? " bad" : "");
-    const m = Math.min(10, n), g = m > 0 && hist[n - m] > 0 ? (d / hist[n - m]) ** (1 / m) : NaN;
+    const g = n > 0 && hist[n - 1] > 0 ? d / hist[n - 1] : NaN;
     $("r-g").textContent = isFinite(g) ? g.toFixed(4) : "—";
     const pg = predictedG();
     $("r-p").textContent = pg.toFixed(4); $("r-p").className = "v" + (pg > 1 + 1e-9 ? " bad" : " good");
     $("r-s").textContent = pg > 1 + 1e-9 ? "≈ " + Math.round(Math.log(1 / (d0 > 0 ? d0 : eps)) / Math.log(pg)) : "never";
+    const me = mhist[mhist.length - 1];
+    $("r-m").textContent = mn === 0 ? "0" : sci(me); $("r-m").className = "v" + (me > 2 || !isFinite(me) ? " bad" : "");
   }
 
   function updateStatus() {

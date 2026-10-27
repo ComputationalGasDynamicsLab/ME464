@@ -10,14 +10,27 @@ damped or amplified. Companion to the [linear convection lab](../ftbs-linear-con
 
 **Open it here: https://computationalgasdynamicslab.github.io/ME464/ftbs-stability/**
 
-It runs in any web browser, with nothing to install. Two runs of FTBS start from the same smooth
-profile on a periodic grid; one gets a perturbation $`\varepsilon`$ (default $`10^{-16}`$). The page shows:
+It runs in any web browser, with nothing to install. Three runs of FTBS with the same CFL number
+advance together, step by step:
 
-- the perturbed solution, and the size of the perturbation $`|\delta_i|`$ at every point on a log scale
-- the growth history $`\max|\delta|`$ against the time step, with the prediction $`\varepsilon |G|^n`$
+- a **solution movie** of the step problem from the [convection lab](../ftbs-linear-convection/)
+  ($`u = 1`$ for $`x < 0.5`$, $`u = 2`$ after, run to $`t = 1`$), with the exact solution;
+- a clean run and a perturbed run on a periodic grid, starting from a smooth profile; the perturbed
+  run gets a perturbation $`\varepsilon`$ (default $`10^{-16}`$, the size of round-off).
+
+The page shows, synced with the movie:
+
+- the growth history: the movie's error $`\max|u - u_{exact}|`$ and the round-off perturbation
+  $`\max|\delta|`$ against the time step on a log scale, with the prediction $`\varepsilon |G|^n`$
+- the **growth ratio** $`\max|\delta^{n}| / \max|\delta^{n-1}|`$ for both runs, which settles onto the
+  amplification factor $`|G|`$ once one mode dominates
+- the perturbation $`|\delta_i|`$ at every point on a log scale, and the perturbed solution
 - the amplification factor $`G(\theta)`$ as a circle in the complex plane, and $`|G|`$ against $`\theta`$
-- the measured growth per step next to the predicted $`|G|`$, and how many steps the
-  perturbation needs to reach size 1
+- how many steps the perturbation needs to reach size 1
+
+For $`c > 1`$ the movie's error and the round-off perturbation grow with the same ratio
+$`|1 - 2c|`$; they only start about 16 orders of magnitude apart, which is why the movie breaks down
+after a few dozen steps and round-off alone takes about 200.
 
 You can change the CFL number, choose random noise or a single Fourier mode $`\theta = 2\pi k/N`$,
 set $`\varepsilon`$ from $`10^{-16}`$ to $`10^{-4}`$, and change the number of grid points.

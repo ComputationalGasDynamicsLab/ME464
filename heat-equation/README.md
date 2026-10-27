@@ -185,7 +185,7 @@ Options you can combine:
 | `--scheme` | one or more of `ftcs`, `btcs`, `cn` | all three |
 | `--r` | diffusion number $`r = \alpha \Delta t / \Delta x^2`$ | 0.4 |
 | `--N` | number of intervals, $`\Delta x = 1/N`$ | 50 |
-| `--t-end` | final time (the run stops at the last whole step before it) | 10 |
+| `--t-end` | final time, up to 10 (the run stops at the last whole step before it) | 10 |
 | `--ic` | initial condition: `sine`, `modes` or `pulse` | `sine` |
 | `--animate` | also save `heat1d.gif` | off |
 

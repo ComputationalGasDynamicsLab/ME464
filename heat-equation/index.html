@@ -241,7 +241,8 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
         </div>
         <div class="field">
           <label for="tend"><span>Final time t<sub>end</sub></span></label>
-          <input type="number" id="tend" min="0.01" max="200" step="any" value="10" inputmode="decimal">
+          <input type="number" id="tend" min="0.01" max="10" step="any" value="10" inputmode="decimal">
+          <div class="hint">Any value up to 10.</div>
         </div>
         <div class="status" id="status" aria-live="polite"></div>
       </div>
@@ -551,7 +552,7 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
     if (r > 0.5 + 1e-12) {
       cls = "bad"; tag = `FTCS unstable · r = ${fmtR(r)} > ½`;
       const nb = Math.ceil(Math.log(1e16) / Math.log(gF));
-      ps.push(`FTCS: the shortest wave on this grid is multiplied by 1 − 4r sin²(θ/2) = −${gF.toFixed(3)} every step. Starting from round-off (~10<sup>−16</sup>) it reaches size 1 after about <b>${nb}</b> steps${nb > nt ? `, more than the ${nt} steps to t<sub>end</sub>, so raise t<sub>end</sub> to see it` : ""}. A square pulse starts it much larger.`);
+      ps.push(`FTCS: the shortest wave on this grid is multiplied by 1 − 4r sin²(θ/2) = −${gF.toFixed(3)} every step. Starting from round-off (~10<sup>−16</sup>) it reaches size 1 after about <b>${nb}</b> steps${nb > nt ? `, more than the ${nt} steps to t<sub>end</sub>, ${tEnd < 10 ? "so raise t<sub>end</sub> or" : "so"} use a smaller Δx or a larger r to see it` : ""}. A square pulse starts it much larger.`);
       ps.push("BTCS and Crank–Nicolson stay stable for any r. Tick them to compare.");
     } else if (Math.abs(r - 1 / 6) < 1e-9) {
       cls = "good"; tag = "r = 1/6 · FTCS most accurate";
@@ -618,7 +619,7 @@ svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
   $("ic").addEventListener("change", e => { ic = e.target.value; view = null; restart(true); });
   $("tend").addEventListener("change", e => {
     const v = +e.target.value;
-    if (!isFinite(v) || v <= 0 || v > 200) { e.target.value = tEnd; return; }
+    if (!isFinite(v) || v <= 0 || v > 10) { e.target.value = tEnd; return; }
     tEnd = v; restart(true);
   });
   for (const k of KEYS) $("on-" + k).addEventListener("change", e => { on[k] = e.target.checked; render(); renderG(); });

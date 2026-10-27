@@ -85,11 +85,13 @@ def main():
     p.add_argument("--scheme", nargs="+", choices=list(NAMES), default=list(NAMES), help="schemes to run")
     p.add_argument("--r", type=float, default=0.4, help="diffusion number r = alpha dt / dx^2 (default 0.4)")
     p.add_argument("--N", type=int, default=50, help="number of intervals, dx = L/N (default 50)")
-    p.add_argument("--t-end", type=float, default=10.0, help="final time (default 10)")
+    p.add_argument("--t-end", type=float, default=10.0, help="final time, at most 10 (default 10)")
     p.add_argument("--ic", choices=["sine", "modes", "pulse"], default="sine",
                    help="sine: sin(pi x); modes: sin(pi x) + 0.4 sin(6 pi x); pulse: T = 1 on 0.4..0.6")
     p.add_argument("--animate", action="store_true", help="also save heat1d.gif")
     a = p.parse_args()
+    if not 0 < a.t_end <= 10:
+        p.error("--t-end must be between 0 and 10")
 
     dx = L / a.N
     dt = a.r * dx**2 / ALPHA

@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Heat Equation Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital@1&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: same lab bench as the convection pages. Big plot on the left, controls + G(θ) + stencils on the right. */
+:root {
+  --bg: #f3f6f9;
+  --panel: #ffffff;
+  --fg: #15202b;
+  --muted: #5a6876;
+  --line: #d9e0e7;
+  --grid: #e6ebf0;
+  --ftcs: #2552c4;
+  --btcs: #c2410c;
+  --cn: #7c3aed;
+  --exact: #17795a;
+  --init: #8a97a4;
+  --warn: #b42318;
+  --warn-bg: #fdecea;
+  --ok-bg: #e5f4ee;
+  --info-bg: #e8eefb;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --math: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
+    --ftcs: #7ea4ff; --btcs: #ffa657; --cn: #c4a7ff; --exact: #4cc596; --init: #6c7a88;
+    --warn: #ff7b72; --warn-bg: #3a1a1a; --ok-bg: #12301f; --info-bg: #17233d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
+  --ftcs: #7ea4ff; --btcs: #ffa657; --cn: #c4a7ff; --exact: #4cc596; --init: #6c7a88;
+  --warn: #ff7b72; --warn-bg: #3a1a1a; --ok-bg: #12301f; --info-bg: #17233d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0;
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-block: 28px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1160px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+header { display: grid; gap: 6px; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 700 clamp(26px, 4vw, 36px)/1.1 var(--display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+.eqs { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: baseline; color: var(--fg); }
+.eq { font-family: var(--math); font-style: italic; font-size: 19px; white-space: nowrap; }
+.eq .up { font-style: normal; }
+.eq sub, .eq sup { font-size: .7em; }
+@media (max-width: 640px) { .eq { white-space: normal; font-size: 17px; } }
+.eq-label { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 8px; font-style: normal; }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr); } }
+
+.plot-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.sw { width: 22px; height: 0; border-top: 2.5px solid; display: inline-block; position: relative; }
+.sw.init { border-color: var(--init); border-top-style: dashed; }
+.sw.exact { border-color: var(--exact); }
+.sw.ftcs { border-color: var(--ftcs); } .sw.btcs { border-color: var(--btcs); } .sw.cn { border-color: var(--cn); }
+.sw.dot::after { content: ""; position: absolute; left: 8px; top: -5px; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.sw.ftcs { color: var(--ftcs); } .sw.btcs { color: var(--btcs); } .sw.cn { color: var(--cn); }
+canvas { width: 100%; display: block; }
+#plot { cursor: crosshair; }
+.zoombar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+.zoombar .zl { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.zoombar button { padding: 6px 12px; }
+#zin, #zout { min-width: 40px; font: 600 16px/1 var(--mono); }
+.zhint { flex: 1 1 220px; }
+
+.readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+.ro { border-top: 1px solid var(--line); padding-top: 8px; min-width: 0; }
+.ro .k { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ro .v { font: 500 18px var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.ro.ftcs .k { color: var(--ftcs); } .ro.btcs .k { color: var(--btcs); } .ro.cn .k { color: var(--cn); }
+
+.transport { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: 500 14px var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 8px 14px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ftcs); outline-offset: 2px; }
+button.primary { background: var(--ftcs); border-color: var(--ftcs); color: var(--panel); min-width: 92px; }
+.spacer { flex: 1; }
+.speed { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+
+aside { display: grid; gap: 16px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+h2 { font: 700 15px/1.2 var(--display); margin: 0; letter-spacing: .01em; }
+.field { display: grid; gap: 6px; }
+.field > label, .field > .lab { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+.field label b { font: 500 13px var(--mono); color: var(--fg); }
+input[type=range] { width: 100%; accent-color: var(--ftcs); }
+.num-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 10px; align-items: center; }
+input[type=number] { font: 500 15px var(--mono); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; width: 100%; font-variant-numeric: tabular-nums; }
+.hint { font-size: 12px; color: var(--muted); }
+select { font: 14px var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; width: 100%; }
+.schemes { display: grid; gap: 6px; }
+.chk { display: inline-flex; gap: 8px; align-items: center; color: var(--fg); cursor: pointer; font-size: 14px; }
+.chk input { width: 16px; height: 16px; }
+.chk small { color: var(--muted); font-size: 12px; }
+#on-ftcs { accent-color: var(--ftcs); } #on-btcs { accent-color: var(--btcs); } #on-cn { accent-color: var(--cn); }
+.presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.presets button { padding: 7px 6px; font-size: 13px; display: grid; gap: 1px; }
+.presets button small { font: 11px var(--mono); color: var(--muted); }
+.presets button[aria-pressed="true"] { border-color: var(--ftcs); background: var(--info-bg); }
+
+.status { border-radius: 8px; padding: 12px 14px; display: grid; gap: 6px; font-size: 14px; }
+.status .tag { font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.status.info { background: var(--info-bg); } .status.info .tag { color: var(--ftcs); }
+.status.good { background: var(--ok-bg); } .status.good .tag { color: var(--exact); }
+.status.bad { background: var(--warn-bg); } .status.bad .tag { color: var(--warn); }
+.status p { margin: 0; }
+
+.gcap { font-size: 13px; color: var(--muted); margin: 0; }
+.stencils svg { width: 100%; height: auto; display: block; }
+svg .gl { stroke: var(--grid); stroke-width: 1; }
+svg .st { stroke: var(--muted); stroke-width: 1.5; }
+svg .pt { fill: var(--panel); stroke: var(--fg); stroke-width: 1.5; }
+svg .known { fill: var(--fg); }
+svg .unk { fill: var(--panel); stroke-width: 2; }
+svg .lbl { fill: var(--muted); font: 11px var(--mono); }
+svg .ttl { font: 600 12px var(--body); }
+svg .lblm { fill: var(--fg); font: italic 13px var(--math); }
+svg .s-ftcs { stroke: var(--ftcs); } svg .f-ftcs { fill: var(--ftcs); }
+svg .s-btcs { stroke: var(--btcs); } svg .f-btcs { fill: var(--btcs); }
+svg .s-cn { stroke: var(--cn); } svg .f-cn { fill: var(--cn); }
+
+.notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 900px) { .notes { grid-template-columns: minmax(0, 1fr); } }
+.notes-wrap { display: grid; gap: 14px; }
+.notes-wrap .lead { margin: 0; color: var(--muted); max-width: 75ch; }
+.note .meq { font: italic 17px var(--math); color: var(--fg); margin: 2px 0 8px; overflow-x: auto; }
+.note h3 { font: 700 14px var(--display); margin: 0 0 4px; }
+.note p { margin: 0 0 6px; color: var(--muted); font-size: 14px; max-width: 65ch; }
+.note i { font-family: var(--math); color: var(--fg); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">CFD · 1D unsteady heat equation · explicit vs implicit time stepping</div>
+    <h1>Heat Equation Lab</h1>
+    <div class="eqs">
+      <span class="eq"><span class="eq-label">PDE</span>∂T/∂t = α ∂²T/∂x², &nbsp;<span class="up">0 &lt; x &lt; 1, α = 0.01</span></span>
+      <span class="eq"><span class="eq-label">BC</span>T(0, t) = T(1, t) = 0</span>
+      <span class="eq"><span class="eq-label">Diffusion number</span>r = α Δt / Δx²</span>
+    </div>
+  </header>
+
+  <div class="main">
+    <section class="plot-card" aria-label="Solution plot">
+      <div class="legend" id="legend">
+        <span><i class="sw init"></i>Initial condition, t = 0</span>
+        <span><i class="sw exact"></i>Exact solution</span>
+        <span id="leg-ftcs"><i class="sw ftcs dot"></i>FTCS (explicit)</span>
+        <span id="leg-btcs"><i class="sw btcs dot"></i>BTCS (implicit)</span>
+        <span id="leg-cn"><i class="sw cn dot"></i>Crank–Nicolson</span>
+      </div>
+      <canvas id="plot" role="img" aria-label="Plot of temperature T versus x with the initial, exact and numerical solutions"></canvas>
+      <div class="readouts">
+        <div class="ro"><div class="k">time t</div><div class="v" id="r-t">0.000</div></div>
+        <div class="ro"><div class="k">step n</div><div class="v" id="r-n">0</div></div>
+        <div class="ro"><div class="k">Δt</div><div class="v" id="r-dt">—</div></div>
+        <div class="ro ftcs" id="ro-ftcs"><div class="k">FTCS max err</div><div class="v" id="r-ftcs">0</div></div>
+        <div class="ro btcs" id="ro-btcs"><div class="k">BTCS max err</div><div class="v" id="r-btcs">0</div></div>
+        <div class="ro cn" id="ro-cn"><div class="k">CN max err</div><div class="v" id="r-cn">0</div></div>
+      </div>
+      <div class="transport">
+        <button class="primary" id="play">Play</button>
+        <button id="stepbtn">Step +1</button>
+        <button id="reset">Reset</button>
+        <span class="spacer"></span>
+        <label class="speed" for="speed">Speed <input type="range" id="speed" min="2" max="60" value="20" style="width:110px"></label>
+      </div>
+      <div class="zoombar">
+        <span class="zl">Zoom</span>
+        <button id="zin" aria-label="Zoom in">+</button>
+        <button id="zout" aria-label="Zoom out">−</button>
+        <button id="zreset">Reset view</button>
+        <span class="zhint">Drag a box on the plot to zoom into it. Double-click to reset. Errors are tiny, so zoom in to see them.</span>
+      </div>
+    </section>
+
+    <aside>
+      <div class="panel">
+        <h2>Parameters</h2>
+        <div class="field">
+          <div class="lab">Schemes to show</div>
+          <div class="schemes">
+            <label class="chk" for="on-ftcs"><input type="checkbox" id="on-ftcs" checked> FTCS <small>explicit, stable for r ≤ ½</small></label>
+            <label class="chk" for="on-btcs"><input type="checkbox" id="on-btcs"> BTCS <small>implicit, always stable</small></label>
+            <label class="chk" for="on-cn"><input type="checkbox" id="on-cn"> Crank–Nicolson <small>implicit, 2nd order in t</small></label>
+          </div>
+        </div>
+        <div class="field">
+          <label for="r-num">Diffusion number r <b id="r-show">0.4</b></label>
+          <div class="num-row">
+            <input type="range" id="r" min="0.05" max="1.5" step="0.01" value="0.4" aria-label="Diffusion number slider">
+            <input type="number" id="r-num" min="0.01" max="50" step="0.01" value="0.4" inputmode="decimal">
+          </div>
+          <div class="hint">Drag the slider or type any value from 0.01 to 50 and press Enter. Δt = r Δx² / α.</div>
+        </div>
+        <div class="presets" role="group" aria-label="r presets">
+          <button data-r="0.16666666666666666"><span>Most accurate</span><small>r = 1/6</small></button>
+          <button data-r="0.4"><span>Report</span><small>r = 0.4</small></button>
+          <button data-r="0.5"><span>Limit</span><small>r = 0.5</small></button>
+          <button data-r="0.52"><span>Just over</span><small>r = 0.52</small></button>
+          <button data-r="0.6"><span>Unstable</span><small>r = 0.6</small></button>
+          <button data-r="5"><span>Implicit only</span><small>r = 5</small></button>
+        </div>
+        <div class="field">
+          <label for="N-num">Intervals N <b id="dx-show">Δx = 0.02</b></label>
+          <div class="num-row">
+            <input type="range" id="N" min="4" max="200" step="1" value="50" aria-label="Number of intervals slider">
+            <input type="number" id="N-num" min="4" max="400" step="1" value="50" inputmode="numeric">
+          </div>
+          <div class="hint">N + 1 grid points, Δx = 1/N. Halving Δx at fixed r makes Δt four times smaller.</div>
+        </div>
+        <div class="field">
+          <label for="ic">Initial condition</label>
+          <select id="ic">
+            <option value="sine" selected>sin(πx) (as in the report)</option>
+            <option value="modes">Two modes: sin(πx) + 0.4 sin(6πx)</option>
+            <option value="pulse">Square pulse: T = 1 on 0.4 ≤ x ≤ 0.6</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="tend"><span>Final time t<sub>end</sub></span></label>
+          <input type="number" id="tend" min="0.01" max="200" step="any" value="10" inputmode="decimal">
+        </div>
+        <div class="status" id="status" aria-live="polite"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Amplification factor per step</h2>
+        <canvas id="gplot" role="img" aria-label="Amplification factor G versus theta for each scheme and the exact decay"></canvas>
+        <p class="gcap">Each Fourier mode sin(kx) is multiplied by G every step, with θ = kΔx. The exact decay per step is e<sup>−rθ²</sup>. A scheme is stable when |G| ≤ 1 for every θ (inside the band). Long waves are on the left, the sawtooth (θ = π) on the right.</p>
+      </div>
+
+      <div class="panel stencils">
+        <h2>Explicit vs implicit stencils</h2>
+        <svg viewBox="0 0 330 120" aria-label="Stencils of FTCS, BTCS and Crank-Nicolson">
+          <text class="lbl" x="2" y="44">n+1</text><text class="lbl" x="2" y="94">n</text>
+          <g transform="translate(30,0)">
+            <text class="ttl f-ftcs" x="45" y="16" text-anchor="middle">FTCS</text>
+            <line class="gl" x1="0" y1="40" x2="90" y2="40"/><line class="gl" x1="0" y1="90" x2="90" y2="90"/>
+            <line class="st s-ftcs" x1="15" y1="90" x2="45" y2="40"/><line class="st s-ftcs" x1="45" y1="90" x2="45" y2="40"/><line class="st s-ftcs" x1="75" y1="90" x2="45" y2="40"/>
+            <circle class="pt known" cx="15" cy="90" r="5"/><circle class="pt known" cx="45" cy="90" r="5"/><circle class="pt known" cx="75" cy="90" r="5"/>
+            <circle class="pt unk s-ftcs" cx="45" cy="40" r="6"/>
+            <text class="lbl" x="45" y="114" text-anchor="middle">1 unknown</text>
+          </g>
+          <g transform="translate(130,0)">
+            <text class="ttl f-btcs" x="45" y="16" text-anchor="middle">BTCS</text>
+            <line class="gl" x1="0" y1="40" x2="90" y2="40"/><line class="gl" x1="0" y1="90" x2="90" y2="90"/>
+            <line class="st s-btcs" x1="15" y1="40" x2="75" y2="40"/><line class="st s-btcs" x1="45" y1="90" x2="45" y2="40"/>
+            <circle class="pt known" cx="45" cy="90" r="5"/>
+            <circle class="pt unk s-btcs" cx="15" cy="40" r="6"/><circle class="pt unk s-btcs" cx="45" cy="40" r="6"/><circle class="pt unk s-btcs" cx="75" cy="40" r="6"/>
+            <text class="lbl" x="45" y="114" text-anchor="middle">3 unknowns</text>
+          </g>
+          <g transform="translate(230,0)">
+            <text class="ttl f-cn" x="45" y="16" text-anchor="middle">Crank–Nicolson</text>
+            <line class="gl" x1="0" y1="40" x2="90" y2="40"/><line class="gl" x1="0" y1="90" x2="90" y2="90"/>
+            <line class="st s-cn" x1="15" y1="40" x2="75" y2="40"/><line class="st s-cn" x1="15" y1="90" x2="75" y2="90"/><line class="st s-cn" x1="45" y1="90" x2="45" y2="40"/>
+            <circle class="pt known" cx="15" cy="90" r="5"/><circle class="pt known" cx="45" cy="90" r="5"/><circle class="pt known" cx="75" cy="90" r="5"/>
+            <circle class="pt unk s-cn" cx="15" cy="40" r="6"/><circle class="pt unk s-cn" cx="45" cy="40" r="6"/><circle class="pt unk s-cn" cx="75" cy="40" r="6"/>
+            <text class="lbl" x="45" y="114" text-anchor="middle">3 unknowns</text>
+          </g>
+        </svg>
+        <p class="gcap">Filled: known values at time level n. Open: unknowns at n+1. FTCS gives each new value directly. BTCS and Crank–Nicolson couple neighbors at n+1, so every step solves a tridiagonal system (Thomas algorithm, O(N) work).</p>
+      </div>
+    </aside>
+  </div>
+
+  <section class="notes-wrap">
+    <h2>Three ways to step in time</h2>
+    <p class="lead">All three schemes use the same central difference for ∂²T/∂x². They differ only in the time level at which it is evaluated: the old level (explicit), the new level (implicit), or the average of the two.</p>
+    <div class="notes">
+      <div class="note">
+        <h3>FTCS: explicit</h3>
+        <p class="meq">T<sub>i</sub><sup>n+1</sup> = T<sub>i</sub><sup>n</sup> + r (T<sub>i+1</sub><sup>n</sup> − 2T<sub>i</sub><sup>n</sup> + T<sub>i−1</sub><sup>n</sup>)</p>
+        <p>Cheap and simple, error O(Δt) + O(Δx²). Written as <i>rT<sub>i−1</sub> + (1−2r)T<sub>i</sub> + rT<sub>i+1</sub></i>, it is a weighted average of three neighbors as long as 1 − 2r ≥ 0. For r &gt; ½ the middle weight goes negative and the sawtooth grows: G(π) = 1 − 4r &lt; −1.</p>
+        <p>The modified equation is <i>T<sub>t</sub> = αT<sub>xx</sub> + (αΔx²/12)(1 − 6r)T<sub>xxxx</sub> + …</i>, so at r = 1/6 the leading error cancels and FTCS becomes fourth order in Δx. Try the "Most accurate" preset.</p>
+      </div>
+      <div class="note">
+        <h3>BTCS: fully implicit</h3>
+        <p class="meq">−rT<sub>i−1</sub><sup>n+1</sup> + (1+2r)T<sub>i</sub><sup>n+1</sup> − rT<sub>i+1</sub><sup>n+1</sup> = T<sub>i</sub><sup>n</sup></p>
+        <p>G = 1 / (1 + 4r sin²(θ/2)) lies between 0 and 1 for every r, so the scheme is unconditionally stable and never oscillates. The price: a tridiagonal solve per step, and the error is still first order in time, so a large Δt is stable but not accurate. Compare its error with the others.</p>
+      </div>
+      <div class="note">
+        <h3>Crank–Nicolson: the average</h3>
+        <p class="meq">T<sub>i</sub><sup>n+1</sup> − T<sub>i</sub><sup>n</sup> = (r/2)[δ²T<sup>n+1</sup> + δ²T<sup>n</sup>]</p>
+        <p>Second order in both time and space, and unconditionally stable: G = (1 − 2r s)/(1 + 2r s) with s = sin²(θ/2). But for large r the sawtooth gets G ≈ −1, so it is barely damped and flips sign every step. With the square pulse and r = 5 you can see the wiggles that the true heat equation would wipe out at once.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const L = 1, ALPHA = 0.01, PA = 0.4, PB = 0.6, NSERIES = 4000;
+  const KEYS = ["ftcs", "btcs", "cn"];
+  const $ = id => document.getElementById(id);
+  const canvas = $("plot"), ctx = canvas.getContext("2d");
+  const gcan = $("gplot"), gctx = gcan.getContext("2d");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  let r = 0.4, N = 50, ic = "sine", tEnd = 10, speed = 20;
+  const on = { ftcs: true, btcs: false, cn: false };
+  let x, dx, dt, nt, n, t, sol, blown, finished, playing = false, bk;
+
+  // ---- initial and exact solutions
+  function f0(xx) {
+    if (ic === "sine") return Math.sin(Math.PI * xx / L);
+    if (ic === "modes") return Math.sin(Math.PI * xx / L) + 0.4 * Math.sin(6 * Math.PI * xx / L);
+    if (Math.abs(xx - PA) < 1e-9 || Math.abs(xx - PB) < 1e-9) return 0.5;   // half value exactly on a jump
+    return xx > PA && xx < PB ? 1 : 0;
+  }
+  const decay = (k, tt) => Math.exp(-ALPHA * (k * Math.PI / L) ** 2 * tt);
+  function exact(xx, tt) {
+    if (ic === "sine") return Math.sin(Math.PI * xx / L) * decay(1, tt);
+    if (ic === "modes") return Math.sin(Math.PI * xx / L) * decay(1, tt) + 0.4 * Math.sin(6 * Math.PI * xx / L) * decay(6, tt);
+    if (tt <= 0) return f0(xx);
+    // Fourier sine series of the pulse; stop once the terms are below round-off
+    const kmax = Math.min(NSERIES, Math.ceil(Math.sqrt(40 / (ALPHA * Math.PI * Math.PI * tt)) * L) + 2);
+    let s = 0;
+    for (let k = 1; k <= kmax; k++) s += bk[k] * Math.sin(k * Math.PI * xx / L) * decay(k, tt);
+    return s;
+  }
+
+  // ---- schemes
+  function thomas(sub, diag, rhs, out) {      // sub*x[i-1] + diag*x[i] + sub*x[i+1] = rhs[i], i = 0..m-1, written into out[1..m]
+    const m = rhs.length, cp = new Float64Array(m), dp = new Float64Array(m);
+    cp[0] = sub / diag; dp[0] = rhs[0] / diag;
+    for (let i = 1; i < m; i++) {
+      const den = diag - sub * cp[i - 1];
+      cp[i] = sub / den; dp[i] = (rhs[i] - sub * dp[i - 1]) / den;
+    }
+    out[m] = dp[m - 1];
+    for (let i = m - 2; i >= 0; i--) out[i + 1] = dp[i] - cp[i] * out[i + 2];
+  }
+  function advance(key) {
+    const T = sol[key], Tn = Float64Array.from(T);
+    if (key === "ftcs") {
+      for (let i = 1; i < N; i++) T[i] = Tn[i] + r * (Tn[i + 1] - 2 * Tn[i] + Tn[i - 1]);
+    } else if (key === "btcs") {
+      thomas(-r, 1 + 2 * r, Tn.subarray(1, N), T);
+    } else {
+      const rhs = new Float64Array(N - 1);
+      for (let i = 1; i < N; i++) rhs[i - 1] = Tn[i] + 0.5 * r * (Tn[i + 1] - 2 * Tn[i] + Tn[i - 1]);
+      thomas(-r / 2, 1 + r, rhs, T);
+    }
+    T[0] = 0; T[N] = 0;                       // Dirichlet boundaries
+    let m = 0; for (const v of T) m = Math.max(m, Math.abs(v));
+    if (!isFinite(m) || m > 1e6) blown[key] = n + 1;
+  }
+
+  function init() {
+    dx = L / N;
+    dt = r * dx * dx / ALPHA;
+    nt = Math.max(1, Math.floor(tEnd / dt + 1e-9));
+    x = Float64Array.from({ length: N + 1 }, (_, i) => i * dx);
+    bk = new Float64Array(NSERIES + 1);
+    for (let k = 1; k <= NSERIES; k++) bk[k] = 2 / (k * Math.PI) * (Math.cos(k * Math.PI * PA / L) - Math.cos(k * Math.PI * PB / L));
+    const T0 = Float64Array.from(x, f0);
+    sol = {}; blown = {};
+    for (const k of KEYS) { sol[k] = Float64Array.from(T0); blown[k] = 0; }
+    n = 0; t = 0; finished = false;
+    updateStatus(); render(); renderG();
+  }
+
+  function step() {
+    if (finished) return;
+    if (n >= nt) { finished = true; setPlaying(false); return; }
+    for (const k of KEYS) if (!blown[k]) advance(k);   // all three always run, so toggling a checkbox shows the same history
+    n++; t = n * dt;
+    if (n >= nt) { finished = true; setPlaying(false); }
+  }
+
+  function maxErr(key) {
+    let e = 0;
+    for (let i = 0; i <= N; i++) e = Math.max(e, Math.abs(sol[key][i] - exact(x[i], t)));
+    return e;
+  }
+
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const fmtErr = e => !isFinite(e) ? "∞" : e === 0 ? "0" : e < 1e-3 || e >= 1e4 ? e.toExponential(2) : e.toFixed(4);
+  const fmtR = v => Math.abs(v - 1 / 6) < 1e-9 ? "1/6" : String(+v.toFixed(4));
+
+  // ---- zoom: view = null means the full plot
+  let view = null, sel = null, lay = null;
+  const fullView = () => ic === "modes" ? { x0: 0, x1: L, y0: -0.5, y1: 1.55 } : { x0: 0, x1: L, y0: -0.15, y1: 1.15 };
+  const getView = () => view || fullView();
+  function niceStep(span, target) {
+    const raw = span / Math.max(2, target), mag = 10 ** Math.floor(Math.log10(raw)), f = raw / mag;
+    return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+  }
+  const decimals = st => Math.max(0, -Math.floor(Math.log10(st) + 1e-9));
+
+  function sizeCanvas(cv, cx, w, h) {
+    const dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); cv.style.height = h + "px";
+    }
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cx.clearRect(0, 0, w, h);
+  }
+
+  function render() {
+    const w = canvas.clientWidth;
+    const h = Math.max(260, Math.min(460, w * 0.56));
+    sizeCanvas(canvas, ctx, w, h);
+    const m = { l: 58, r: 20, t: 12, b: 34 };
+    const pw = w - m.l - m.r, ph = h - m.t - m.b;
+    const V = getView();
+    lay = { m, pw, ph, V };
+    const X = v => m.l + ((v - V.x0) / (V.x1 - V.x0)) * pw;
+    const Y = v => m.t + (1 - (v - V.y0) / (V.y1 - V.y0)) * ph;
+    const col = { muted: css("--muted"), grid: css("--grid"), line: css("--line"), exact: css("--exact"),
+                  init: css("--init"), warn: css("--warn"), ftcs: css("--ftcs"), btcs: css("--btcs"), cn: css("--cn") };
+
+    ctx.font = "12px " + css("--mono");
+    ctx.lineWidth = 1; ctx.fillStyle = col.muted;
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    const sx = niceStep(V.x1 - V.x0, pw / 80), sy = niceStep(V.y1 - V.y0, ph / 45);
+    for (let k = Math.ceil(V.x0 / sx - 1e-9); k * sx <= V.x1 + 1e-9; k++) {
+      const xv = k * sx;
+      ctx.strokeStyle = col.grid; ctx.beginPath(); ctx.moveTo(X(xv), m.t); ctx.lineTo(X(xv), m.t + ph); ctx.stroke();
+      ctx.fillText(xv.toFixed(decimals(sx)), X(xv), m.t + ph + 6);
+    }
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (let k = Math.ceil(V.y0 / sy - 1e-9); k * sy <= V.y1 + 1e-9; k++) {
+      const yv = k * sy;
+      ctx.strokeStyle = col.grid; ctx.beginPath(); ctx.moveTo(m.l, Y(yv)); ctx.lineTo(m.l + pw, Y(yv)); ctx.stroke();
+      ctx.fillText((Math.abs(yv) < 1e-12 ? 0 : yv).toFixed(decimals(sy)), m.l - 8, Y(yv));
+    }
+    ctx.strokeStyle = col.line; ctx.strokeRect(m.l, m.t, pw, ph);
+    ctx.fillStyle = col.muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom";
+    ctx.fillText("x", m.l + pw, m.t + ph + 32);
+    ctx.save(); ctx.translate(12, m.t + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("T", 0, 0); ctx.restore();
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(m.l, m.t, pw, ph); ctx.clip();
+    const curve = (fn, color, width, dash) => {
+      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []);
+      ctx.beginPath();
+      const K = 600, a0 = Math.max(0, V.x0), a1 = Math.min(L, V.x1);
+      for (let k = 0; k <= K; k++) { const xv = a0 + (k / K) * (a1 - a0), yv = fn(xv);
+        k ? ctx.lineTo(X(xv), Y(yv)) : ctx.moveTo(X(xv), Y(yv)); }
+      ctx.stroke(); ctx.setLineDash([]);
+    };
+    curve(f0, col.init, 1.5, [6, 5]);
+    curve(xx => exact(xx, t), col.exact, 2.5);
+
+    const ys = V.y1 - V.y0, clampY = v => Y(Math.max(V.y0 - 10 * ys, Math.min(V.y1 + 10 * ys, v)));
+    const visible = (V.x1 - V.x0) / dx + 1, rad = visible > 121 ? 1.8 : 3;
+    for (const k of KEYS) {
+      if (!on[k]) continue;
+      const T = sol[k];
+      let big = 0; for (const v of T) big = Math.max(big, Math.abs(v));
+      const c = blown[k] || big > 2 ? col.warn : col[k];   // red once it has clearly gone wrong
+      ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      for (let i = 0; i <= N; i++) i ? ctx.lineTo(X(x[i]), clampY(T[i])) : ctx.moveTo(X(x[i]), clampY(T[i]));
+      ctx.stroke();
+      if (visible <= 301)
+        for (let i = 0; i <= N; i++) {
+          if (x[i] < V.x0 - dx || x[i] > V.x1 + dx) continue;
+          ctx.beginPath(); ctx.arc(X(x[i]), clampY(T[i]), rad, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+    if (sel) {
+      ctx.fillStyle = col.ftcs; ctx.globalAlpha = 0.12;
+      ctx.fillRect(Math.min(sel.x0, sel.x1), Math.min(sel.y0, sel.y1), Math.abs(sel.x1 - sel.x0), Math.abs(sel.y1 - sel.y0));
+      ctx.globalAlpha = 1; ctx.strokeStyle = col.ftcs; ctx.lineWidth = 1;
+      ctx.strokeRect(Math.min(sel.x0, sel.x1), Math.min(sel.y0, sel.y1), Math.abs(sel.x1 - sel.x0), Math.abs(sel.y1 - sel.y0));
+    }
+    ctx.restore();
+
+    $("r-t").textContent = t.toFixed(3);
+    $("r-n").textContent = n + " / " + nt;
+    $("r-dt").textContent = dt < 1e-3 ? dt.toExponential(2) : +dt.toPrecision(4);
+    for (const k of KEYS) {
+      $("ro-" + k).hidden = !on[k];
+      $("leg-" + k).hidden = !on[k];
+      if (!on[k]) continue;
+      const v = $("r-" + k);
+      if (blown[k]) { v.textContent = "blew up"; v.style.color = col.warn; }
+      else { const e = maxErr(k); v.textContent = fmtErr(e); v.style.color = e > 0.5 ? col.warn : ""; }
+    }
+  }
+
+  // ---- amplification factor plot
+  const Gf = {
+    ftcs: s => 1 - 4 * r * s,
+    btcs: s => 1 / (1 + 4 * r * s),
+    cn:   s => (1 - 2 * r * s) / (1 + 2 * r * s)
+  };
+  function renderG() {
+    const w = gcan.clientWidth, h = Math.round(w * 0.68);
+    sizeCanvas(gcan, gctx, w, h);
+    const m = { l: 40, r: 10, t: 10, b: 30 }, pw = w - m.l - m.r, ph = h - m.t - m.b;
+    const y0 = -2, y1 = 1.25;
+    const X = th => m.l + th / Math.PI * pw, Y = g => m.t + (y1 - g) / (y1 - y0) * ph;
+    const c = gctx;
+    c.font = "11px " + css("--mono");
+    c.fillStyle = css("--ok-bg"); c.fillRect(m.l, Y(1), pw, Y(-1) - Y(1));
+    c.strokeStyle = css("--grid"); c.lineWidth = 1;
+    c.fillStyle = css("--muted"); c.textAlign = "right"; c.textBaseline = "middle";
+    for (const g of [-2, -1, 0, 1]) {
+      c.beginPath(); c.moveTo(m.l, Y(g)); c.lineTo(m.l + pw, Y(g)); c.stroke();
+      c.fillText(g, m.l - 6, Y(g));
+    }
+    c.textAlign = "center"; c.textBaseline = "top";
+    [[0, "0"], [0.5, "π/2"], [1, "π"]].forEach(([f, s]) => c.fillText(s, X(f * Math.PI), m.t + ph + 5));
+    c.textAlign = "right"; c.textBaseline = "bottom"; c.fillText("θ = kΔx", m.l + pw, m.t + ph + 28);
+    c.textAlign = "left"; c.textBaseline = "bottom"; c.fillText("stable: |G| ≤ 1", m.l + 4, Y(-1) - 3);
+    c.strokeStyle = css("--line"); c.strokeRect(m.l, m.t, pw, ph);
+    c.save(); c.beginPath(); c.rect(m.l, m.t, pw, ph); c.clip();
+    const line = (fn, color, width, dash) => {
+      c.strokeStyle = color; c.lineWidth = width; c.setLineDash(dash || []); c.beginPath();
+      for (let k = 0; k <= 200; k++) { const th = k / 200 * Math.PI, s = Math.sin(th / 2) ** 2, g = Math.max(y0 - 1, fn(s, th));
+        k ? c.lineTo(X(th), Y(g)) : c.moveTo(X(th), Y(g)); }
+      c.stroke(); c.setLineDash([]);
+    };
+    line((s, th) => Math.exp(-r * th * th), css("--exact"), 2.5, [5, 4]);
+    for (const k of KEYS) line(Gf[k], css("--" + k), on[k] ? 2.2 : 1, on[k] ? [] : [2, 3]);
+    c.restore();
+  }
+
+  function updateStatus() {
+    const s = $("status"), ps = [];
+    const sMax = Math.sin(Math.PI * (N - 1) / (2 * N)) ** 2;    // highest mode sin((N-1)πx) on this grid
+    const gF = Math.abs(1 - 4 * r * sMax), gC = (1 - 2 * r * sMax) / (1 + 2 * r * sMax);
+    let cls, tag;
+    if (r > 0.5 + 1e-12) {
+      cls = "bad"; tag = `FTCS unstable · r = ${fmtR(r)} > ½`;
+      const nb = Math.ceil(Math.log(1e16) / Math.log(gF));
+      ps.push(`FTCS: the shortest wave on this grid is multiplied by 1 − 4r sin²(θ/2) = −${gF.toFixed(3)} every step. Starting from round-off (~10<sup>−16</sup>) it reaches size 1 after about <b>${nb}</b> steps${nb > nt ? `, more than the ${nt} steps to t<sub>end</sub>, so raise t<sub>end</sub> to see it` : ""}. A square pulse starts it much larger.`);
+      ps.push("BTCS and Crank–Nicolson stay stable for any r. Tick them to compare.");
+    } else if (Math.abs(r - 1 / 6) < 1e-9) {
+      cls = "good"; tag = "r = 1/6 · FTCS most accurate";
+      ps.push("The leading error term (αΔx²/12)(1 − 6r) T<sub>xxxx</sub> vanishes, so FTCS is fourth-order accurate in space. Compare the FTCS error with r = 0.4.");
+    } else {
+      cls = "info"; tag = `All stable · r = ${fmtR(r)} ≤ ½`;
+      ps.push("Every coefficient of FTCS, r, 1 − 2r and r, is non-negative, so each new value is an average of its neighbors and no wiggles can grow.");
+    }
+    if (gC < -0.5) ps.push(`Crank–Nicolson: the sawtooth gets G = ${gC.toFixed(3)}, so it is barely damped and flips sign each step. Try the square pulse.`);
+    s.className = "status " + cls;
+    s.innerHTML = `<span class="tag">${tag}</span>` + ps.map(p => `<p>${p}</p>`).join("");
+    document.querySelectorAll(".presets button").forEach(b =>
+      b.setAttribute("aria-pressed", Math.abs(+b.dataset.r - r) < 1e-9 ? "true" : "false"));
+    $("r-show").textContent = fmtR(r);
+    $("dx-show").textContent = "Δx = " + +(L / N).toPrecision(4);
+  }
+
+  // ---- animation: steps per second scale so one run to t_end takes about 10 s at the default speed
+  function setPlaying(p) {
+    playing = p;
+    $("play").textContent = p ? "Pause" : (finished ? "Replay" : "Play");
+    if (p) { last = performance.now(); acc = 0; requestAnimationFrame(loop); }
+  }
+  let last = 0, acc = 0;
+  function loop(now) {
+    if (!playing) return;
+    acc += (now - last) / 1000 * Math.max(1.5, speed / 20 * nt / 10); last = now;
+    let k = 0;
+    while (acc >= 1 && k < 2000 && playing) { step(); acc -= 1; k++; }
+    if (k === 2000) acc = 0;
+    render();
+    if (playing) requestAnimationFrame(loop);
+  }
+
+  function restart(autoplay) {
+    const was = playing; setPlaying(false); init();
+    if (was || autoplay) setPlaying(true);
+  }
+  $("play").addEventListener("click", () => {
+    if (finished) { init(); setPlaying(true); return; }
+    setPlaying(!playing);
+  });
+  $("stepbtn").addEventListener("click", () => { setPlaying(false); step(); render(); });
+  $("reset").addEventListener("click", () => { setPlaying(false); init(); });
+  $("speed").addEventListener("input", e => { speed = +e.target.value; });
+  function setR(v, autoplay) {
+    if (!isFinite(v) || v < 0.01 || v > 50) { $("r-num").value = +r.toFixed(4); return; }
+    r = Math.abs(v - 1 / 6) < 1e-6 ? 1 / 6 : Math.round(v * 1e4) / 1e4;
+    $("r").value = Math.min(1.5, r);
+    $("r-num").value = +r.toFixed(4);
+    restart(autoplay);
+  }
+  $("r").addEventListener("input", e => setR(+e.target.value));
+  $("r-num").addEventListener("change", e => setR(+e.target.value, true));
+  document.querySelectorAll(".presets button").forEach(b => b.addEventListener("click", () => setR(+b.dataset.r, true)));
+  function setN(v, autoplay) {
+    if (!isFinite(v) || v < 4 || v > 400) { $("N-num").value = N; return; }
+    N = Math.round(v);
+    $("N").value = Math.min(200, N); $("N-num").value = N;
+    restart(autoplay);
+  }
+  $("N").addEventListener("input", e => setN(+e.target.value));
+  $("N-num").addEventListener("change", e => setN(+e.target.value, true));
+  $("ic").addEventListener("change", e => { ic = e.target.value; view = null; restart(true); });
+  $("tend").addEventListener("change", e => {
+    const v = +e.target.value;
+    if (!isFinite(v) || v <= 0 || v > 200) { e.target.value = tEnd; return; }
+    tEnd = v; restart(true);
+  });
+  for (const k of KEYS) $("on-" + k).addEventListener("change", e => { on[k] = e.target.checked; render(); renderG(); });
+
+  // ---- zoom controls
+  const toData = (px, py) => {
+    const { m, pw, ph, V } = lay;
+    return { x: V.x0 + ((px - m.l) / pw) * (V.x1 - V.x0), y: V.y0 + (1 - (py - m.t) / ph) * (V.y1 - V.y0) };
+  };
+  function zoomBy(f) {
+    const V = getView(), F = fullView();
+    const xc = (V.x0 + V.x1) / 2, yc = (V.y0 + V.y1) / 2;
+    const hw = (V.x1 - V.x0) * f / 2, hh = (V.y1 - V.y0) * f / 2;
+    if (f > 1 && hw * 2 >= F.x1 - F.x0 && hh * 2 >= F.y1 - F.y0) view = null;
+    else if (hw * 2 > 1e-4) view = { x0: xc - hw, x1: xc + hw, y0: yc - hh, y1: yc + hh };
+    render();
+  }
+  $("zin").addEventListener("click", () => zoomBy(0.5));
+  $("zout").addEventListener("click", () => zoomBy(2));
+  $("zreset").addEventListener("click", () => { view = null; render(); });
+  canvas.addEventListener("dblclick", () => { view = null; render(); });
+  canvas.addEventListener("pointerdown", e => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;   // touch keeps normal page scrolling; use the buttons
+    const b = canvas.getBoundingClientRect();
+    sel = { x0: e.clientX - b.left, y0: e.clientY - b.top, x1: e.clientX - b.left, y1: e.clientY - b.top };
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", e => {
+    if (!sel) return;
+    const b = canvas.getBoundingClientRect();
+    sel.x1 = e.clientX - b.left; sel.y1 = e.clientY - b.top;
+    render();
+  });
+  canvas.addEventListener("pointerup", () => {
+    if (!sel) return;
+    const s0 = sel; sel = null;
+    const dxp = Math.abs(s0.x1 - s0.x0), dyp = Math.abs(s0.y1 - s0.y0);
+    if (dxp > 6) {
+      const a = toData(s0.x0, s0.y0), b = toData(s0.x1, s0.y1), V = getView();
+      view = { x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x),
+               y0: dyp > 6 ? Math.min(a.y, b.y) : V.y0, y1: dyp > 6 ? Math.max(a.y, b.y) : V.y1 };  // a flat drag zooms x only
+    }
+    render();
+  });
+
+  const redraw = () => { render(); renderG(); };
+  new ResizeObserver(redraw).observe(canvas);
+  new ResizeObserver(renderG).observe(gcan);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw);
+  new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  init();
+  if (!reduceMotion) setPlaying(true);
+})();
+</script>
+</body>
+</html>

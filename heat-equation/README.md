@@ -16,7 +16,13 @@ It runs in any web browser, with nothing to install. You can:
 - type any diffusion number $`r`$ (0.01 to 50) and number of intervals $`N`$ (4 to 1000, so $`\Delta x`$ down to 0.001), or pick a
   preset: $`r = 1/6`$ (most accurate FTCS), 0.4 (as in the course report), 0.5 (stability limit),
   0.52 and 0.6 (FTCS unstable), 5 (implicit schemes only)
-- choose the initial condition: $`\sin(\pi x)`$, two sine modes, or a square pulse
+- choose the initial condition: $`\sin(\pi x)`$, zero, two sine modes, $`\cos(\pi x)`$, uniform, linear ramp,
+  hat, parabola, square pulse or step
+- choose the boundary conditions at each end: **Dirichlet** (fixed temperature) or **Neumann** (fixed gradient
+  $`\partial T/\partial x`$, i.e. a fixed heat flux; 0 = insulated), with any value; the steady state is drawn as a
+  dotted line
+- try the **Neumann examples**: an insulated rod, heat flux in at one end, flux straight through, and net
+  heating with no steady state
 - read the maximum error of each scheme against the exact solution, and zoom in to see it
 - see the amplification factor $`G(\theta)`$ of each scheme against the exact decay, and the
   explicit and implicit stencils
@@ -33,7 +39,7 @@ with $`L = 1`$, $`\alpha = 0.01`$, $`T(0,t) = T(L,t) = 0`$ and $`T(x,0) = \sin(\
 T(x,t) = \sin\left(\frac{\pi x}{L}\right) e^{-\alpha \pi^2 t / L^2}
 ```
 
-For the other initial conditions each sine mode $`\sin(k\pi x/L)`$ decays like $`e^{-\alpha k^2\pi^2 t/L^2}`$:
+This is the default problem. For the other initial conditions each sine mode $`\sin(k\pi x/L)`$ decays like $`e^{-\alpha k^2\pi^2 t/L^2}`$:
 short waves die much faster than long ones. The square pulse uses its Fourier sine series.
 
 The grid is $`x_i = i\Delta x`$ with $`\Delta x = L/N`$, and all schemes use the diffusion number
@@ -41,6 +47,36 @@ The grid is $`x_i = i\Delta x`$ with $`\Delta x = L/N`$, and all schemes use the
 ```math
 r = \frac{\alpha \Delta t}{\Delta x^2}
 ```
+
+## Boundary conditions
+
+Each end is either Dirichlet or Neumann:
+
+```math
+\text{Dirichlet: } T(0,t) = T_0, \qquad \text{Neumann: } \frac{\partial T}{\partial x}(1,t) = g_1
+```
+
+The heat flux is $`q = -k \partial T/\partial x`$, so $`g = 0`$ is an insulated end. At a Dirichlet end the
+boundary node is known. At a Neumann end it is an unknown, and its equation uses a ghost node outside the
+domain, found from the second-order central difference:
+
+```math
+\frac{T_{N+1} - T_{N-1}}{2\Delta x} = g_1 \quad\Rightarrow\quad T_{N+1} = T_{N-1} + 2\Delta x  g_1
+```
+
+(and $`T_{-1} = T_1 - 2\Delta x  g_0`$ at $`x = 0`$). The exact solution is a particular solution that
+satisfies the boundary conditions plus a Fourier series: sines for Dirichlet–Dirichlet, cosines for
+Neumann–Neumann, and quarter-wave modes $`(k - 1/2)\pi`$ for the mixed cases. The series
+coefficients are computed in closed form.
+
+With Neumann conditions at both ends, the total heat changes only through the boundary flux:
+
+```math
+\frac{d}{dt}\int_0^L T  dx = \alpha \left[ \frac{\partial T}{\partial x}(L) - \frac{\partial T}{\partial x}(0) \right]
+```
+
+With $`g_0 = g_1`$ the mean is conserved and the profile settles to a straight line. With $`g_0 \ne g_1`$ there
+is no steady state: the temperature keeps rising (or falling) at the rate $`\alpha (g_1 - g_0)`$.
 
 ## Scheme 1: FTCS (explicit)
 
@@ -170,6 +206,9 @@ python heat1d.py --r 0.6                    # FTCS unstable
 python heat1d.py --r 0.1666666667 --t-end 1 # r = 1/6: FTCS fourth order
 python heat1d.py --r 5 --ic pulse --t-end 1 # implicit only; Crank-Nicolson wiggles
 python heat1d.py --scheme ftcs --N 10 --r 0.1 --t-end 0.1   # the coarse-mesh case of the report
+python heat1d.py --bc nn --ic hat           # Neumann, insulated rod: relaxes to its mean
+python heat1d.py --bc dn --v1 1 --ic zero   # Dirichlet T = 0 at x = 0, heat flux in at x = 1
+python heat1d.py --bc nn --v1 1 --ic zero   # Neumann, net heating: no steady state
 python heat1d.py --animate                  # also saves an animated GIF
 python heat1d.py --help                     # all options
 ```
@@ -186,12 +225,15 @@ Options you can combine:
 | `--r` | diffusion number $`r = \alpha \Delta t / \Delta x^2`$ | 0.4 |
 | `--N` | number of intervals, $`\Delta x = 1/N`$ | 50 |
 | `--t-end` | final time, up to 10 (the run stops at the last whole step before it) | 10 |
-| `--ic` | initial condition: `sine`, `modes` or `pulse` | `sine` |
+| `--ic` | initial condition: `sine`, `zero`, `modes`, `cosine`, `uniform`, `ramp`, `hat`, `parabola`, `pulse` or `step` | `sine` |
+| `--bc` | boundary conditions at $`x = 0`$ then $`x = 1`$: `d` = Dirichlet, `n` = Neumann, e.g. `dd`, `dn`, `nd`, `nn` | `dd` |
+| `--v0`, `--v1` | boundary values at $`x = 0`$ and $`x = 1`$: $`T`$ for Dirichlet, $`\partial T/\partial x`$ for Neumann | 0 |
 | `--animate` | also save `heat1d.gif` | off |
 
 Expected output of `python heat1d.py`:
 
 ```
+Dirichlet at both ends, v0 = 0, v1 = 0, initial condition sine
 r = 0.4, N = 50, dx = 0.02, dt = 0.016, steps = 625, t = 10
   FTCS (explicit)    max |T - T_exact| = 1.695e-04
   BTCS (implicit)    max |T - T_exact| = 4.112e-04

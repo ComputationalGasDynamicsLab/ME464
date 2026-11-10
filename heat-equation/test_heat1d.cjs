@@ -7,7 +7,7 @@ const html = fs.readFileSync(`${__dirname}/index.html`, 'utf8');
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 new vm.Script(script); // Parse the entire application, including the controls.
 const kernel = script.slice(script.indexOf('  const L ='), script.indexOf('  const css ='));
-const sandbox = { document: { getElementById: () => ({ getContext: () => ({}) }) } };
+const sandbox = { performance, document: { getElementById: () => ({ getContext: () => ({}) }) } };
 vm.createContext(sandbox);
 vm.runInContext(kernel + `
   globalThis.api = { makeGrid, stepScheme,
@@ -75,7 +75,51 @@ for (const key of ['ftcs','btcs']) {
   });
   for(let i=1;i<errors.length;i++) assert.ok(errors[i-1]/errors[i] > 3.8 && errors[i-1]/errors[i] < 4.2);
 }
+// Exercise the actual independent-step synchronization code, including partial steps.
+const compareKernel = script.slice(script.indexOf('  function makeComparison('), script.indexOf('  let comparison ='));
+vm.runInContext(compareKernel + `
+  globalThis.compareAPI = { makeComparison, advanceComparison,
+    configure(end) {
+      N = 10; dx = 0.1; tEnd = end; bc = 'dd'; vL = vR = 0; ic = 'sine';
+      x = Float64Array.from({length:11}, (_,i) => i*dx);
+    }
+  };`, sandbox);
+const {configure, makeComparison, advanceComparison} = sandbox.compareAPI;
+configure(10);
+const pair = makeComparison(0.4,5);
+// Yield without updating the shared time, then finish the same snapshot.
+assert.equal(advanceComparison(pair,0),false);
+close(pair.time,0);
+assert.equal(advanceComparison(pair,Infinity),true);
+close(pair.time,5);
+close(pair.runs.ftcs.time,pair.runs.btcs.time);
+assert.equal(pair.runs.ftcs.steps,13);
+assert.equal(pair.runs.btcs.steps,1);
+advanceComparison(pair,Infinity);
+close(pair.time,10);
+assert.equal(pair.runs.ftcs.steps,26);
+assert.equal(pair.runs.btcs.steps,2);
+const s = Math.sin(Math.PI/20)**2;
+close(pair.runs.ftcs.T[5],((1-4*0.4*s)**12*(1-4*0.2*s))**2);
+close(pair.runs.btcs.T[5],(1/(1+20*s))**2);
+// Noncommensurate final time and either scheme taking the larger step.
+for (const [rF,rB] of [[0.4,5],[0.4,0.1],[0.4,0.4]]) {
+  configure(7.3);
+  const c = makeComparison(rF,rB);
+  while(c.time<c.end) {
+    advanceComparison(c,Infinity);
+    close(c.runs.ftcs.time,c.time); close(c.runs.btcs.time,c.time);
+  }
+  close(c.time,7.3);
+}
+// A long physical run remains synchronized and approaches the expected decay.
+configure(100);
+const longRun = makeComparison(0.4,5);
+while(longRun.time<longRun.end) advanceComparison(longRun,Infinity);
+close(longRun.time,100);
+close(longRun.runs.ftcs.T[5],((1-4*0.4*s)**12*(1-4*0.2*s))**20);
+close(longRun.runs.btcs.T[5],(1/(1+20*s))**20);
 // Check the teaching UI's default and the three experiment bindings are present.
 assert.match(html,/id="on-btcs" checked/);
 for(const id of ['stable','unstable','large']) assert.match(html,new RegExp(`data-lesson="${id}"`));
-console.log('PASS: application parses; modal amplification, hand check, instability, boundary conditions, heat conservation, convergence, and lesson controls.');
+console.log('PASS: application parses; amplification, boundaries, conservation, convergence, lesson controls, and independent time-step synchronization (including t=100).');

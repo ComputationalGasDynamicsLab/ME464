@@ -55,6 +55,23 @@ Dirichlet and Neumann boundaries, heat conservation and grid convergence.
 
 The web simulation starts with a final time of **100** and accepts values up to **1000**, including for convergence studies. Longer physical runs also play for longer; adjust **Speed** to accelerate playback. Classroom experiment buttons retain their shorter teaching intervals. The Python solver accepts `--t-end 1000` and keeps its default final time of 10.
 
+## Side-by-side comparison with independent time steps
+
+The **Side by side** section uses the same grid, initial condition and boundary conditions as the main demo,
+but lets FTCS and BTCS use independent diffusion numbers (and hence independent time steps).
+The defaults are r = 0.4 for FTCS and r = 5 for BTCS.
+
+Press **Step to next shared time** or **Play comparison**. Both plots show the same physical time,
+use identical axes and include the exact solution, maximum error and number of steps.
+For an especially clear example, select N = 10: the requested steps are Δt = 0.4 and Δt = 5.
+At each shared time interval of 5, FTCS takes twelve steps of 0.4 and one shortened step of 0.2,
+while BTCS takes one step of 5. By t = 10 the counts are 26 and 2.
+
+The last substep is shortened whenever necessary to synchronize the methods or reach the final time.
+Changing the main problem parameters resets the comparison. Independent comparison controls do not change
+the original shared-step plot. Counts measure numerical steps; a BTCS step also requires a tridiagonal solve,
+so the counts do not directly measure CPU time.
+
 ## The problem
 
 ```math

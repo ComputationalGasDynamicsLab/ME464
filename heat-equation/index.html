@@ -174,6 +174,11 @@ table.cv tr:last-child td { border-bottom: 0; }
 .note h3 { font: 700 14px var(--display); margin: 0 0 4px; }
 .note p { margin: 0 0 6px; color: var(--muted); font-size: 14px; max-width: 65ch; }
 .note i { font-family: var(--math); color: var(--fg); }
+.comparison-plots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.comparison-plots > div { min-width: 0; }
+.comparison-plots h3 { margin: 0 0 8px; font-size: 15px; }
+.comparison-plots output { display: block; font: 12px/1.8 var(--mono); overflow-wrap: anywhere; }
+@media (max-width: 640px) { .comparison-plots { grid-template-columns: minmax(0, 1fr); } }
 </style>
 </head>
 <body>
@@ -355,6 +360,27 @@ table.cv tr:last-child td { border-bottom: 0; }
       </div>
     </aside>
   </div>
+
+  <section class="panel" aria-labelledby="compare-title">
+    <h2 id="compare-title">Side by side: different time steps, same physical time</h2>
+    <p style="margin:0">Use the grid, initial condition and boundaries selected above, with independent time steps below. FTCS can take many small steps while BTCS takes fewer large steps. Compare their errors and step counts at the <b>same physical time</b>. Green is the exact solution; dashed grey is the initial condition. Both plots use the same axes.</p>
+    <div class="conv-controls">
+      <div class="field"><label for="compare-ftcs-r">Explicit FTCS diffusion number r</label><input id="compare-ftcs-r" type="number" min="0.01" max="50" step="any" value="0.4"></div>
+      <div class="field"><label for="compare-btcs-r">Implicit BTCS diffusion number r</label><input id="compare-btcs-r" type="number" min="0.01" max="50" step="any" value="5"></div>
+    </div>
+    <div class="transport">
+      <button class="primary" id="compare-play">Play comparison</button>
+      <button id="compare-step">Step to next shared time</button>
+      <button id="compare-reset">Reset comparison</button>
+      <span id="compare-time" aria-live="polite">t = 0</span>
+    </div>
+    <p class="hint" id="compare-info" style="margin:0"></p>
+    <div class="comparison-plots">
+      <div><h3 style="color:var(--ftcs)">Explicit · FTCS</h3><canvas id="compare-ftcs" role="img" aria-label="Explicit FTCS temperature profile with its own time step"></canvas><output id="compare-ftcs-stats"></output></div>
+      <div><h3 style="color:var(--btcs)">Implicit · BTCS</h3><canvas id="compare-btcs" role="img" aria-label="Implicit BTCS temperature profile with its own time step"></canvas><output id="compare-btcs-stats"></output></div>
+    </div>
+    <p class="hint" style="margin:0">Δt = r Δx² / α. Shared snapshots are separated by the larger requested Δt. Each method uses its requested step, shortening its last substep to land exactly on the shared time (and final time). Counts include these shortened steps. A BTCS step includes a tridiagonal solve, so step counts alone are not a CPU-time comparison. Changing a problem parameter above resets this comparison.</p>
+  </section>
 
   <section class="panel conv" id="conv" aria-label="Grid convergence study">
     <h2>Grid convergence study: measure the order of accuracy</h2>
@@ -630,6 +656,7 @@ table.cv tr:last-child td { border-bottom: 0; }
     for (const k of KEYS) { sol[k] = Float64Array.from(T0); blown[k] = 0; }
     n = 0; t = 0; finished = false;
     updateStatus(); render(); renderG();
+    resetComparison();
   }
 
   function step() {
@@ -1168,7 +1195,137 @@ table.cv tr:last-child td { border-bottom: 0; }
   new ResizeObserver(renderStudyPlot).observe(cvc);
   cvExpect(); renderStudy();
 
-  const redraw = () => { render(); renderG(); renderStudyPlot(); };
+  // ---- Independent time steps, synchronized by subcycling to shared physical times.
+  function makeComparison(rF, rB) {
+    const initial = Float64Array.from(x, f0);
+    if (leftFixed()) initial[0] = vL;
+    if (rightFixed()) initial[N] = vR;
+    const runs = {};
+    for (const [key, rr] of [["ftcs", rF], ["btcs", rB]]) {
+      runs[key] = { T: Float64Array.from(initial), g: makeGrid(N, rr), dt: rr * dx * dx / ALPHA,
+        time: 0, steps: 0, lastDt: 0, ok: true };
+    }
+    return { runs, initial, time: 0, target: null, end: tEnd, interval: Math.max(runs.ftcs.dt, runs.btcs.dt) };
+  }
+  function advanceComparison(c, budget = 20) {
+    if (c.time >= c.end) return true;
+    if (c.target === null) c.target = Math.min(c.end, c.time + c.interval);
+    const started = performance.now();
+    for (const key of ["ftcs", "btcs"]) {
+      const run = c.runs[key];
+      while (run.ok && c.target - run.time > 1e-12 * Math.max(1, c.target)) {
+        if (performance.now() - started >= budget) return false;
+        const dtn = Math.min(run.dt, c.target - run.time);
+        run.g.r = ALPHA * dtn / (run.g.dx * run.g.dx);
+        run.ok = stepScheme(key, run.T, run.g);
+        run.steps++; run.lastDt = dtn; run.time = Math.min(c.target, run.time + dtn);
+      }
+      if (run.ok) run.time = c.target;
+    }
+    c.time = c.target; c.target = null;
+    return true;
+  }
+  let comparison = null, comparePlaying = false, compareBusy = false, compareGeneration = 0;
+  function resetComparison() {
+    compareGeneration++; comparePlaying = false; compareBusy = false;
+    const inputs = [$("compare-ftcs-r"), $("compare-btcs-r")];
+    for (const input of inputs) {
+      const value = +input.value;
+      if (!Number.isFinite(value) || value < 0.01 || value > 50) {
+        input.value = input.id === "compare-ftcs-r" ? 0.4 : 5;
+      }
+    }
+    comparison = makeComparison(+inputs[0].value, +inputs[1].value);
+    $("compare-play").textContent = "Play comparison";
+    $("compare-step").disabled = false;
+    $("compare-info").textContent = `N = ${N}, Δx = ${dx.toPrecision(4)}, final time = ${tEnd}. ` +
+      `Requested Δt: FTCS ${comparison.runs.ftcs.dt.toPrecision(5)}, BTCS ${comparison.runs.btcs.dt.toPrecision(5)}. ` +
+      (+inputs[0].value > 0.5 ? "FTCS exceeds its standard stability limit (r ≤ 0.5). " : "FTCS satisfies r ≤ 0.5. ") +
+      "BTCS is unconditionally stable; check its error to judge accuracy.";
+    renderComparison();
+  }
+  function renderComparison() {
+    if (!comparison) return;
+    const c = comparison;
+    // Wait for both schemes before showing a new snapshot.
+    if (c.target !== null) return;
+    $("compare-time").textContent = `Shared physical time t = ${+c.time.toPrecision(7)}`;
+    const exactValues = Float64Array.from(x, xx => exact(xx, c.time));
+    let lo = Math.min(0, ...c.initial, ...exactValues), hi = Math.max(0.5, ...c.initial, ...exactValues);
+    const pad = 0.12 * (hi - lo); lo -= pad; hi += pad;
+    for (const key of ["ftcs", "btcs"]) {
+      const run = c.runs[key], cv = $("compare-" + key), cx = cv.getContext("2d");
+      const w = cv.clientWidth, h = 280, m = { l: 52, r: 12, t: 12, b: 36 };
+      if (!w) continue;
+      sizeCanvas(cv, cx, w, h);
+      const pw = w - m.l - m.r, ph = h - m.t - m.b;
+      const X = v => m.l + v / L * pw, Y = v => m.t + (hi - v) / (hi - lo) * ph;
+      cx.font = "11px " + css("--mono"); cx.fillStyle = css("--muted");
+      cx.strokeStyle = css("--grid"); cx.lineWidth = 1;
+      for (let j = 0; j <= 4; j++) {
+        const xx = L * j / 4, yy = lo + (hi - lo) * j / 4;
+        cx.beginPath(); cx.moveTo(X(xx),m.t); cx.lineTo(X(xx),m.t+ph); cx.stroke();
+        cx.textAlign = "center"; cx.fillText(xx.toFixed(2),X(xx),h-20);
+        cx.beginPath(); cx.moveTo(m.l,Y(yy)); cx.lineTo(m.l+pw,Y(yy)); cx.stroke();
+        cx.textAlign = "right"; cx.fillText(yy.toFixed(2),m.l-6,Y(yy)+4);
+      }
+      cx.textAlign = "center"; cx.fillText("x",m.l+pw/2,h-3); cx.fillText("T",14,m.t+ph/2);
+      cx.save(); cx.beginPath(); cx.rect(m.l,m.t,pw,ph); cx.clip();
+      const line = (values, color, dash = []) => {
+        cx.strokeStyle = color; cx.lineWidth = 2; cx.setLineDash(dash); cx.beginPath();
+        values.forEach((v,i) => {
+          const yy = Math.max(lo-2*(hi-lo),Math.min(hi+2*(hi-lo),v));
+          if (i) cx.lineTo(X(x[i]),Y(yy)); else cx.moveTo(X(x[i]),Y(yy));
+        }); cx.stroke();
+      };
+      line(c.initial,css("--init"),[4,4]); line(exactValues,css("--exact"));
+      if (run.ok) line(run.T,css("--"+key));
+      cx.restore();
+      let err = 0;
+      run.T.forEach((v,i) => { err = Math.max(err,Math.abs(v-exactValues[i])); });
+      $("compare-"+key+"-stats").textContent = run.ok
+        ? `t = ${+run.time.toPrecision(7)} · ${run.steps} steps · max error = ${fmtErr(err)} · last Δt = ${run.lastDt ? run.lastDt.toPrecision(4) : "—"}`
+        : `Diverged at t = ${+run.time.toPrecision(7)} after ${run.steps} steps. Other method continues.`;
+      if (run.ok && run.T.some(v => v < lo || v > hi)) {
+        $("compare-"+key+"-stats").textContent += " · Profile exceeds shared axes (clipped).";
+      }
+    }
+  }
+  function comparisonFrame(generation) {
+    if (generation !== compareGeneration) return;
+    if (!advanceComparison(comparison)) {
+      requestAnimationFrame(() => comparisonFrame(generation)); return;
+    }
+    compareBusy = false; $("compare-step").disabled = false; renderComparison();
+    if (comparison.time >= comparison.end) {
+      comparePlaying = false; $("compare-play").textContent = "Replay comparison"; return;
+    }
+    if (comparePlaying) setTimeout(() => {
+      if (generation === compareGeneration && comparePlaying && !compareBusy) startComparisonStep();
+    }, 120);
+  }
+  function startComparisonStep() {
+    if (compareBusy || comparison.time >= comparison.end) return;
+    compareBusy = true; $("compare-step").disabled = true;
+    const generation = compareGeneration;
+    requestAnimationFrame(() => comparisonFrame(generation));
+  }
+  $("compare-play").addEventListener("click", () => {
+    if (comparison.time >= comparison.end) resetComparison();
+    comparePlaying = !comparePlaying;
+    $("compare-play").textContent = comparePlaying ? "Pause comparison" : "Play comparison";
+    if (comparePlaying) startComparisonStep();
+  });
+  $("compare-step").addEventListener("click", () => {
+    comparePlaying = false; $("compare-play").textContent = "Play comparison"; startComparisonStep();
+  });
+  $("compare-reset").addEventListener("click", resetComparison);
+  for (const key of ["ftcs", "btcs"]) {
+    $("compare-"+key+"-r").addEventListener("change", resetComparison);
+    new ResizeObserver(renderComparison).observe($("compare-"+key));
+  }
+
+  const redraw = () => { render(); renderG(); renderStudyPlot(); renderComparison(); };
   new ResizeObserver(redraw).observe(canvas);
   new ResizeObserver(renderG).observe(gcan);
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw);

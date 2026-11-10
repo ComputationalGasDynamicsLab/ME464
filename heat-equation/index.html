@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<title>Heat Equation Lab</title>
+<title>Heat Equation Lab · Explicit and Implicit Methods</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital@1&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -188,6 +188,17 @@ table.cv tr:last-child td { border-bottom: 0; }
     </div>
   </header>
 
+  <section class="panel" aria-labelledby="lesson-title">
+    <h2 id="lesson-title">Classroom demonstration: explicit versus implicit</h2>
+    <p style="margin:0">Choose an experiment, then press <b>Step +1</b> to advance both methods by the same Δt, or <b>Play</b> to animate. Blue is explicit FTCS; orange is implicit backward Euler (BTCS); green is the exact solution.</p>
+    <div class="transport" role="group" aria-label="Classroom experiments">
+      <button data-lesson="stable">1 · Both stable (r = 0.4)</button>
+      <button data-lesson="unstable">2 · Explicit instability (r = 0.6)</button>
+      <button data-lesson="large">3 · Large implicit step (r = 5)</button>
+    </div>
+    <p id="lesson-caption" aria-live="polite" style="margin:0">Start with both methods on the same grid. Which temperatures are known when we compute the next time level?</p>
+  </section>
+
   <div class="main">
     <section class="plot-card" aria-label="Solution plot">
       <div class="legend" id="legend">
@@ -230,7 +241,7 @@ table.cv tr:last-child td { border-bottom: 0; }
           <div class="lab">Schemes to show</div>
           <div class="schemes">
             <label class="chk" for="on-ftcs"><input type="checkbox" id="on-ftcs" checked> FTCS <small>explicit, stable for r ≤ ½</small></label>
-            <label class="chk" for="on-btcs"><input type="checkbox" id="on-btcs"> BTCS <small>implicit, always stable</small></label>
+            <label class="chk" for="on-btcs"><input type="checkbox" id="on-btcs" checked> BTCS <small>implicit, unconditionally stable</small></label>
             <label class="chk" for="on-cn"><input type="checkbox" id="on-cn"> Crank–Nicolson <small>implicit, 2nd order in t</small></label>
           </div>
         </div>
@@ -248,7 +259,7 @@ table.cv tr:last-child td { border-bottom: 0; }
           <button data-r="0.5"><span>Limit</span><small>r = 0.5</small></button>
           <button data-r="0.52"><span>Just over</span><small>r = 0.52</small></button>
           <button data-r="0.6"><span>Unstable</span><small>r = 0.6</small></button>
-          <button data-r="5"><span>Implicit only</span><small>r = 5</small></button>
+          <button data-r="5"><span>Large step</span><small>r = 5</small></button>
         </div>
         <div class="field">
           <label for="N-num">Intervals N <b id="dx-show">Δx = 0.02</b></label>
@@ -392,6 +403,15 @@ table.cv tr:last-child td { border-bottom: 0; }
   <section class="notes-wrap">
     <h2>Three ways to step in time</h2>
     <p class="lead">All three schemes use the same central difference for ∂²T/∂x². They differ only in the time level at which it is evaluated: the old level (explicit), the new level (implicit), or the average of the two.</p>
+    <div class="panel">
+      <h3 style="margin:0">Why implicit requires a system of equations</h3>
+      <p style="margin:0">At the new time level, the BTCS equation contains three unknown temperatures. Assemble all interior equations and solve them together. For N = 4 (three interior nodes) and fixed endpoint temperatures:</p>
+      <pre style="overflow-x:auto;margin:0" aria-label="BTCS tridiagonal matrix for three interior nodes">[1+2r   −r     0  ] [T₁ⁿ⁺¹]   [T₁ⁿ + r T₀ⁿ⁺¹]
+[ −r   1+2r   −r  ] [T₂ⁿ⁺¹] = [T₂ⁿ           ]
+[  0    −r   1+2r ] [T₃ⁿ⁺¹]   [T₃ⁿ + r T₄ⁿ⁺¹]</pre>
+      <p style="margin:0">For the default zero boundary values, the right-hand side is simply the old interior temperature vector. The Thomas algorithm solves this tridiagonal system in O(N) work per step. FTCS also costs O(N), using direct updates. Both methods have error O(Δt) + O(Δx²); unconditional stability does not remove the need to resolve time accurately.</p>
+      <p style="margin:0"><b>One-step hand check:</b> N = 10, α = 0.01, Δt = 0.1, r = 0.1, T(x,0) = sin(πx). At x = 0.5, FTCS gives 0.990211; BTCS gives 0.990306; the exact value is 0.990179. The initial sine vector is an eigenvector: its BTCS amplitude is divided by 1 + 4r sin²(π/(2N)) each step.</p>
+    </div>
     <div class="notes">
       <div class="note">
         <h3>FTCS: explicit</h3>
@@ -438,10 +458,9 @@ table.cv tr:last-child td { border-bottom: 0; }
   const $ = id => document.getElementById(id);
   const canvas = $("plot"), ctx = canvas.getContext("2d");
   const gcan = $("gplot"), gctx = gcan.getContext("2d");
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   let r = 0.4, N = 50, ic = "sine", bc = "dd", vL = 0, vR = 0, tEnd = 10, speed = 20;
-  const on = { ftcs: true, btcs: false, cn: false };
+  const on = { ftcs: true, btcs: true, cn: false };
   let x, dx, dt, nt, n, t, sol, blown, finished, playing = false;
   const leftFixed = () => bc[0] === "d", rightFixed = () => bc[1] === "d";
 
@@ -793,7 +812,7 @@ table.cv tr:last-child td { border-bottom: 0; }
       cls = "bad"; tag = `FTCS unstable · r = ${fmtR(r)} > ½`;
       const nb = Math.ceil(Math.log(1e16) / Math.log(gF));
       ps.push(`FTCS: the shortest wave on this grid is multiplied by 1 − 4r sin²(θ/2) = −${gF.toFixed(3)} every step. Starting from round-off (~10<sup>−16</sup>) it reaches size 1 after about <b>${nb}</b> steps${nb > nt ? `, more than the ${nt} steps to t<sub>end</sub>, ${tEnd < 10 ? "so raise t<sub>end</sub> or" : "so"} use a smaller Δx or a larger r to see it` : ""}. A square pulse starts it much larger.`);
-      ps.push("BTCS and Crank–Nicolson stay stable for any r. Tick them to compare.");
+      ps.push("BTCS and Crank–Nicolson stay stable for any r. Compare their curves and errors with FTCS. Stability alone does not guarantee accuracy.");
     } else if (Math.abs(r - 1 / 6) < 1e-9) {
       cls = "good"; tag = "r = 1/6 · FTCS most accurate";
       ps.push("The leading error term (αΔx²/12)(1 − 6r) T<sub>xxxx</sub> vanishes, so FTCS is fourth-order accurate in space. Compare the FTCS error with r = 0.4.");
@@ -902,6 +921,29 @@ table.cv tr:last-child td { border-bottom: 0; }
     tEnd = v; restart(true);
   });
   for (const k of KEYS) $("on-" + k).addEventListener("change", e => { on[k] = e.target.checked; render(); renderG(); });
+
+  const LESSONS = {
+    stable: { r: 0.4, N: 10, ic: "sine", end: 10,
+      text: "Both stable: N = 10, Δt = 0.4. Step through 25 updates, or press Play. Compare both errors against the exact solution; both methods are first order in time. Zoom near the peak to see their difference." },
+    unstable: { r: 0.6, N: 20, ic: "pulse", end: 10,
+      text: "Explicit instability: N = 20, Δt = 0.15, square pulse. The pulse excites short waves immediately. FTCS develops growing, alternating oscillations; BTCS smooths the pulse. The exact curve is the continuum Fourier-series reference, so the sampled discontinuity also contributes to the error." },
+    large: { r: 5, N: 10, ic: "sine", end: 10,
+      text: "Large implicit step: N = 10, Δt = 5. Two BTCS steps remain stable, but compare their error with the exact solution and experiment 1. A smooth sine may hide FTCS instability over just two steps; instability describes amplification of perturbations, not immediate blow-up of every initial condition. Select the pulse to excite short waves." }
+  };
+  document.querySelectorAll("[data-lesson]").forEach(b => b.addEventListener("click", () => {
+    const lesson = LESSONS[b.dataset.lesson];
+    setPlaying(false);
+    r = lesson.r; N = lesson.N; ic = lesson.ic; tEnd = lesson.end;
+    bc = "dd"; vL = 0; vR = 0; view = null;
+    for (const k of KEYS) { on[k] = k !== "cn"; $("on-" + k).checked = on[k]; }
+    $("r").value = Math.min(1.5, r); $("r-num").value = r;
+    $("N").value = N; $("N-num").value = N;
+    $("ic").value = ic; $("tend").value = tEnd;
+    $("bc").value = bc; $("tl").value = vL; $("tr").value = vR;
+    $("lesson-caption").textContent = lesson.text;
+    document.querySelectorAll("[data-lesson]").forEach(btn => btn.setAttribute("aria-pressed", String(btn === b)));
+    init();
+  }));
 
   // ---- zoom controls
   const toData = (px, py) => {
@@ -1133,7 +1175,7 @@ table.cv tr:last-child td { border-bottom: 0; }
   new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
   init();
-  if (!reduceMotion) setPlaying(true);
+  // Begin paused so students can inspect the shared initial condition before stepping.
 })();
 </script>
 </body>

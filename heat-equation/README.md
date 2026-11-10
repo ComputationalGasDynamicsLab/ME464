@@ -30,6 +30,29 @@ It runs in any web browser, with nothing to install. You can:
 - see the amplification factor $`G(\theta)`$ of each scheme against the exact decay, and the
   explicit and implicit stencils
 
+## Classroom demonstration: explicit versus implicit
+
+The page starts paused with FTCS and BTCS visible together on the same grid and time step.
+Use **Step +1** to discuss the old and new time levels, or **Play** to animate.
+
+1. **Both stable (r = 0.4):** compare both solutions and their maximum errors against the exact solution. Zoom near the peak to see the difference.
+2. **Explicit instability (r = 0.6):** a square pulse excites short waves immediately. FTCS develops growing oscillations while BTCS remains stable.
+3. **Large implicit step (r = 5):** take two steps to the same final time as the first experiment. BTCS stays stable, but its error demonstrates that stability does not guarantee accuracy. A smooth sine can hide FTCS instability over just two steps; try the pulse to excite short waves.
+
+Each experiment resets the grid, initial condition, zero Dirichlet boundaries, time step and visible methods, and pauses at the initial condition.
+The notes show the BTCS tridiagonal matrix and a one-step hand check for both methods.
+Crank–Nicolson remains available as an optional comparison.
+
+Open `index.html` directly in a browser; no installation is required.
+Run the dependency-free numerical checks with Node.js from this folder:
+
+```bash
+node test_heat1d.cjs
+```
+
+The checks cover discrete modal amplification, the hand calculation, explicit instability,
+Dirichlet and Neumann boundaries, heat conservation and grid convergence.
+
 ## The problem
 
 ```math

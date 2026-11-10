@@ -53,6 +53,8 @@ node test_heat1d.cjs
 The checks cover discrete modal amplification, the hand calculation, explicit instability,
 Dirichlet and Neumann boundaries, heat conservation and grid convergence.
 
+The web simulation starts with a final time of **100** and accepts values up to **1000**, including for convergence studies. Longer physical runs also play for longer; adjust **Speed** to accelerate playback. Classroom experiment buttons retain their shorter teaching intervals. The Python solver accepts `--t-end 1000` and keeps its default final time of 10.
+
 ## The problem
 
 ```math
@@ -273,7 +275,7 @@ Options you can combine:
 | `--scheme` | one or more of `ftcs`, `btcs`, `cn` | all three |
 | `--r` | diffusion number $`r = \alpha \Delta t / \Delta x^2`$ | 0.4 |
 | `--N` | number of intervals, $`\Delta x = 1/N`$ | 50 |
-| `--t-end` | final time, up to 10 (the run stops at the last whole step before it) | 10 |
+| `--t-end` | final time, up to 1000 (the run stops at the last whole step before it) | 10 |
 | `--ic` | initial condition: `sine`, `zero`, `modes`, `cosine`, `uniform`, `ramp`, `hat`, `parabola`, `pulse` or `step` | `sine` |
 | `--bc` | boundary conditions at $`x = 0`$ then $`x = 1`$: `d` = Dirichlet, `n` = Neumann, e.g. `dd`, `dn`, `nd`, `nn` | `dd` |
 | `--v0`, `--v1` | boundary values at $`x = 0`$ and $`x = 1`$: $`T`$ for Dirichlet, $`\partial T/\partial x`$ for Neumann | 0 |

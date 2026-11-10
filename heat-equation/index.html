@@ -310,8 +310,8 @@ table.cv tr:last-child td { border-bottom: 0; }
         </div>
         <div class="field">
           <label for="tend"><span>Final time t<sub>end</sub></span></label>
-          <input type="number" id="tend" min="0.01" max="10" step="any" value="10" inputmode="decimal">
-          <div class="hint">Any value up to 10.</div>
+          <input type="number" id="tend" min="0.01" max="1000" step="any" value="100" inputmode="decimal">
+          <div class="hint">Run to t = 100 by default, or enter any final time up to 1000. Increase Speed to play faster.</div>
         </div>
         <div class="status" id="status" aria-live="polite"></div>
       </div>
@@ -376,8 +376,8 @@ table.cv tr:last-child td { border-bottom: 0; }
         <input type="number" id="cv-par" min="0.001" max="50" step="any" value="0.25" inputmode="decimal">
       </div>
       <div class="field">
-        <label for="cv-t">Final time (≤ 10)</label>
-        <input type="number" id="cv-t" min="0.001" max="10" step="any" value="1" inputmode="decimal">
+        <label for="cv-t">Final time (≤ 1000)</label>
+        <input type="number" id="cv-t" min="0.001" max="1000" step="any" value="1" inputmode="decimal">
       </div>
       <div class="field">
         <label for="cv-norm">Error norm</label>
@@ -459,7 +459,7 @@ table.cv tr:last-child td { border-bottom: 0; }
   const canvas = $("plot"), ctx = canvas.getContext("2d");
   const gcan = $("gplot"), gctx = gcan.getContext("2d");
 
-  let r = 0.4, N = 50, ic = "sine", bc = "dd", vL = 0, vR = 0, tEnd = 10, speed = 20;
+  let r = 0.4, N = 50, ic = "sine", bc = "dd", vL = 0, vR = 0, tEnd = 100, speed = 20;
   const on = { ftcs: true, btcs: true, cn: false };
   let x, dx, dt, nt, n, t, sol, blown, finished, playing = false;
   const leftFixed = () => bc[0] === "d", rightFixed = () => bc[1] === "d";
@@ -811,7 +811,7 @@ table.cv tr:last-child td { border-bottom: 0; }
     if (r > 0.5 + 1e-12) {
       cls = "bad"; tag = `FTCS unstable · r = ${fmtR(r)} > ½`;
       const nb = Math.ceil(Math.log(1e16) / Math.log(gF));
-      ps.push(`FTCS: the shortest wave on this grid is multiplied by 1 − 4r sin²(θ/2) = −${gF.toFixed(3)} every step. Starting from round-off (~10<sup>−16</sup>) it reaches size 1 after about <b>${nb}</b> steps${nb > nt ? `, more than the ${nt} steps to t<sub>end</sub>, ${tEnd < 10 ? "so raise t<sub>end</sub> or" : "so"} use a smaller Δx or a larger r to see it` : ""}. A square pulse starts it much larger.`);
+      ps.push(`FTCS: the shortest wave on this grid is multiplied by 1 − 4r sin²(θ/2) = −${gF.toFixed(3)} every step. Starting from round-off (~10<sup>−16</sup>) it reaches size 1 after about <b>${nb}</b> steps${nb > nt ? `, more than the ${nt} steps to t<sub>end</sub>, ${tEnd < 1000 ? "so raise t<sub>end</sub> or" : "so"} use a smaller Δx or a larger r to see it` : ""}. A square pulse starts it much larger.`);
       ps.push("BTCS and Crank–Nicolson stay stable for any r. Compare their curves and errors with FTCS. Stability alone does not guarantee accuracy.");
     } else if (Math.abs(r - 1 / 6) < 1e-9) {
       cls = "good"; tag = "r = 1/6 · FTCS most accurate";
@@ -852,7 +852,7 @@ table.cv tr:last-child td { border-bottom: 0; }
     $("cv-problem").textContent = $("ic").selectedOptions[0].text.replace(" (as in the report)", "") + "; " + $("eq-bc").textContent.replace(/^BC/, "").trim();
   }
 
-  // ---- animation: steps per second scale so one run to t_end takes about 10 s at the default speed
+  // ---- animation: extend playback duration with physical time beyond t = 10
   function setPlaying(p) {
     playing = p;
     $("play").textContent = p ? "Pause" : (finished ? "Replay" : "Play");
@@ -861,7 +861,7 @@ table.cv tr:last-child td { border-bottom: 0; }
   let last = 0, acc = 0;
   function loop(now) {
     if (!playing) return;
-    acc += (now - last) / 1000 * Math.max(1.5, speed / 20 * nt / 10); last = now;
+    acc += (now - last) / 1000 * Math.max(1.5, speed / 20 * nt / Math.max(10, tEnd)); last = now;
     const t0 = performance.now();          // at most ~30 ms of computing per frame, so large grids stay responsive
     while (acc >= 1 && playing && performance.now() - t0 < 30) { step(); acc -= 1; }
     if (acc >= 1) acc = 0;
@@ -917,7 +917,7 @@ table.cv tr:last-child td { border-bottom: 0; }
   }));
   $("tend").addEventListener("change", e => {
     const v = +e.target.value;
-    if (!isFinite(v) || v <= 0 || v > 10) { e.target.value = tEnd; return; }
+    if (!isFinite(v) || v <= 0 || v > 1000) { e.target.value = tEnd; return; }
     tEnd = v; restart(true);
   });
   for (const k of KEYS) $("on-" + k).addEventListener("change", e => { on[k] = e.target.checked; render(); renderG(); });
@@ -1014,7 +1014,7 @@ table.cv tr:last-child td { border-bottom: 0; }
     const Ns = parseNs(), mode = $("cv-mode").value, par = +$("cv-par").value, tE = +$("cv-t").value;
     if (!Ns) { $("cv-msg").textContent = "Enter 2 to 10 whole numbers between 4 and 1000, e.g. 10, 20, 40, 80."; return; }
     if (!(par > 0 && par <= 50)) { $("cv-msg").textContent = "Enter a positive " + (mode === "r" ? "r" : "Δt/Δx") + "."; return; }
-    if (!(tE > 0 && tE <= 10)) { $("cv-msg").textContent = "The final time must be between 0 and 10."; return; }
+    if (!(tE > 0 && tE <= 1000)) { $("cv-msg").textContent = "The final time must be between 0 and 1000."; return; }
     const runs = Ns.map(Nn => {
       const h = L / Nn, dt0 = mode === "r" ? par * h * h / ALPHA : par * h;
       const steps = Math.max(1, Math.ceil(tE / dt0 - 1e-9)), dtn = tE / steps;

@@ -244,7 +244,7 @@ def main():
     p.add_argument("--scheme", nargs="+", choices=list(NAMES), default=list(NAMES), help="schemes to run")
     p.add_argument("--r", type=float, default=0.4, help="diffusion number r = alpha dt / dx^2 (default 0.4)")
     p.add_argument("--N", type=int, default=50, help="number of intervals, dx = L/N (default 50)")
-    p.add_argument("--t-end", type=float, default=10.0, help="final time, at most 10 (default 10)")
+    p.add_argument("--t-end", type=float, default=10.0, help="final time, at most 1000 (default 10)")
     p.add_argument("--ic", choices=list(ICS), default="sine", help="initial condition (default sine)")
     p.add_argument("--bc", choices=list(BCS), default="dd",
                    help="d = Dirichlet (fixed T), n = Neumann (fixed dT/dx), at x = 0 then x = 1 (default dd)")
@@ -254,8 +254,8 @@ def main():
     p.add_argument("--study", type=int, nargs="+", metavar="N", help="grid convergence study over these N values")
     p.add_argument("--lam", type=float, default=None, help="with --study: fix dt/dx = lam instead of r (dt ~ dx)")
     a = p.parse_args()
-    if not 0 < a.t_end <= 10:
-        p.error("--t-end must be between 0 and 10")
+    if not 0 < a.t_end <= 1000:
+        p.error("--t-end must be between 0 and 1000")
     if a.study:
         if len(set(a.study)) < 2 or min(a.study) < 4:
             p.error("--study needs at least two different N values, each 4 or more")

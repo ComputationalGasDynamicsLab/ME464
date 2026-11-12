@@ -14,7 +14,7 @@ The page compares FTBS, FTCS, FTFS, leapfrog, implicit BTCS (backward Euler / ce
 - At nonzero C, `a = sign(C)` and `dt = |C| dx`. At C = 0, `a = 0` and `dt = dx`.
 - Inspect amplification factors across wavelengths and evolve a selected small Fourier perturbation directly, without subtraction cancellation.
 - See update formulas, stability derivations for the demonstrated methods, and the leapfrog repeated-root endpoint caveat.
-- The implicit method remains available for experimentation, but its analytical amplification factor, stability verdict, prediction curve, and stated stability condition are withheld for homework. FTFS is also available as an experiment, with its stability answer withheld.
+- All seven methods retain their solution plots, amplification plots, and measured/predicted perturbation growth. Only the stability verdict badges and stated stability requirements for FTFS and implicit BTCS are omitted for the student investigation.
 - Download the current solution arrays as CSV. A frozen run includes its actual stopping step.
 
 ## Stability summary
@@ -24,8 +24,8 @@ The page compares FTBS, FTCS, FTFS, leapfrog, implicit BTCS (backward Euler / ce
 | FTBS | 0 ≤ C ≤ 1 |
 | FTCS | Unstable for nonzero C |
 | Leapfrog | \|C\| < 1 robust root condition; usual CFL bound \|C\| ≤ 1 has repeated-root endpoints |
-| FTFS | Reserved for student derivation |
-| BTCS | Reserved for student derivation |
+| FTFS | Not displayed |
+| BTCS | Not displayed |
 | Lax–Wendroff | \|C\| ≤ 1 |
 | MacCormack | \|C\| ≤ 1; identical to LW for this linear problem |
 

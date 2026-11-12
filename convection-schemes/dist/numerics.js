@@ -4,11 +4,12 @@ const names={ftbs:'FTBS',ftcs:'FTCS',ftfs:'FTFS',leapfrog:'Leapfrog',btcs:'Impli
 function factors(id,c,t){const s=Math.sin(t),d=1-Math.cos(t);let r=1,i=-c*s;
  if(id==='ftbs')r=1-c*d;
  if(id==='lw'||id==='mac')r=1-c*c*d;
- if(id==='btcs'||id==='ftfs')return []; // Analytical amplification is reserved for homework.
+ if(id==='ftfs')r=1+c*d;
+ if(id==='btcs'){const z=1+c*c*s*s;return [[1/z,-c*s/z]];}
  if(id==='leapfrog'){const q=c*s,b=1-q*q;if(b>=0)return [[Math.sqrt(b),-q],[-Math.sqrt(b),-q]];return [[0,-q+Math.sqrt(-b)],[0,-q-Math.sqrt(-b)]];}
  return [[r,i]];
 }
-function status(id,c){if(id==='btcs'||id==='ftfs')return 'homework';if(id==='ftcs')return c===0?'stable':'unstable';if(id==='ftbs')return c>=0&&c<=1?'stable':'unstable';if(id==='leapfrog'&&Math.abs(c)===1)return 'marginal';return Math.abs(c)<=1?'stable':'unstable';}
+function status(id,c){if(id==='btcs'||id==='ftfs')return '';if(id==='ftcs')return c===0?'stable':'unstable';if(id==='ftbs')return c>=0&&c<=1?'stable':'unstable';if(id==='leapfrog'&&Math.abs(c)===1)return 'marginal';return Math.abs(c)<=1?'stable':'unstable';}
 function step(id,u,prev,c){const N=u.length,v=new Float64Array(N);if(id==='btcs'){
  // Solve the periodic tridiagonal system in O(N) with a rank-one correction.
  const q=c/2,gamma=-(1+q*q),upper=new Float64Array(N),pivot=new Float64Array(N);

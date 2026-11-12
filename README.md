@@ -5,7 +5,7 @@ Course materials for ME464 from the Computational Gas Dynamics Lab. Each example
 | Example | Interactive page | Folder |
 |---|---|---|
 | 1D linear convection: numerical diffusion (FTBS), dispersion (Lax–Wendroff) and TVD flux limiters | [Open in browser](https://computationalgasdynamicslab.github.io/ME464/ftbs-linear-convection/) | [`ftbs-linear-convection/`](ftbs-linear-convection/) |
-| Seven-scheme convection and stability lab: FTBS, FTCS, FTFS, leapfrog, implicit BTCS, Lax–Wendroff and MacCormack | [Open in browser](https://computationalgasdynamicslab.github.io/ME464/convection-schemes/dist/) | [`convection-schemes/`](convection-schemes/) |
+| Six-scheme convection and stability lab: FTBS, FTCS, leapfrog, implicit BTCS, Lax–Wendroff and MacCormack | [Open in browser](https://computationalgasdynamicslab.github.io/ME464/convection-schemes/dist/) | [`convection-schemes/`](convection-schemes/) |
 | FTBS stability: von Neumann analysis and round-off growth | [Open in browser](https://computationalgasdynamicslab.github.io/ME464/ftbs-stability/) | [`ftbs-stability/`](ftbs-stability/) |
 | 1D unsteady heat equation: explicit FTCS vs implicit BTCS and Crank–Nicolson, Dirichlet and Neumann boundary conditions | [Open in browser](https://computationalgasdynamicslab.github.io/ME464/heat-equation/) | [`heat-equation/`](heat-equation/) |
 | Thomas algorithm (TDMA): step-by-step derivation and worked examples for tridiagonal systems | [Open in browser](https://computationalgasdynamicslab.github.io/ME464/thomas-algorithm/) | [`thomas-algorithm/`](thomas-algorithm/) |

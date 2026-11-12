@@ -1,18 +1,19 @@
-# Linear convection: seven schemes and their stability
+# Linear convection: six schemes and their stability
 
 An interactive companion to `ftbs-linear-convection` and `ftbs-stability`.
 Open `dist/index.html` directly in a browser; no dependencies or build step are needed.
 For a local HTTP preview, run `python3 -m http.server 8765 --directory dist` in this folder.
 
-The page compares FTBS, FTCS, FTFS, leapfrog, implicit BTCS (backward Euler / centered space), Lax–Wendroff, and MacCormack for `u_t + a u_x = 0` on a periodic domain `[0,2)`.
+The page compares FTBS, FTCS, leapfrog, implicit BTCS (backward Euler / centered space), Lax–Wendroff, and MacCormack for `u_t + a u_x = 0` on a periodic domain `[0,2)`.
 
-- All seven numerical solutions advance together against the exact translated profile.
+- All six numerical solutions advance together against the exact translated profile.
 - A dedicated initial-condition graph and formulas explain each profile, including the extra periodic seam jump for the step. An optional initial-profile overlay remains on every solution plot.
 - A connected-domain diagram tracks a characteristic through wraparound. Live ghost-cell values show how the selected scheme copies periodic neighbors at its current time level.
 - Signed Courant number `C = a dt/dx` ranges from −2 to 2; grid and profile are adjustable.
 - At nonzero C, `a = sign(C)` and `dt = |C| dx`. At C = 0, `a = 0` and `dt = dx`.
 - Inspect amplification factors across wavelengths and evolve a selected small Fourier perturbation directly, without subtraction cancellation.
-- See update formulas, stability derivations, and the leapfrog repeated-root endpoint caveat.
+- See update formulas, stability derivations for the demonstrated methods, and the leapfrog repeated-root endpoint caveat.
+- The implicit method remains available for experimentation, but its analytical amplification factor, stability verdict, prediction curve, and stated stability condition are withheld for homework. The forward-time/forward-space method is omitted from this student lab.
 - Download the current solution arrays as CSV. A frozen run includes its actual stopping step.
 
 ## Stability summary
@@ -21,9 +22,8 @@ The page compares FTBS, FTCS, FTFS, leapfrog, implicit BTCS (backward Euler / ce
 |---|---|
 | FTBS | 0 ≤ C ≤ 1 |
 | FTCS | Unstable for nonzero C |
-| FTFS | −1 ≤ C ≤ 0 (unstable for positive speed) |
 | Leapfrog | \|C\| < 1 robust root condition; usual CFL bound \|C\| ≤ 1 has repeated-root endpoints |
-| BTCS | All real C |
+| BTCS | Reserved for student derivation |
 | Lax–Wendroff | \|C\| ≤ 1 |
 | MacCormack | \|C\| ≤ 1; identical to LW for this linear problem |
 

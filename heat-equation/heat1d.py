@@ -1,5 +1,9 @@
 """
-1D unsteady heat equation: explicit FTCS vs implicit BTCS and Crank-Nicolson.
+1D heat equation: FTCS, BTCS, Crank-Nicolson and the general theta method.
+
+    --scheme theta --theta 0.25 uses a 25% implicit / 75% explicit blend.
+    theta < 1/2: r <= 1/[2(1-2 theta)] for all wavelengths.
+    theta >= 1/2: unconditionally stable; negative modal G can still cause sign flips.
 
     dT/dt = alpha * d2T/dx2,   0 < x < L,  t > 0
 
@@ -32,8 +36,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 L, ALPHA, NSERIES, PI = 1.0, 0.01, 8000, np.pi
-NAMES = {"ftcs": "FTCS (explicit)", "btcs": "BTCS (implicit)", "cn": "Crank–Nicolson"}
-COLORS = {"ftcs": "#2552c4", "btcs": "#c2410c", "cn": "#7c3aed"}
+NAMES = {"ftcs": "FTCS (explicit)", "btcs": "BTCS (implicit)", "cn": "Crank–Nicolson", "theta": "General θ-method"}
+COLORS = {"ftcs": "#2552c4", "btcs": "#c2410c", "cn": "#7c3aed", "theta": "#087f8c"}
 BCS = {"dd": "Dirichlet at both ends", "dn": "Dirichlet at x = 0, Neumann at x = 1",
        "nd": "Neumann at x = 0, Dirichlet at x = 1", "nn": "Neumann at both ends"}
 
@@ -172,7 +176,22 @@ def thomas(a, b, c, d):
     return out
 
 
-def make_stepper(N, dx, r, bc, v0, v1):
+def amplification(theta, r, s):
+    """Fourier amplification, with s = sin(xi/2)**2."""
+    return (1 - 4 * (1 - theta) * r * s) / (1 + 4 * theta * r * s)
+
+
+def stability_limits(theta, N, bc):
+    """Finite-grid stability and nonnegative-modal-amplification r limits."""
+    phase = PI if bc == "nn" else PI * (N - (1 if bc == "dd" else 0.5)) / N
+    s = np.sin(phase / 2)**2
+    return (np.inf if theta >= 0.5 else 1 / (2 * (1 - 2 * theta) * s),
+            np.inf if theta == 1 else 1 / (4 * (1 - theta) * s))
+
+
+def make_stepper(N, dx, r, bc, v0, v1, theta=0.5):
+    if not 0 <= theta <= 1:
+        raise ValueError("theta must be between 0 and 1")
     i0 = 1 if bc[0] == "d" else 0                      # unknown nodes i0..i1
     i1 = N - 1 if bc[1] == "d" else N
 
@@ -183,10 +202,10 @@ def make_stepper(N, dx, r, bc, v0, v1):
 
     def step(T, scheme):
         Tn = T.copy()
-        if scheme == "ftcs":
+        th = {"ftcs": 0.0, "btcs": 1.0, "cn": 0.5, "theta": theta}[scheme]
+        if th == 0:
             T[i0:i1 + 1] = Tn[i0:i1 + 1] + r * lap(Tn)
             return T
-        th = 1.0 if scheme == "btcs" else 0.5          # theta = 1 BTCS, 1/2 Crank-Nicolson
         idx = np.arange(i0, i1 + 1)
         a = np.where(idx == N, -2.0, -1.0) * th * r    # the ghost node doubles the inner neighbor at a Neumann end
         c = np.where(idx == 0, -2.0, -1.0) * th * r
@@ -217,7 +236,7 @@ def study(Ns, a):
         dt = a.t_end / nt
         r = ALPHA * dt / dx**2
         x = np.linspace(0, L, N + 1)
-        step = make_stepper(N, dx, r, a.bc, a.v0, a.v1)
+        step = make_stepper(N, dx, r, a.bc, a.v0, a.v1, a.theta)
         T0, Te = exact(x, 0), exact(x, a.t_end)
         errs = {}
         for s in a.scheme:
@@ -241,7 +260,8 @@ def study(Ns, a):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--scheme", nargs="+", choices=list(NAMES), default=list(NAMES), help="schemes to run")
+    p.add_argument("--scheme", nargs="+", choices=list(NAMES), default=["ftcs", "btcs", "cn"], help="schemes to run")
+    p.add_argument("--theta", type=float, default=0.5, help="implicit weight for --scheme theta, 0 to 1 (default 0.5)")
     p.add_argument("--r", type=float, default=0.4, help="diffusion number r = alpha dt / dx^2 (default 0.4)")
     p.add_argument("--N", type=int, default=50, help="number of intervals, dx = L/N (default 50)")
     p.add_argument("--t-end", type=float, default=10.0, help="final time, at most 1000 (default 10)")
@@ -254,6 +274,14 @@ def main():
     p.add_argument("--study", type=int, nargs="+", metavar="N", help="grid convergence study over these N values")
     p.add_argument("--lam", type=float, default=None, help="with --study: fix dt/dx = lam instead of r (dt ~ dx)")
     a = p.parse_args()
+    if not 0 <= a.theta <= 1:
+        p.error("--theta must be between 0 and 1")
+    if a.N < 4 or not np.isfinite(a.r) or a.r <= 0:
+        p.error("--N must be at least 4 and --r must be finite and positive")
+    if a.lam is not None and (not np.isfinite(a.lam) or a.lam <= 0):
+        p.error("--lam must be finite and positive")
+    if "theta" in a.scheme:
+        NAMES["theta"] = f"θ-method (θ={a.theta:g})"
     if not 0 < a.t_end <= 1000:
         p.error("--t-end must be between 0 and 1000")
     if a.study:
@@ -267,7 +295,7 @@ def main():
     nt = max(1, int(np.floor(a.t_end / dt + 1e-9)))
     x = np.linspace(0, L, a.N + 1)
     exact = Exact(a.ic, a.bc, a.v0, a.v1)
-    step = make_stepper(a.N, dx, a.r, a.bc, a.v0, a.v1)
+    step = make_stepper(a.N, dx, a.r, a.bc, a.v0, a.v1, a.theta)
     T0 = exact(x, 0)
     sol = {s: T0.copy() for s in a.scheme}
     blown = {s: None for s in a.scheme}
@@ -285,6 +313,11 @@ def main():
 
     print(f"{BCS[a.bc]}, v0 = {a.v0:g}, v1 = {a.v1:g}, initial condition {a.ic}")
     print(f"r = {a.r:g}, N = {a.N}, dx = {dx:g}, dt = {dt:g}, steps = {nt}, t = {t:g}")
+    for scheme in a.scheme:
+        th = {"ftcs": 0, "btcs": 1, "cn": 0.5, "theta": a.theta}[scheme]
+        stable, nonnegative = stability_limits(th, a.N, a.bc)
+        state = "UNSTABLE" if a.r > stable + 1e-12 else "stable; alternating modes possible" if a.r > nonnegative + 1e-12 else "stable; no modal sign flips"
+        print(f"  {NAMES[scheme]}: {state}; grid r limit = {stable:.6g}, no-sign-flip r limit = {nonnegative:.6g}")
     Te = exact(x, t)
     for s in a.scheme:
         if blown[s]:

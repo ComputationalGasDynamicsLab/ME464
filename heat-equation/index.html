@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital@1&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: same lab bench as the convection pages. Big plot on the left, controls + G(θ) + stencils on the right. */
+/* Layout: same lab bench as the convection pages. Big plot on the left, controls + G(ξ) + stencils on the right. */
 :root {
   --bg: #f3f6f9;
   --panel: #ffffff;
@@ -19,7 +19,7 @@
   --grid: #e6ebf0;
   --ftcs: #2552c4;
   --btcs: #c2410c;
-  --cn: #7c3aed;
+  --cn: #7c3aed; --theta: #087f8c;
   --exact: #17795a;
   --init: #8a97a4;
   --warn: #b42318;
@@ -34,14 +34,14 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
-    --ftcs: #7ea4ff; --btcs: #ffa657; --cn: #c4a7ff; --exact: #4cc596; --init: #6c7a88;
+    --ftcs: #7ea4ff; --btcs: #ffa657; --cn: #c4a7ff; --theta: #56d4dd; --exact: #4cc596; --init: #6c7a88;
     --warn: #ff7b72; --warn-bg: #3a1a1a; --ok-bg: #12301f; --info-bg: #17233d;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0e141a; --panel: #151e27; --fg: #e3e9ef; --muted: #93a1ae; --line: #26323e; --grid: #1e2832;
-  --ftcs: #7ea4ff; --btcs: #ffa657; --cn: #c4a7ff; --exact: #4cc596; --init: #6c7a88;
+  --ftcs: #7ea4ff; --btcs: #ffa657; --cn: #c4a7ff; --theta: #56d4dd; --exact: #4cc596; --init: #6c7a88;
   --warn: #ff7b72; --warn-bg: #3a1a1a; --ok-bg: #12301f; --info-bg: #17233d;
   color-scheme: dark;
 }
@@ -179,6 +179,11 @@ table.cv tr:last-child td { border-bottom: 0; }
 .comparison-plots h3 { margin: 0 0 8px; font-size: 15px; }
 .comparison-plots output { display: block; font: 12px/1.8 var(--mono); overflow-wrap: anywhere; }
 @media (max-width: 640px) { .comparison-plots { grid-template-columns: minmax(0, 1fr); } }
+.sw.theta { border-color:var(--theta); color:var(--theta); }
+.ro.theta .k { color:var(--theta); }
+.algorithm-flow { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+.algorithm-flow > div { border:1px solid var(--line); border-radius:8px; padding:12px; }
+.algorithm-flow pre { white-space:pre-wrap; font:12px/1.7 var(--mono); }
 </style>
 </head>
 <body>
@@ -212,6 +217,7 @@ table.cv tr:last-child td { border-bottom: 0; }
         <span id="leg-steady"><i class="sw steady"></i>Steady state, t → ∞</span>
         <span id="leg-ftcs"><i class="sw ftcs dot"></i>FTCS (explicit)</span>
         <span id="leg-btcs"><i class="sw btcs dot"></i>BTCS (implicit)</span>
+        <span id="leg-theta"><i class="sw theta dot"></i>General θ-method</span>
         <span id="leg-cn"><i class="sw cn dot"></i>Crank–Nicolson</span>
       </div>
       <canvas id="plot" role="img" aria-label="Plot of temperature T versus x with the initial, exact and numerical solutions"></canvas>
@@ -221,6 +227,7 @@ table.cv tr:last-child td { border-bottom: 0; }
         <div class="ro"><div class="k">Δt</div><div class="v" id="r-dt">—</div></div>
         <div class="ro ftcs" id="ro-ftcs"><div class="k">FTCS max err</div><div class="v" id="r-ftcs">0</div></div>
         <div class="ro btcs" id="ro-btcs"><div class="k">BTCS max err</div><div class="v" id="r-btcs">0</div></div>
+        <div class="ro theta" id="ro-theta"><div class="k">θ-method max err</div><div class="v" id="r-theta">0</div></div>
         <div class="ro cn" id="ro-cn"><div class="k">CN max err</div><div class="v" id="r-cn">0</div></div>
       </div>
       <div class="transport">
@@ -248,6 +255,11 @@ table.cv tr:last-child td { border-bottom: 0; }
             <label class="chk" for="on-ftcs"><input type="checkbox" id="on-ftcs" checked> FTCS <small>explicit, stable for r ≤ ½</small></label>
             <label class="chk" for="on-btcs"><input type="checkbox" id="on-btcs" checked> BTCS <small>implicit, unconditionally stable</small></label>
             <label class="chk" for="on-cn"><input type="checkbox" id="on-cn"> Crank–Nicolson <small>implicit, 2nd order in t</small></label>
+            <label class="chk" for="on-theta"><input type="checkbox" id="on-theta" checked> General θ-method</label>
+            <div class="field"><label for="theta">Implicit weight θ <b id="theta-show">0.5</b></label>
+              <input type="range" id="theta" min="0" max="1" step="0.01" value="0.5">
+              <span class="hint">0 = FTCS · ½ = Crank–Nicolson · 1 = BTCS. Changing θ resets the run.</span>
+            </div>
           </div>
         </div>
         <div class="field">
@@ -323,8 +335,8 @@ table.cv tr:last-child td { border-bottom: 0; }
 
       <div class="panel">
         <h2>Amplification factor per step</h2>
-        <canvas id="gplot" role="img" aria-label="Amplification factor G versus theta for each scheme and the exact decay"></canvas>
-        <p class="gcap">Each Fourier mode sin(kx) is multiplied by G every step, with θ = kΔx. The exact decay per step is e<sup>−rθ²</sup>. A scheme is stable when |G| ≤ 1 for every θ (inside the band). Long waves are on the left, the sawtooth (θ = π) on the right.</p>
+        <canvas id="gplot" role="img" aria-label="Amplification factor G versus wave phase xi for each scheme and the exact decay"></canvas>
+        <p class="gcap">Each Fourier mode sin(kx) is multiplied by G every step, with ξ = kΔx. The exact decay per step is e<sup>−rξ²</sup>. A scheme is stable when |G| ≤ 1 for every ξ (inside the band). Long waves are on the left, the sawtooth (ξ = π) on the right.</p>
       </div>
 
       <div class="panel stencils">
@@ -360,6 +372,39 @@ table.cv tr:last-child td { border-bottom: 0; }
       </div>
     </aside>
   </div>
+
+  <section class="panel" aria-labelledby="theta-title">
+    <h2 id="theta-title">General explicit–implicit θ-method</h2>
+    <p style="margin:0">θ weights the new time level; 1−θ weights the known old level. Use the θ slider above to compare any blend with the named methods. Here ξ = kΔx denotes wave phase, keeping it distinct from the method weight θ.</p>
+    <div class="eq">T<sub>i</sub><sup>n+1</sup> − T<sub>i</sub><sup>n</sup> = r [(1−θ) δ²T<sub>i</sub><sup>n</sup> + θ δ²T<sub>i</sub><sup>n+1</sup>], &nbsp; δ²T<sub>i</sub> = T<sub>i−1</sub> − 2T<sub>i</sub> + T<sub>i+1</sub></div>
+    <p style="margin:0">G = [1 − 4(1−θ)r sin²(ξ/2)] / [1 + 4θr sin²(ξ/2)]. Requiring −1 ≤ G ≤ 1 gives 2(1−2θ)r sin²(ξ/2) ≤ 1. Thus θ ≥ ½ is unconditionally stable; θ &lt; ½ needs r ≤ 1/[2(1−2θ)] for every wavelength.</p>
+    <div class="tablewrap"><table class="cv"><caption>Stability at the current r, grid and boundaries. “No sign flips” means every modal G ≥ 0.</caption><thead><tr><th>Method</th><th>θ</th><th>All-wave r limit</th><th>This grid r limit</th><th>No sign flips r limit (grid)</th><th>Current result</th></tr></thead><tbody id="stability-table"></tbody></table></div>
+    <p class="hint" style="margin:0">The grid limit uses sₘₐₓ = sin²(ξₘₐₓ/2): ξₘₐₓ = (N−1)π/N for DD, π for NN, and (N−½)π/N for mixed boundaries. Fixed nonzero boundary data affect forcing, not error amplification. The NN constant mode has G = 1 and conserves the mean for equal end gradients. At a stability equality, the limiting mode may have G = −1 and persist. Modal sign changes differ from positivity: a sufficient condition for preserving nonnegative temperatures with homogeneous boundaries is r ≤ 1/[2(1−θ)] (no restriction at θ = 1).</p>
+    <div class="conv-controls">
+      <div class="field"><label for="mode-phase">Inspect a Fourier mode: ξ/π <b id="mode-show">1</b></label><input id="mode-phase" type="range" min="0" max="1" step="0.01" value="1"></div>
+      <p id="mode-result" aria-live="polite" style="margin:0"></p>
+    </div>
+    <p class="hint" style="margin:0">The mode inspector covers the continuous Fourier range; ξ = π is not an available DD mode on a finite grid. The green reference in the amplification plot is continuum decay exp(−rξ²); exact time integration of the discrete Laplacian gives exp(−4r sin²(ξ/2)).</p>
+    <h2>One time step: stencil → assemble → solve → advance</h2>
+    <svg viewBox="0 0 640 145" role="img" aria-label="General theta stencil: three known temperatures at n weighted by 1 minus theta and three coupled unknowns at n plus one weighted by theta" style="width:100%;max-width:640px">
+      <path d="M100 40H340 M100 105H340 M130 40V105 M220 40V105 M310 40V105" fill="none" stroke="var(--muted)"/>
+      <g fill="var(--panel)" stroke="var(--theta)" stroke-width="3"><circle cx="130" cy="40" r="7"/><circle cx="220" cy="40" r="7"/><circle cx="310" cy="40" r="7"/></g>
+      <g fill="var(--fg)"><circle cx="130" cy="105" r="6"/><circle cx="220" cy="105" r="6"/><circle cx="310" cy="105" r="6"/></g>
+      <g fill="var(--fg)" font-size="14"><text x="15" y="45">n+1</text><text x="15" y="110">n</text><text x="120" y="135">i−1</text><text x="218" y="135">i</text><text x="300" y="135">i+1</text><text id="stencil-new" x="365" y="45"></text><text id="stencil-old" x="365" y="110"></text></g>
+    </svg>
+    <div class="algorithm-flow">
+      <div><b>1 · Freeze old values</b><pre>Told ← copy(T)
+δ²Toldᵢ = Toldᵢ₋₁ − 2Toldᵢ + Toldᵢ₊₁</pre><p class="hint">Never overwrite neighbors while forming the right-hand side.</p></div>
+      <div><b>2 · Assemble the equations</b><pre>aᵢ = cᵢ = −θr
+bᵢ = 1 + 2θr
+dᵢ = Toldᵢ + (1−θ)r δ²Toldᵢ</pre><p class="hint">Move known new Dirichlet values to d. At a Neumann endpoint, eliminate the ghost: double the inner neighbor coefficient and add the gradient forcing.</p></div>
+      <div><b>3 · Update or solve</b><pre>θ = 0: Tnewᵢ ← dᵢ
+θ &gt; 0: solve aᵢTnewᵢ₋₁ + bᵢTnewᵢ + cᵢTnewᵢ₊₁ = dᵢ</pre><p class="hint">Thomas forward elimination then backward substitution costs O(N). <a href="../thomas-algorithm/index.html">Explore the Thomas algorithm.</a></p></div>
+      <div><b>4 · Advance and repeat</b><pre>T ← Tnew
+n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the result and compare with the exact solution. Error is O(Δt + Δx²), or O(Δt² + Δx²) at θ = ½ for smooth compatible data.</p></div>
+    </div>
+    <pre id="theta-matrix" style="overflow-x:auto" aria-label="Current theta-method tridiagonal coefficients"></pre>
+  </section>
 
   <section class="panel" aria-labelledby="compare-title">
     <h2 id="compare-title">Side by side: different time steps, same physical time</h2>
@@ -428,7 +473,7 @@ table.cv tr:last-child td { border-bottom: 0; }
 
   <section class="notes-wrap">
     <h2>Three ways to step in time</h2>
-    <p class="lead">All three schemes use the same central difference for ∂²T/∂x². They differ only in the time level at which it is evaluated: the old level (explicit), the new level (implicit), or the average of the two.</p>
+    <p class="lead">The named schemes use the same central difference for ∂²T/∂x². They differ only in the time level at which it is evaluated: the old level (explicit), the new level (implicit), or the average of the two.</p>
     <div class="panel">
       <h3 style="margin:0">Why implicit requires a system of equations</h3>
       <p style="margin:0">At the new time level, the BTCS equation contains three unknown temperatures. Assemble all interior equations and solve them together. For N = 4 (three interior nodes) and fixed endpoint temperatures:</p>
@@ -442,18 +487,18 @@ table.cv tr:last-child td { border-bottom: 0; }
       <div class="note">
         <h3>FTCS: explicit</h3>
         <p class="meq">T<sub>i</sub><sup>n+1</sup> = T<sub>i</sub><sup>n</sup> + r (T<sub>i+1</sub><sup>n</sup> − 2T<sub>i</sub><sup>n</sup> + T<sub>i−1</sub><sup>n</sup>)</p>
-        <p>Cheap and simple, error O(Δt) + O(Δx²). Written as <i>rT<sub>i−1</sub> + (1−2r)T<sub>i</sub> + rT<sub>i+1</sub></i>, it is a weighted average of three neighbors as long as 1 − 2r ≥ 0. For r &gt; ½ the middle weight goes negative and the sawtooth grows: G(π) = 1 − 4r &lt; −1.</p>
+        <p>Cheap and simple, error O(Δt) + O(Δx²). Written as <i>rT<sub>i−1</sub> + (1−2r)T<sub>i</sub> + rT<sub>i+1</sub></i>, it is a weighted average of three neighbors as long as 1 − 2r ≥ 0. For r &gt; ½ the middle weight is negative and the all-wavelength bound fails; the Fourier sawtooth grows: G(π) = 1 − 4r &lt; −1.</p>
         <p>The modified equation is <i>T<sub>t</sub> = αT<sub>xx</sub> + (αΔx²/12)(1 − 6r)T<sub>xxxx</sub> + …</i>, so at r = 1/6 the leading error cancels and FTCS becomes fourth order in Δx. Try the "Most accurate" preset.</p>
       </div>
       <div class="note">
         <h3>BTCS: fully implicit</h3>
         <p class="meq">−rT<sub>i−1</sub><sup>n+1</sup> + (1+2r)T<sub>i</sub><sup>n+1</sup> − rT<sub>i+1</sub><sup>n+1</sup> = T<sub>i</sub><sup>n</sup></p>
-        <p>G = 1 / (1 + 4r sin²(θ/2)) lies between 0 and 1 for every r, so the scheme is unconditionally stable and never oscillates. The price: a tridiagonal solve per step, and the error is still first order in time, so a large Δt is stable but not accurate. Compare its error with the others.</p>
+        <p>G = 1 / (1 + 4r sin²(ξ/2)) lies between 0 and 1 for every r, so the scheme is unconditionally stable and has no modal sign flips. The price: a tridiagonal solve per step, and the error is still first order in time, so a large Δt is stable but not accurate. Compare its error with the others.</p>
       </div>
       <div class="note">
         <h3>Crank–Nicolson: the average</h3>
         <p class="meq">T<sub>i</sub><sup>n+1</sup> − T<sub>i</sub><sup>n</sup> = (r/2)[δ²T<sup>n+1</sup> + δ²T<sup>n</sup>]</p>
-        <p>Second order in both time and space, and unconditionally stable: G = (1 − 2r s)/(1 + 2r s) with s = sin²(θ/2). But for large r the sawtooth gets G ≈ −1, so it is barely damped and flips sign every step. With the square pulse and r = 5 you can see the wiggles that the true heat equation would wipe out at once.</p>
+        <p>Second order in both time and space, and unconditionally stable: G = (1 − 2r s)/(1 + 2r s) with s = sin²(ξ/2). But for large r the sawtooth gets G ≈ −1, so it is barely damped and flips sign every step. With the square pulse and r = 5 you can see the wiggles that the true heat equation would wipe out at once.</p>
       </div>
     </div>
     <h2>Boundary conditions</h2>
@@ -480,13 +525,14 @@ table.cv tr:last-child td { border-bottom: 0; }
 <script>
 (() => {
   const L = 1, ALPHA = 0.01, NSERIES = 8000, PI = Math.PI;
-  const KEYS = ["ftcs", "btcs", "cn"];
+  const KEYS = ["ftcs", "btcs", "cn", "theta"];
+  let theta = 0.5;
   const $ = id => document.getElementById(id);
   const canvas = $("plot"), ctx = canvas.getContext("2d");
   const gcan = $("gplot"), gctx = gcan.getContext("2d");
 
   let r = 0.4, N = 50, ic = "sine", bc = "dd", vL = 0, vR = 0, tEnd = 100, speed = 20;
-  const on = { ftcs: true, btcs: true, cn: false };
+  const on = { ftcs: true, btcs: true, cn: false, theta: true };
   let x, dx, dt, nt, n, t, sol, blown, finished, playing = false;
   const leftFixed = () => bc[0] === "d", rightFixed = () => bc[1] === "d";
 
@@ -616,10 +662,10 @@ table.cv tr:last-child td { border-bottom: 0; }
   function stepScheme(key, T, g) {          // advance T one time step in place; returns false once it has blown up
     const { N: Nn, dx: h, r: rr, i0, i1 } = g, Tn = g.buf.Tn;
     Tn.set(T);
-    if (key === "ftcs") {
+    if (key === "ftcs" || (key === "theta" && theta === 0)) {
       for (let i = i0; i <= i1; i++) T[i] = Tn[i] + rr * lapAt(Tn, i, g);
     } else {
-      const th = key === "btcs" ? 1 : 0.5, m = i1 - i0 + 1, { a, b, c, d } = g.buf;   // θ = 1 BTCS, ½ Crank–Nicolson
+      const th = key === "theta" ? theta : key === "btcs" ? 1 : 0.5, m = i1 - i0 + 1, { a, b, c, d } = g.buf;   // θ = 1 BTCS, ½ Crank–Nicolson
       for (let j = 0; j < m; j++) {
         const i = i0 + j;
         a[j] = (i === Nn ? -2 : -1) * th * rr;   // the ghost node doubles the inner neighbor at a Neumann end
@@ -662,7 +708,7 @@ table.cv tr:last-child td { border-bottom: 0; }
   function step() {
     if (finished) return;
     if (n >= nt) { finished = true; setPlaying(false); return; }
-    for (const k of KEYS) if (!blown[k]) advance(k);   // all three always run, so toggling a checkbox shows the same history
+    for (const k of KEYS) if (!blown[k]) advance(k);   // all methods always run, so toggling a checkbox shows the same history
     n++; t = n * dt;
     if (n >= nt) { finished = true; setPlaying(false); }
   }
@@ -716,7 +762,7 @@ table.cv tr:last-child td { border-bottom: 0; }
     const X = v => m.l + ((v - V.x0) / (V.x1 - V.x0)) * pw;
     const Y = v => m.t + (1 - (v - V.y0) / (V.y1 - V.y0)) * ph;
     const col = { muted: css("--muted"), grid: css("--grid"), line: css("--line"), exact: css("--exact"),
-                  init: css("--init"), warn: css("--warn"), ftcs: css("--ftcs"), btcs: css("--btcs"), cn: css("--cn") };
+                  init: css("--init"), warn: css("--warn"), ftcs: css("--ftcs"), btcs: css("--btcs"), cn: css("--cn"), theta: css("--theta") };
 
     ctx.font = "12px " + css("--mono");
     ctx.lineWidth = 1; ctx.fillStyle = col.muted;
@@ -795,7 +841,8 @@ table.cv tr:last-child td { border-bottom: 0; }
   const Gf = {
     ftcs: s => 1 - 4 * r * s,
     btcs: s => 1 / (1 + 4 * r * s),
-    cn:   s => (1 - 2 * r * s) / (1 + 2 * r * s)
+    cn:   s => (1 - 2 * r * s) / (1 + 2 * r * s),
+    theta: s => amplification(theta, r, s)
   };
   function renderG() {
     const w = gcan.clientWidth, h = Math.round(w * 0.68);
@@ -814,7 +861,7 @@ table.cv tr:last-child td { border-bottom: 0; }
     }
     c.textAlign = "center"; c.textBaseline = "top";
     [[0, "0"], [0.5, "π/2"], [1, "π"]].forEach(([f, s]) => c.fillText(s, X(f * Math.PI), m.t + ph + 5));
-    c.textAlign = "right"; c.textBaseline = "bottom"; c.fillText("θ = kΔx", m.l + pw, m.t + ph + 28);
+    c.textAlign = "right"; c.textBaseline = "bottom"; c.fillText("ξ = kΔx", m.l + pw, m.t + ph + 28);
     c.textAlign = "left"; c.textBaseline = "bottom"; c.fillText("stable: |G| ≤ 1", m.l + 4, Y(-1) - 3);
     c.strokeStyle = css("--line"); c.strokeRect(m.l, m.t, pw, ph);
     c.save(); c.beginPath(); c.rect(m.l, m.t, pw, ph); c.clip();
@@ -829,27 +876,43 @@ table.cv tr:last-child td { border-bottom: 0; }
     c.restore();
   }
 
+  function renderMethodLab() {
+    const lim = v => v === Infinity ? "∞" : v.toFixed(5);
+    $("stability-table").innerHTML = [["FTCS",0],["BTCS",1],["CN",0.5],["General",theta]].map(([name,th]) => {
+      const all = stabilityLimits(th), grid = stabilityLimits(th,gridSmax());
+      const state = r > grid.stable + 1e-12 ? "Unstable" : r > grid.nonnegative + 1e-12 ? "Stable · alternating modes" : "Stable · no modal sign flips";
+      return `<tr><td>${name}</td><td>${th}</td><td>${lim(all.stable)}</td><td>${lim(grid.stable)}</td><td>${lim(grid.nonnegative)}</td><td class="${state === "Unstable" ? "bad" : ""}">${state}</td></tr>`;
+    }).join("");
+    const phase = +$("mode-phase").value, ss = Math.sin(phase*PI/2)**2, g = amplification(theta,r,ss);
+    $("mode-show").textContent = phase;
+    $("mode-result").textContent = `θ = ${theta}, G = ${g.toFixed(5)}. Unit amplitude after n = 0…6: ` + Array.from({length:7},(_,n)=>(g**n).toFixed(3)).join(" → ") + `. Discrete exact G = ${Math.exp(-4*r*ss).toFixed(5)}.`;
+    $("stencil-new").textContent = `New level weight θ = ${theta}`;
+    $("stencil-old").textContent = `Old level weight 1−θ = ${+(1-theta).toFixed(2)}`;
+    const a = (-theta*r).toFixed(4), b = (1+2*theta*r).toFixed(4);
+    $("theta-matrix").textContent = `Current interior rows (r = ${fmtR(r)}, θ = ${theta}):\n[${b}  ${a}      0   ] [T₁ⁿ⁺¹]   [d₁ + θr T₀ⁿ⁺¹]\n[${a}  ${b}  ${a}] [T₂ⁿ⁺¹] = [d₂           ]\n[   0     ${a}  ${b}] [T₃ⁿ⁺¹]   [d₃ + θr T₄ⁿ⁺¹]\nN = 4 illustration with Dirichlet ends; dᵢ = Tᵢⁿ + (1−θ)r δ²Tᵢⁿ. Neumann endpoint rows use the ghost-node modifications.`;
+  }
+  function amplification(th, rr, ss) {
+    return (1 - 4 * (1 - th) * rr * ss) / (1 + 4 * th * rr * ss);
+  }
+  function stabilityLimits(th, ss = 1) {
+    return { stable: th >= 0.5 ? Infinity : 1 / (2 * (1 - 2 * th) * ss),
+             nonnegative: th === 1 ? Infinity : 1 / (4 * (1 - th) * ss) };
+  }
+  function gridSmax(nn = N, kind = bc) {
+    return Math.sin((kind === "dd" ? PI * (nn - 1) / nn : kind === "nn" ? PI : PI * (nn - 0.5) / nn) / 2) ** 2;
+  }
   function updateStatus() {
-    const s = $("status"), ps = [];
-    const thMax = bc === "dd" ? PI * (N - 1) / N : bc === "nn" ? PI : PI * (N - 0.5) / N;   // shortest mode this grid can hold
-    const sMax = Math.sin(thMax / 2) ** 2;
-    const gF = Math.abs(1 - 4 * r * sMax), gC = (1 - 2 * r * sMax) / (1 + 2 * r * sMax);
-    let cls, tag;
-    if (r > 0.5 + 1e-12) {
-      cls = "bad"; tag = `FTCS unstable · r = ${fmtR(r)} > ½`;
-      const nb = Math.ceil(Math.log(1e16) / Math.log(gF));
-      ps.push(`FTCS: the shortest wave on this grid is multiplied by 1 − 4r sin²(θ/2) = −${gF.toFixed(3)} every step. Starting from round-off (~10<sup>−16</sup>) it reaches size 1 after about <b>${nb}</b> steps${nb > nt ? `, more than the ${nt} steps to t<sub>end</sub>, ${tEnd < 1000 ? "so raise t<sub>end</sub> or" : "so"} use a smaller Δx or a larger r to see it` : ""}. A square pulse starts it much larger.`);
-      ps.push("BTCS and Crank–Nicolson stay stable for any r. Compare their curves and errors with FTCS. Stability alone does not guarantee accuracy.");
-    } else if (Math.abs(r - 1 / 6) < 1e-9) {
-      cls = "good"; tag = "r = 1/6 · FTCS most accurate";
-      ps.push("The leading error term (αΔx²/12)(1 − 6r) T<sub>xxxx</sub> vanishes, so FTCS is fourth-order accurate in space. Compare the FTCS error with r = 0.4.");
-    } else {
-      cls = "info"; tag = `All stable · r = ${fmtR(r)} ≤ ½`;
-      ps.push("Every coefficient of FTCS, r, 1 − 2r and r, is non-negative, so each new value is an average of its neighbors and no wiggles can grow.");
+    const s = $("status"), ss = gridSmax(), limit = stabilityLimits(0, ss).stable;
+    const unstable = r > limit + 1e-12, gf = amplification(0, r, ss);
+    s.className = "status " + (unstable ? "bad" : "info");
+    let message = unstable ? `FTCS shortest grid mode has G = ${gf.toFixed(4)}: perturbations grow and alternate sign.` :
+      `FTCS is stable on this grid (r ≤ ${limit.toFixed(5)}). The bound valid for all wavelengths is r ≤ 0.5.`;
+    if (unstable) {
+      const steps = Math.ceil(Math.log(1e16) / Math.log(Math.abs(gf)));
+      message += ` Round-off of size 10⁻¹⁶ needs about ${steps} steps to reach size 1; a pulse can reveal growth sooner.`;
     }
-    if (gC < -0.5) ps.push(`Crank–Nicolson: the sawtooth gets G = ${gC.toFixed(3)}, so it is barely damped and flips sign each step. Try the square pulse.`);
-    s.className = "status " + cls;
-    s.innerHTML = `<span class="tag">${tag}</span>` + ps.map(p => `<p>${p}</p>`).join("");
+    s.innerHTML = `<span class="tag">${unstable ? "FTCS unstable on this grid" : "FTCS stable on this grid"}</span><p>${message}</p><p>BTCS and CN are unconditionally stable. Negative G means alternating modes; |G| &gt; 1 means growth. Stability does not guarantee accuracy.</p>`;
+    renderMethodLab();
     document.querySelectorAll(".presets button").forEach(b =>
       b.setAttribute("aria-pressed", Math.abs(+b.dataset.r - r) < 1e-9 ? "true" : "false"));
     $("r-show").textContent = fmtR(r);
@@ -947,7 +1010,14 @@ table.cv tr:last-child td { border-bottom: 0; }
     if (!isFinite(v) || v <= 0 || v > 1000) { e.target.value = tEnd; return; }
     tEnd = v; restart(true);
   });
+  $("theta").addEventListener("input", e => {
+    theta = +e.target.value; $("theta-show").textContent = theta;
+    if (cv && cv.running) { cv.running = false; $("cv-run").textContent = "Run study"; }
+    cv = null; renderStudy(); cvExpect(); restart(false);
+  });
   for (const k of KEYS) $("on-" + k).addEventListener("change", e => { on[k] = e.target.checked; render(); renderG(); });
+
+  $("mode-phase").addEventListener("input", renderMethodLab);
 
   const LESSONS = {
     stable: { r: 0.4, N: 10, ic: "sine", end: 10,
@@ -962,7 +1032,7 @@ table.cv tr:last-child td { border-bottom: 0; }
     setPlaying(false);
     r = lesson.r; N = lesson.N; ic = lesson.ic; tEnd = lesson.end;
     bc = "dd"; vL = 0; vR = 0; view = null;
-    for (const k of KEYS) { on[k] = k !== "cn"; $("on-" + k).checked = on[k]; }
+    for (const k of KEYS) { on[k] = k === "ftcs" || k === "btcs"; $("on-" + k).checked = on[k]; }
     $("r").value = Math.min(1.5, r); $("r-num").value = r;
     $("N").value = N; $("N-num").value = N;
     $("ic").value = ic; $("tend").value = tEnd;
@@ -1022,13 +1092,13 @@ table.cv tr:last-child td { border-bottom: 0; }
     $("cv-par-lab").textContent = mode === "r" ? "r = αΔt/Δx²" : "λ = Δt/Δx";
     let h;
     if (mode === "r") {
-      h = "Expected with fixed r: Δt = rΔx²/α shrinks like Δx², so the O(Δt) time error of FTCS and BTCS also behaves like Δx². All three schemes should show order 2.";
+      h = "Expected with fixed r: Δt = rΔx²/α shrinks like Δx², so the O(Δt) time error of FTCS and BTCS also behaves like Δx². All methods should show order 2 for smooth compatible data.";
       if (Math.abs(par - 1 / 6) < 2e-3) h += " At r = 1/6 the leading FTCS error cancels, so FTCS should show order 4.";
-      if (par > 0.5) h += " With r > ½, FTCS is unstable on every grid.";
+      if (par > 0.5) h += " With r > ½, FTCS violates the all-wavelength bound; the finite-grid limit depends on N and the boundaries.";
     } else {
       h = "Expected with fixed Δt/Δx: now Δt shrinks only like Δx. BTCS, first order in time, should drop to order 1, while Crank–Nicolson (second order in time) stays at order 2. FTCS has r = αλ/Δx, which grows on fine grids: it becomes unstable once r > ½. Because its r also changes from grid to grid (and passes the special value 1/6), the FTCS orders on the stable grids jump around.";
     }
-    $("cv-expect").textContent = h;
+    $("cv-expect").textContent = h + ` General θ = ${theta}: time order ${theta === 0.5 ? 2 : 1}; for θ < ½ check r ≤ 1/[2(1−2θ)] (all wavelengths).`;
   }
   function parseNs() {
     const vals = $("cv-ns").value.split(/[\s,;]+/).filter(Boolean).map(Number);
@@ -1168,7 +1238,7 @@ table.cv tr:last-child td { border-bottom: 0; }
     c.restore();
     // legend
     c.font = "12px " + css("--body"); c.textAlign = "left"; c.textBaseline = "middle";
-    KEYS.forEach((k, j) => { const ly = m.t + ph - 14 - 18 * (2 - j); c.fillStyle = css("--" + k);
+    KEYS.forEach((k, j) => { const ly = m.t + ph - 14 - 18 * (KEYS.length - 1 - j); c.fillStyle = css("--" + k);
       c.fillRect(m.l + 10, ly - 1.5, 18, 3); c.fillText(k === "cn" ? "Crank–Nicolson" : k.toUpperCase(), m.l + 34, ly); });
   }
   function studyCSV() {

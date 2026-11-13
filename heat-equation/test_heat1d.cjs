@@ -123,3 +123,39 @@ close(longRun.runs.btcs.T[5],(1/(1+20*s))**20);
 assert.match(html,/id="on-btcs" checked/);
 for(const id of ['stable','unstable','large']) assert.match(html,new RegExp(`data-lesson="${id}"`));
 console.log('PASS: application parses; amplification, boundaries, conservation, convergence, lesson controls, and independent time-step synchronization (including t=100).');
+
+// Arbitrary theta and the exact finite-grid stability boundary.
+vm.runInContext(script.slice(script.indexOf('  function amplification('), script.indexOf('  function updateStatus()')) + `
+  globalThis.thetaAPI = { amplification, stabilityLimits, gridSmax, setTheta(v) { theta = v; } };
+`, sandbox);
+const {amplification, stabilityLimits, gridSmax, setTheta} = sandbox.thetaAPI;
+for (const bc of ['dd','dn','nd','nn']) {
+  boundary(bc,0.3,-0.2);
+  for (const [th,key] of [[0,'ftcs'],[0.5,'cn'],[1,'btcs']]) {
+    setTheta(th);
+    const a = Float64Array.from({length:11},(_,i)=>Math.cos(i)+0.2*i), b = a.slice();
+    for(let n=0;n<3;n++) { stepScheme('theta',a,makeGrid(10,0.4)); stepScheme(key,b,makeGrid(10,0.4)); }
+    a.forEach((v,i)=>close(v,b[i]));
+  }
+}
+for (const bc of ['dd','dn','nd','nn']) {
+  boundary(bc);
+  const N = 8, phase = bc==='dd' ? (N-1)*Math.PI/N : bc==='nn' ? Math.PI : (N-0.5)*Math.PI/N;
+  const mode = Float64Array.from({length:N+1},(_,i)=> (bc[0]==='d' ? Math.sin(i*phase) : Math.cos(i*phase)));
+  if(bc[0]==='d') mode[0]=0; if(bc[1]==='d') mode[N]=0;
+  for(const th of [0,0.25,0.49,0.5,0.75,1]) {
+    setTheta(th);
+    const ss = gridSmax(N,bc), limits = stabilityLimits(th,ss);
+    for(const rr of Number.isFinite(limits.stable) ? [limits.stable*0.99,limits.stable,limits.stable*1.01] : [0.4,5,50]) {
+      const T=mode.slice(), amp=amplification(th,rr,ss);
+      stepScheme('theta',T,makeGrid(N,rr));
+      T.forEach((v,i)=>close(v,mode[i]*amp));
+      if(Number.isFinite(limits.stable)) assert.equal(Math.abs(amp)>1+1e-12,rr>limits.stable);
+    }
+  }
+}
+boundary('dd');
+close(stabilityLimits(0,gridSmax(4,'dd')).stable,0.585786437626905);
+assert.ok(Math.abs(amplification(0,0.52,gridSmax(4,'dd'))) < 1);
+assert.ok(amplification(0.5,5,1)<0 && Math.abs(amplification(0.5,5,1))<1);
+console.log('PASS: theta endpoints, arbitrary blends, all boundary eigenmodes, stability equality, and coarse-grid exception.');

@@ -159,3 +159,43 @@ close(stabilityLimits(0,gridSmax(4,'dd')).stable,0.585786437626905);
 assert.ok(Math.abs(amplification(0,0.52,gridSmax(4,'dd'))) < 1);
 assert.ok(amplification(0.5,5,1)<0 && Math.abs(amplification(0.5,5,1))<1);
 console.log('PASS: theta endpoints, arbitrary blends, all boundary eigenmodes, stability equality, and coarse-grid exception.');
+
+// Per-method figures use weighted error norms and actual finite-grid eigenvalues.
+vm.runInContext(script.slice(script.indexOf('  const schemeWeight ='),script.indexOf('  function dataRange(')) + `
+  function setPlaying() {}
+  globalThis.figureAPI = { methodDiagnostics, referenceAt,
+    configure() {
+      N=20; dx=1/N; r=0.6; dt=r*dx*dx/ALPHA; nt=1000; n=0; t=0; finished=false;
+      ic='pulse'; bc='dd'; vL=vR=0; x=Float64Array.from({length:N+1},(_,i)=>i*dx);
+      referenceCache.clear(); setupExact(); G=makeGrid(N,r); sol={}; blown={};
+      for(const key of KEYS) {sol[key]=Float64Array.from(x,xx=>exact(xx,0));blown[key]=0;}
+    },
+    advance(count) {
+      for(let j=0;j<count;j++)step();
+      return {time:t,dt,freeze:blown.ftcs,ftcs:Array.from(sol.ftcs),btcs:Array.from(sol.btcs)};
+    }
+  };
+`,sandbox);
+const figures=sandbox.figureAPI;
+const metrics=figures.methodDiagnostics([1,2,3],[0,0,0],0,0.4,2,'nn');
+close(metrics.max,3);
+close(metrics.rms,Math.sqrt(4.5)); // integral/T-domain: half weight at each endpoint
+close(metrics.lo,1);close(metrics.hi,3);close(metrics.gain,1);
+assert.equal(metrics.unstable,false);assert.equal(metrics.alternating,true);
+const coarseMetrics=figures.methodDiagnostics([0,0,0,0,0],[0,0,0,0,0],0,0.52,4,'dd');
+assert.equal(coarseMetrics.unstable,false);
+assert.ok(coarseMetrics.gain<1);
+figures.configure();
+const first=figures.advance(150);
+assert.ok(first.freeze>0 && first.freeze<150);
+const frozenReference=figures.referenceAt(first.freeze*first.dt);
+const second=figures.advance(10);
+assert.equal(second.freeze,first.freeze);
+assert.deepEqual(second.ftcs,first.ftcs);
+assert.ok(second.time>first.time);
+assert.notDeepEqual(second.btcs,first.btcs);
+assert.notEqual(frozenReference.nodes[10],figures.referenceAt(second.time).nodes[10]);
+for(const key of ['ftcs','btcs','cn','theta']) {
+  for(const type of ['profile','error','factor']) assert.match(html,new RegExp(`id="${type}-${key}"`));
+}
+console.log('PASS: per-method weighted diagnostics, finite-grid verdicts, and frozen results retain their actual time while other methods advance.');

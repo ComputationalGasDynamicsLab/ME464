@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital@1&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: same lab bench as the convection pages. Big plot on the left, controls + G(ξ) + stencils on the right. */
+/* Synchronized method cards with shared controls, alongside the teaching notes. */
 :root {
   --bg: #f3f6f9;
   --panel: #ffffff;
@@ -53,7 +53,7 @@ body { margin: 0;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.wrap { max-width: 1160px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.wrap { max-width: 1440px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 header { display: grid; gap: 6px; }
 .eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 h1 { font: 700 clamp(26px, 4vw, 36px)/1.1 var(--display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
@@ -184,6 +184,29 @@ table.cv tr:last-child td { border-bottom: 0; }
 .algorithm-flow { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
 .algorithm-flow > div { border:1px solid var(--line); border-radius:8px; padding:12px; }
 .algorithm-flow pre { white-space:pre-wrap; font:12px/1.7 var(--mono); }
+
+.results { display:grid; gap:16px; min-width:0; }
+.method-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; min-width:0; }
+.method-card { display:flex; flex-direction:column; border-top:3px solid var(--method); gap:10px; padding:14px; }
+.method-card canvas { flex:none; }
+.method-head { min-height:30px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; }
+.method-head h3 { margin:0; font:700 16px var(--display); color:var(--method); }
+.method-badge { font:500 11px var(--mono); border-radius:5px; padding:4px 6px; }
+.method-badge.good { color:var(--exact); background:var(--ok-bg); }
+.method-badge.bad { color:var(--warn); background:var(--warn-bg); }
+.method-badge.info { color:var(--fg); background:var(--info-bg); }
+.method-time { margin:0; font:12px var(--mono); color:var(--muted); }
+.method-metrics { min-height:72px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 12px; font:12px/1.6 var(--mono); }
+.method-metrics span { color:var(--muted); display:block; font:11px var(--body); }
+.method-card h4 { margin:6px 0 0; font:500 12px var(--body); }
+.method-card output { display:block; font:12px/1.6 var(--mono); overflow-wrap:anywhere; }
+.method-card .range-note { margin:0; min-height:36px; color:var(--warn); font-size:12px; }
+#overlay-view > summary { cursor:pointer; font-weight:600; }
+#overlay-view[open] { display:block; }
+#overlay-view[open] > :not(summary) { margin-top:12px; }
+.results-toolbar { gap:10px; }
+@media (max-width:1120px) and (min-width:901px) { .method-grid { grid-template-columns:minmax(0,1fr); } }
+@media (max-width:640px) { .method-grid { grid-template-columns:minmax(0,1fr); } }
 </style>
 </head>
 <body>
@@ -200,17 +223,85 @@ table.cv tr:last-child td { border-bottom: 0; }
 
   <section class="panel" aria-labelledby="lesson-title">
     <h2 id="lesson-title">Classroom demonstration: explicit versus implicit</h2>
-    <p style="margin:0">Choose an experiment, then press <b>Step +1</b> to advance both methods by the same Δt, or <b>Play</b> to animate. Blue is explicit FTCS; orange is implicit backward Euler (BTCS); green is the exact solution.</p>
+    <p style="margin:0">Choose an experiment, then press <b>Step +1</b> to advance all methods by the same Δt, or <b>Play</b> to animate. Each method has its own figure: blue FTCS, orange BTCS, purple Crank–Nicolson, and teal θ-method. Green is the exact solution.</p>
     <div class="transport" role="group" aria-label="Classroom experiments">
       <button data-lesson="stable">1 · Both stable (r = 0.4)</button>
       <button data-lesson="unstable">2 · Explicit instability (r = 0.6)</button>
       <button data-lesson="large">3 · Large implicit step (r = 5)</button>
     </div>
-    <p id="lesson-caption" aria-live="polite" style="margin:0">Start with both methods on the same grid. Which temperatures are known when we compute the next time level?</p>
+    <p id="lesson-caption" aria-live="polite" style="margin:0">Start with all four methods on the same grid. Use the signed error figures to see differences that overlap in the temperature profiles.</p>
   </section>
 
   <div class="main">
-    <section class="plot-card" aria-label="Solution plot">
+    <section class="results" aria-label="Separate method results">
+      <div class="panel results-toolbar">
+        <h2>One method per figure · same grid and time step</h2>
+        <p style="margin:0">Compare each method with the exact solution, then inspect its error and amplification. All methods advance together; the controls on the right set the same problem for every card.</p>
+        <div class="legend"><span><i class="sw exact"></i>Exact solution</span><span><i class="sw init"></i>Initial profile</span><span>Colored line + dots: numerical solution</span></div>
+        <div class="readouts">
+          <div class="ro"><div class="k">time t</div><div class="v" id="r-t">0.000</div></div>
+          <div class="ro"><div class="k">step n</div><div class="v" id="r-n">0</div></div>
+          <div class="ro"><div class="k">Δt</div><div class="v" id="r-dt">—</div></div>
+        </div>
+      <div class="transport">
+        <button class="primary" id="play">Play</button>
+        <button id="stepbtn">Step +1</button>
+        <button id="reset">Reset</button>
+        <span class="spacer"></span>
+        <label class="speed" for="speed">Speed <input type="range" id="speed" min="2" max="60" value="20" style="width:110px"></label>
+      </div>
+        <div class="conv-controls">
+          <div class="field"><label for="profile-scale">Temperature axes</label><select id="profile-scale"><option value="shared">Shared range · compare profiles</option><option value="auto">Fit each method · inspect growth</option></select></div>
+          <div class="field"><label for="error-scale">Signed error axes</label><select id="error-scale"><option value="auto">Fit each method · reveal small errors</option><option value="shared">Shared range · compare magnitudes</option></select></div>
+        </div>
+        <label class="chk" for="cards-initial"><input id="cards-initial" type="checkbox" checked> Show the initial profile on every temperature figure</label>
+        <p class="hint" style="margin:0">Axis ranges are printed on every figure. A method freezes individually at its first nonfinite value or max |T| &gt; 10⁶; its time and exact reference freeze with it. Other methods continue. Changing a problem parameter resets all runs.</p>
+      </div>
+      <div class="method-grid" id="method-plots">
+        <article class="panel method-card" id="card-ftcs" style="--method:var(--ftcs)" aria-labelledby="title-ftcs">
+          <div class="method-head"><h3 id="title-ftcs">FTCS · explicit</h3><span class="method-badge" id="badge-ftcs"></span></div>
+          <p class="method-time" id="time-ftcs"></p>
+          <div class="method-metrics" id="metrics-ftcs"></div>
+          <h4>Temperature T(x)</h4><canvas id="profile-ftcs" role="img" aria-label="FTCS · explicit: numerical temperature and exact solution"></canvas>
+          <p class="range-note" id="clip-ftcs"></p>
+          <h4>Signed error · T<sub>num</sub> − T<sub>exact</sub></h4><canvas id="error-ftcs" role="img" aria-label="FTCS · explicit: signed temperature error versus x"></canvas>
+          <h4>Amplification G(ξ) · shaded band |G| ≤ 1</h4><canvas id="factor-ftcs" role="img" aria-label="FTCS · explicit: amplification across Fourier wavelengths"></canvas>
+          <output id="factor-stats-ftcs"></output>
+        </article>
+        <article class="panel method-card" id="card-btcs" style="--method:var(--btcs)" aria-labelledby="title-btcs">
+          <div class="method-head"><h3 id="title-btcs">BTCS · implicit</h3><span class="method-badge" id="badge-btcs"></span></div>
+          <p class="method-time" id="time-btcs"></p>
+          <div class="method-metrics" id="metrics-btcs"></div>
+          <h4>Temperature T(x)</h4><canvas id="profile-btcs" role="img" aria-label="BTCS · implicit: numerical temperature and exact solution"></canvas>
+          <p class="range-note" id="clip-btcs"></p>
+          <h4>Signed error · T<sub>num</sub> − T<sub>exact</sub></h4><canvas id="error-btcs" role="img" aria-label="BTCS · implicit: signed temperature error versus x"></canvas>
+          <h4>Amplification G(ξ) · shaded band |G| ≤ 1</h4><canvas id="factor-btcs" role="img" aria-label="BTCS · implicit: amplification across Fourier wavelengths"></canvas>
+          <output id="factor-stats-btcs"></output>
+        </article>
+        <article class="panel method-card" id="card-cn" style="--method:var(--cn)" aria-labelledby="title-cn">
+          <div class="method-head"><h3 id="title-cn">Crank–Nicolson</h3><span class="method-badge" id="badge-cn"></span></div>
+          <p class="method-time" id="time-cn"></p>
+          <div class="method-metrics" id="metrics-cn"></div>
+          <h4>Temperature T(x)</h4><canvas id="profile-cn" role="img" aria-label="Crank–Nicolson: numerical temperature and exact solution"></canvas>
+          <p class="range-note" id="clip-cn"></p>
+          <h4>Signed error · T<sub>num</sub> − T<sub>exact</sub></h4><canvas id="error-cn" role="img" aria-label="Crank–Nicolson: signed temperature error versus x"></canvas>
+          <h4>Amplification G(ξ) · shaded band |G| ≤ 1</h4><canvas id="factor-cn" role="img" aria-label="Crank–Nicolson: amplification across Fourier wavelengths"></canvas>
+          <output id="factor-stats-cn"></output>
+        </article>
+        <article class="panel method-card" id="card-theta" style="--method:var(--theta)" aria-labelledby="title-theta">
+          <div class="method-head"><h3 id="title-theta">General θ-method</h3><span class="method-badge" id="badge-theta"></span></div>
+          <p class="method-time" id="time-theta"></p>
+          <div class="method-metrics" id="metrics-theta"></div>
+          <h4>Temperature T(x)</h4><canvas id="profile-theta" role="img" aria-label="General θ-method: numerical temperature and exact solution"></canvas>
+          <p class="range-note" id="clip-theta"></p>
+          <h4>Signed error · T<sub>num</sub> − T<sub>exact</sub></h4><canvas id="error-theta" role="img" aria-label="General θ-method: signed temperature error versus x"></canvas>
+          <h4>Amplification G(ξ) · shaded band |G| ≤ 1</h4><canvas id="factor-theta" role="img" aria-label="General θ-method: amplification across Fourier wavelengths"></canvas>
+          <output id="factor-stats-theta"></output>
+        </article>
+      </div>
+      <details class="panel" id="overlay-view">
+        <summary>Overlay all selected methods · zoom for a closer comparison</summary>
+        <p class="hint">Frozen methods are omitted from this synchronized overlay; their separate cards retain the profile and exact reference at their stopping time.</p>
       <div class="legend" id="legend">
         <span><i class="sw init"></i>Initial condition, t = 0</span>
         <span><i class="sw exact"></i>Exact solution</span>
@@ -220,22 +311,12 @@ table.cv tr:last-child td { border-bottom: 0; }
         <span id="leg-theta"><i class="sw theta dot"></i>General θ-method</span>
         <span id="leg-cn"><i class="sw cn dot"></i>Crank–Nicolson</span>
       </div>
-      <canvas id="plot" role="img" aria-label="Plot of temperature T versus x with the initial, exact and numerical solutions"></canvas>
+      <canvas id="plot" role="img" aria-label="Overlay of selected methods and exact solution"></canvas>
       <div class="readouts">
-        <div class="ro"><div class="k">time t</div><div class="v" id="r-t">0.000</div></div>
-        <div class="ro"><div class="k">step n</div><div class="v" id="r-n">0</div></div>
-        <div class="ro"><div class="k">Δt</div><div class="v" id="r-dt">—</div></div>
         <div class="ro ftcs" id="ro-ftcs"><div class="k">FTCS max err</div><div class="v" id="r-ftcs">0</div></div>
         <div class="ro btcs" id="ro-btcs"><div class="k">BTCS max err</div><div class="v" id="r-btcs">0</div></div>
         <div class="ro theta" id="ro-theta"><div class="k">θ-method max err</div><div class="v" id="r-theta">0</div></div>
         <div class="ro cn" id="ro-cn"><div class="k">CN max err</div><div class="v" id="r-cn">0</div></div>
-      </div>
-      <div class="transport">
-        <button class="primary" id="play">Play</button>
-        <button id="stepbtn">Step +1</button>
-        <button id="reset">Reset</button>
-        <span class="spacer"></span>
-        <label class="speed" for="speed">Speed <input type="range" id="speed" min="2" max="60" value="20" style="width:110px"></label>
       </div>
       <div class="zoombar">
         <span class="zl">Zoom</span>
@@ -244,6 +325,7 @@ table.cv tr:last-child td { border-bottom: 0; }
         <button id="zreset">Reset view</button>
         <span class="zhint">Drag a box on the plot to zoom into it. Double-click to reset. Errors are tiny, so zoom in to see them.</span>
       </div>
+      </details>
     </section>
 
     <aside>
@@ -254,7 +336,7 @@ table.cv tr:last-child td { border-bottom: 0; }
           <div class="schemes">
             <label class="chk" for="on-ftcs"><input type="checkbox" id="on-ftcs" checked> FTCS <small>explicit, stable for r ≤ ½</small></label>
             <label class="chk" for="on-btcs"><input type="checkbox" id="on-btcs" checked> BTCS <small>implicit, unconditionally stable</small></label>
-            <label class="chk" for="on-cn"><input type="checkbox" id="on-cn"> Crank–Nicolson <small>implicit, 2nd order in t</small></label>
+            <label class="chk" for="on-cn"><input type="checkbox" id="on-cn" checked> Crank–Nicolson <small>implicit, 2nd order in t</small></label>
             <label class="chk" for="on-theta"><input type="checkbox" id="on-theta" checked> General θ-method</label>
             <div class="field"><label for="theta">Implicit weight θ <b id="theta-show">0.5</b></label>
               <input type="range" id="theta" min="0" max="1" step="0.01" value="0.5">
@@ -532,8 +614,9 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
   const gcan = $("gplot"), gctx = gcan.getContext("2d");
 
   let r = 0.4, N = 50, ic = "sine", bc = "dd", vL = 0, vR = 0, tEnd = 100, speed = 20;
-  const on = { ftcs: true, btcs: true, cn: false, theta: true };
+  const on = { ftcs: true, btcs: true, cn: true, theta: true };
   let x, dx, dt, nt, n, t, sol, blown, finished, playing = false;
+  const referenceCache = new Map();
   const leftFixed = () => bc[0] === "d", rightFixed = () => bc[1] === "d";
 
   // ---- initial conditions, each a list of pieces on [a, b]: a polynomial c0 + c1 x + c2 x², or A sin(νx) / A cos(νx)
@@ -689,6 +772,7 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
   }
 
   function init() {
+    referenceCache.clear();
     dx = L / N;
     dt = r * dx * dx / ALPHA;
     nt = Math.max(1, Math.floor(tEnd / dt + 1e-9));
@@ -715,7 +799,7 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
 
   function maxErr(key) {
     let e = 0;
-    for (let i = 0; i <= N; i++) e = Math.max(e, Math.abs(sol[key][i] - exact(x[i], t)));
+    for (let i = 0; i <= N; i++) e = Math.max(e, Math.abs(sol[key][i] - exact(x[i], blown[key] ? blown[key] * dt : t)));
     return e;
   }
 
@@ -751,7 +835,134 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
     cx.clearRect(0, 0, w, h);
   }
 
+  // ---- separate method figures: references are shared at the same physical time.
+  const schemeWeight = key => key === "theta" ? theta : key === "btcs" ? 1 : key === "cn" ? 0.5 : 0;
+  function referenceAt(tt) {
+    if (referenceCache.has(tt)) return referenceCache.get(tt);
+    const xs = Float64Array.from({length:401},(_,i)=>L*i/400);
+    const ref = { xs, fine: Float64Array.from(xs, xx=>exact(xx,tt)),
+      nodes: Float64Array.from(x, xx=>exact(xx,tt)), initial: Float64Array.from(xs, xx=>exact(xx,0)) };
+    referenceCache.set(tt,ref);
+    if (referenceCache.size > 6) referenceCache.delete(referenceCache.keys().next().value);
+    return ref;
+  }
+  function methodDiagnostics(values, reference, th, rr, nn, kind) {
+    const error = Float64Array.from(values, (v,i)=>v-reference[i]);
+    let max = 0, square = 0, lo = Infinity, hi = -Infinity;
+    for (let i=0;i<values.length;i++) {
+      max = Math.max(max,Math.abs(error[i]));
+      square += (i===0 || i===nn ? 0.5 : 1)*error[i]**2;
+      lo = Math.min(lo,values[i]); hi = Math.max(hi,values[i]);
+    }
+    const smin = kind === "nn" ? 0 : Math.sin(PI/(kind === "dd" ? 2*nn : 4*nn))**2;
+    const ss = gridSmax(nn,kind), limits = stabilityLimits(th,ss);
+    const gain = Math.max(Math.abs(amplification(th,rr,smin)),Math.abs(amplification(th,rr,ss)));
+    return { error, max, rms:Math.sqrt(square/nn), lo, hi, gain,
+      unstable:rr>limits.stable+1e-12, alternating:rr>limits.nonnegative+1e-12 };
+  }
+  function dataRange(arrays, fallback = [-0.1,1.1]) {
+    let lo = Infinity, hi = -Infinity;
+    for (const values of arrays) for (const v of values) if (Number.isFinite(v)) { lo=Math.min(lo,v); hi=Math.max(hi,v); }
+    if (!Number.isFinite(lo)) return fallback;
+    const pad = Math.max(0.05,0.1*(hi-lo));
+    return [lo-pad,hi+pad];
+  }
+  const axisNumber = v => Math.abs(v)<1e-300 ? "0" : Math.abs(v)<0.001 || Math.abs(v)>=1e4 ? v.toExponential(1) : String(+v.toPrecision(3));
+  function methodChart(id, h, range, label, phase = false) {
+    const cv=$(id), c=cv.getContext("2d"), w=cv.clientWidth;
+    if (!w) return null;
+    sizeCanvas(cv,c,w,h);
+    const m={l:62,r:12,t:23,b:30}, pw=w-m.l-m.r, ph=h-m.t-m.b;
+    const X=v=>m.l+v/(phase?PI:L)*pw, Y=v=>m.t+(range[1]-v)/(range[1]-range[0])*ph;
+    c.font="10px "+css("--mono"); c.lineWidth=1;
+    if (phase) { c.fillStyle=css("--ok-bg"); c.fillRect(m.l,Y(1),pw,Y(-1)-Y(1)); }
+    for (const f of [0,0.5,1]) {
+      const xx=f*(phase?PI:L);
+      c.strokeStyle=css("--grid");
+      c.beginPath();c.moveTo(X(xx),m.t);c.lineTo(X(xx),m.t+ph);c.stroke();
+      c.fillStyle=css("--muted");c.textAlign="center";
+      c.fillText(phase?f===0?"0":f===0.5?"π/2":"π":axisNumber(xx),X(xx),h-14);
+    }
+    const yticks = phase && range[0] >= -4 ? [-1,0,1] : [range[0],(range[0]+range[1])/2,range[1]];
+    for (const yy of yticks) {
+      c.strokeStyle=css("--grid");
+      c.beginPath();c.moveTo(m.l,Y(yy));c.lineTo(m.l+pw,Y(yy));c.stroke();
+      c.fillStyle=css("--muted");c.textAlign="right";c.fillText(axisNumber(yy),m.l-6,Y(yy)+3);
+    }
+    c.strokeStyle=css("--line");c.strokeRect(m.l,m.t,pw,ph);
+    c.fillStyle=css("--muted");c.textAlign="left";c.fillText(label,m.l,12);
+    c.textAlign="right";c.fillText(phase?"ξ":"x",w-2,h-2);
+    function line(xs,ys,color,dash=[],dots=false) {
+      c.save();c.beginPath();c.rect(m.l,m.t,pw,ph);c.clip();
+      c.strokeStyle=c.fillStyle=color;c.lineWidth=1.8;c.setLineDash(dash);c.beginPath();
+      let started=false;
+      for(let i=0;i<ys.length;i++) {
+        if(!Number.isFinite(ys[i])) {started=false;continue;}
+        const y=Math.max(range[0]-10*(range[1]-range[0]),Math.min(range[1]+10*(range[1]-range[0]),ys[i]));
+        if(started)c.lineTo(X(xs[i]),Y(y));else c.moveTo(X(xs[i]),Y(y));started=true;
+      }
+      c.stroke();
+      if(dots && ys.length<=121) for(let i=0;i<ys.length;i++) if(Number.isFinite(ys[i]) && ys[i]>=range[0] && ys[i]<=range[1]) {
+        c.beginPath();c.arc(X(xs[i]),Y(ys[i]),2.2,0,2*PI);c.fill();
+      }
+      c.restore();
+    }
+    return {line};
+  }
+  function renderMethodCards() {
+    if (!sol) return;
+    const visible=KEYS.filter(k=>on[k]), runs={};
+    let sharedError=0;
+    for (const k of KEYS) $("card-"+k).hidden=!on[k];
+    for (const k of visible) {
+      const tt=blown[k]?blown[k]*dt:t, ref=referenceAt(tt);
+      const metrics=methodDiagnostics(sol[k],ref.nodes,schemeWeight(k),r,N,bc);
+      runs[k]={tt,ref,metrics};
+      if(Number.isFinite(metrics.max)) sharedError=Math.max(sharedError,metrics.max);
+    }
+    const showInitial=$("cards-initial").checked;
+    for(const k of visible) {
+      const {tt,ref,metrics:d}=runs[k], th=schemeWeight(k), color=css("--"+k);
+      const status=d.unstable?"Unstable":d.alternating?"Stable · sign flips":"Stable";
+      $("badge-"+k).className="method-badge "+(d.unstable?"bad":d.alternating?"info":"good");
+      $("badge-"+k).textContent=status;
+      $("title-"+k).textContent= k==="theta"?`θ-method · θ = ${theta}`:k==="cn"?"Crank–Nicolson":k==="ftcs"?"FTCS · explicit":"BTCS · implicit";
+      $("time-"+k).textContent=`t = ${+tt.toPrecision(7)} · step ${blown[k]||n}${blown[k]?" · FROZEN; other methods continue":""}`;
+      $("metrics-"+k).innerHTML=`<div><span>Max |error|</span>${fmtErr(d.max)}</div><div><span>RMS error (trapezoidal)</span>${fmtErr(d.rms)}</div><div><span>Temperature min / max</span>${fmtErr(d.lo)} / ${fmtErr(d.hi)}</div><div><span>Max grid |G|</span>${d.gain.toFixed(5)}</div>`;
+      const shared=$("profile-scale").value==="shared";
+      const range=shared?[fv.y0,fv.y1]:dataRange([sol[k],ref.fine,...(showInitial?[ref.initial]:[])]);
+      const p=methodChart("profile-"+k,210,range,shared?"T · shared axes":"T · fitted per method");
+      if(p) {
+        if(showInitial)p.line(ref.xs,ref.initial,css("--init"),[5,4]);
+        p.line(ref.xs,ref.fine,css("--exact"));p.line(x,sol[k],color,[],true);
+      }
+      const clipped=Array.from(sol[k]).some(v=>Number.isFinite(v)&&(v<range[0]||v>range[1]));
+      $("clip-"+k).textContent=sol[k].some(v=>!Number.isFinite(v))?"Nonfinite values are omitted; the run is frozen.":clipped?"Profile exceeds shared axes. Select ‘Fit each method’ to inspect growth.":"";
+      const shareError=$("error-scale").value==="shared", err=shareError?sharedError:d.max;
+      const emax=Number.isFinite(err)&&err>0?Math.max(1e-14,err*1.12):1e-6;
+      const e=methodChart("error-"+k,130,[-emax,emax],shareError?"error · shared axes":"error · fitted per method");
+      if(e){e.line([0,L],[0,0],css("--muted"),[3,3]);e.line(x,d.error,color,[],true);}
+      const phases=Float64Array.from({length:201},(_,i)=>PI*i/200);
+      const factors=Float64Array.from(phases,xi=>amplification(th,r,Math.sin(xi/2)**2));
+      const rangeG=[Math.min(-1.25,1.1*factors[200]),1.25];
+      const g=methodChart("factor-"+k,130,rangeG,"G · full Fourier range",true);
+      if(g) {
+        for(const y of [-1,0,1])g.line([0,PI],[y,y],css("--muted"),[3,3]);
+        g.line(phases,factors,color);
+        g.line(phases,Float64Array.from(phases,xi=>Math.exp(-r*xi*xi)),css("--exact"),[5,4]);
+      }
+      $("factor-stats-"+k).textContent=`G(π) = ${factors[200].toFixed(5)} · grid r limit = ${Number.isFinite(stabilityLimits(th,gridSmax()).stable) ? stabilityLimits(th,gridSmax()).stable.toFixed(5) : "∞"}. Green dashed: continuum decay.`;
+    }
+  }
   function render() {
+    $("r-t").textContent=t.toFixed(3);
+    $("r-n").textContent=n+" / "+nt;
+    $("r-dt").textContent=dt<1e-3?dt.toExponential(2):+dt.toPrecision(4);
+    renderMethodCards(); renderOverlay();
+  }
+
+  function renderOverlay() {
+    if (!$("overlay-view").open) return;
     const w = canvas.clientWidth;
     const h = Math.max(260, Math.min(460, w * 0.56));
     sizeCanvas(canvas, ctx, w, h);
@@ -805,6 +1016,7 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
       if (!on[k]) continue;
       const T = sol[k];
       let big = 0; for (const v of T) big = Math.max(big, Math.abs(v));
+      if (blown[k]) continue; // Frozen profiles are shown with their own exact time in the separate cards.
       const c = blown[k] || big > 2 ? col.warn : col[k];   // red once it has clearly gone wrong
       ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = 1.8;
       ctx.beginPath();
@@ -824,15 +1036,12 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
     }
     ctx.restore();
 
-    $("r-t").textContent = t.toFixed(3);
-    $("r-n").textContent = n + " / " + nt;
-    $("r-dt").textContent = dt < 1e-3 ? dt.toExponential(2) : +dt.toPrecision(4);
     for (const k of KEYS) {
       $("ro-" + k).hidden = !on[k];
-      $("leg-" + k).hidden = !on[k];
+      $("leg-" + k).hidden = !on[k] || !!blown[k];
       if (!on[k]) continue;
       const v = $("r-" + k);
-      if (blown[k]) { v.textContent = "blew up"; v.style.color = col.warn; }
+      if (blown[k]) { v.textContent = "frozen at n=" + blown[k]; v.style.color = col.warn; }
       else { const e = maxErr(k); v.textContent = fmtErr(e); v.style.color = e > 0.5 ? col.warn : ""; }
     }
   }
@@ -1032,7 +1241,7 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
     setPlaying(false);
     r = lesson.r; N = lesson.N; ic = lesson.ic; tEnd = lesson.end;
     bc = "dd"; vL = 0; vR = 0; view = null;
-    for (const k of KEYS) { on[k] = k === "ftcs" || k === "btcs"; $("on-" + k).checked = on[k]; }
+    for (const k of KEYS) { on[k] = true; $("on-" + k).checked = on[k]; }
     $("r").value = Math.min(1.5, r); $("r-num").value = r;
     $("N").value = N; $("N-num").value = N;
     $("ic").value = ic; $("tend").value = tEnd;
@@ -1395,6 +1604,9 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
     new ResizeObserver(renderComparison).observe($("compare-"+key));
   }
 
+  $("overlay-view").addEventListener("toggle", render);
+  for (const id of ["profile-scale", "error-scale", "cards-initial"]) $(id).addEventListener("change", render);
+  new ResizeObserver(() => { if (sol) render(); }).observe($("method-plots"));
   const redraw = () => { render(); renderG(); renderStudyPlot(); renderComparison(); };
   new ResizeObserver(redraw).observe(canvas);
   new ResizeObserver(renderG).observe(gcan);

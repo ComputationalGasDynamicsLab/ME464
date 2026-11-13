@@ -33,8 +33,8 @@ It runs in any web browser, with nothing to install. You can:
 
 ## Classroom demonstration: explicit versus implicit
 
-The page starts paused with FTCS, BTCS and the general θ-method (initially θ = ½) visible together on the same grid and time step.
-Use **Step +1** to discuss the old and new time levels, or **Play** to animate.
+The page starts paused with separate cards for FTCS, BTCS, Crank–Nicolson and the general θ-method (initially θ = ½) on the same grid and time step.
+Use **Step +1** to discuss the old and new time levels, or **Play** to animate all four methods together.
 
 1. **Both stable (r = 0.4):** compare both solutions and their maximum errors against the exact solution. Zoom near the peak to see the difference.
 2. **Explicit instability (r = 0.6):** a square pulse excites short waves immediately. FTCS develops growing oscillations while BTCS remains stable.
@@ -42,7 +42,7 @@ Use **Step +1** to discuss the old and new time levels, or **Play** to animate.
 
 Each experiment resets the grid, initial condition, zero Dirichlet boundaries, time step and visible methods, and pauses at the initial condition.
 The notes show the BTCS tridiagonal matrix and a one-step hand check for both methods.
-Crank–Nicolson remains available as an optional comparison.
+All four cards remain visible in the classroom experiments; the checkboxes can hide individual methods.
 
 Open `index.html` directly in a browser; no installation is required.
 Run the dependency-free numerical checks with Node.js from this folder:
@@ -53,10 +53,27 @@ node test_heat1d.cjs
 
 Run `python test_heat1d.py` for the Python kernels (requires the solver dependencies).
 
-The checks cover θ-method equivalence, stability thresholds, discrete modal amplification, the hand calculation, explicit instability,
+The checks cover per-method error norms, finite-grid verdicts, frozen-time references, θ-method equivalence, stability thresholds, discrete modal amplification, the hand calculation, explicit instability,
 Dirichlet and Neumann boundaries, heat conservation and grid convergence.
 
 The web simulation starts with a final time of **100** and accepts values up to **1000**, including for convergence studies. Longer physical runs also play for longer; adjust **Speed** to accelerate playback. Classroom experiment buttons retain their shorter teaching intervals. The Python solver accepts `--t-end 1000` and keeps its default final time of 10.
+
+## Separate figures for each method
+
+The default view follows the [convection-schemes comparison](../convection-schemes/): FTCS, BTCS, Crank–Nicolson and the general θ-method each have a dedicated card. Every card shows:
+
+- A temperature figure with its numerical solution, the exact solution at the same time, and an optional initial-profile overlay.
+- A signed-error figure, T_num − T_exact, so small differences are visible even when the temperature curves overlap.
+- An amplification figure G(ξ), with the stable band −1 ≤ G ≤ 1 and dashed green continuum decay exp(−rξ²).
+- A finite-grid stability badge, maximum error, trapezoidally weighted RMS error, temperature minimum/maximum and maximum grid-mode |G|.
+
+All cards use the same grid, time step, boundary conditions and initial data. **Temperature axes** default to a shared range; choose **Fit each method** to inspect growing oscillations. Any profile clipped by shared axes is explicitly flagged. **Signed error axes** default to fitting each method, revealing small errors even alongside a diverging method. Choose a shared error range to compare magnitudes directly. Read the printed axis values when comparing individually fitted figures. Amplification figures fit the full Fourier curve, including unstable values outside the shaded band.
+
+The RMS readout is sqrt([½e₀² + Σ eᵢ² + ½e_N²]/N), a trapezoidal approximation of the spatial mean square. These errors include spatial and temporal discretization error against the continuum solution; a discontinuous initial condition also introduces sampling effects.
+
+Runs freeze individually at the first nonfinite temperature or max |T| > 10⁶. A frozen card reports its actual stopping step and physical time; its exact reference and errors use that same time. Other methods continue. An **Unstable** badge describes amplification of perturbations, even if the current smooth solution has not visibly grown. **Stable · sign flips** means some discrete modes have negative G; it does not imply that the complete temperature profile must become negative.
+
+The collapsible **Overlay all selected methods** figure retains the original box zoom and zoom buttons. Frozen methods are omitted there to keep the overlay at one physical time. The existing independent-step FTCS/BTCS comparison below is also retained.
 
 ## Side-by-side comparison with independent time steps
 

@@ -231,3 +231,58 @@ controls.resize(50);controls.resetComparison();
 close(controls.current().runs.btcs.dt,4); // Requested r is retained across a mesh change.
 assert.ok(html.indexOf('id="independent-steps"')<html.indexOf('class="main"'));
 console.log('PASS: independent direct Δt inputs preserve the other method, synchronize results, accept large implicit steps, reject invalid values, and reset consistently.');
+
+// Run the actual convergence orchestrator with independent policies and a queued event loop.
+const studyFields=new Map(),studyQueue=[];
+for(const k of ['ftcs','btcs','cn','theta']){
+ studyFields.set(`cv-${k}-mode`,{value:k==='btcs'?'dt':k==='cn'?'lam':'r'});
+ studyFields.set(`cv-${k}-par`,{value:k==='ftcs'?0.25:k==='btcs'?0.3:k==='cn'?0.7:0.4});
+}
+for(const [id,value]of [['cv-ns','10,20'],['cv-t',0.37],['cv-norm','max']])studyFields.set(id,{value});
+sandbox.document.getElementById=id=>{
+ if(!studyFields.has(id))studyFields.set(id,{value:'',textContent:'',innerHTML:'',getContext:()=>({})});
+ return studyFields.get(id);
+};
+sandbox.setTimeout=fn=>{studyQueue.push(fn);};
+vm.runInContext(script.slice(script.indexOf('  const cvc ='),script.indexOf('  $("cv-run").addEventListener'))+`
+ function renderStudyPlot() {}
+ globalThis.studyAPI={makeStudyRuns,readStudyConfigs,runStudy,studyChunk,studyCSV,cvExpect,
+  current:()=>cv,configure(){bc='dd';ic='sine';vL=vR=0;theta=0.5;setupExact();}};
+`,sandbox);
+const study=sandbox.studyAPI;study.configure();study.cvExpect();study.runStudy();
+for(let count=0;studyQueue.length;count++){assert.ok(count<1000,'Study did not finish');studyQueue.shift()();}
+let result=study.current();assert.equal(result.running,false);
+for(const run of result.runs){
+ for(const k of ['ftcs','btcs','cn','theta']){
+  const m=run.methods[k];close(m.dt*m.steps,result.tE);assert.ok(m.dt<=m.requestedDt+1e-14);assert.equal(m.stepsTaken,m.steps);
+  const th=k==='ftcs'?0:k==='btcs'?1:.5,q=4*m.r*Math.sin(Math.PI/(2*run.N))**2,amp=(1-(1-th)*q)/(1+th*q);
+  close(run.err[k].max,Math.abs(amp**m.steps-Math.exp(-0.01*Math.PI**2*result.tE)),1e-11);
+ }
+}
+assert.notEqual(result.runs[1].methods.ftcs.steps,result.runs[1].methods.btcs.steps);
+const csv=study.studyCSV(),header=csv.split('\n')[0].split(',');
+for(const k of ['ftcs','btcs','cn','theta'])for(const name of ['actual_dt','planned_steps','steps_taken','order'])assert.ok(header.includes(k+'_'+name));
+assert.match(studyFields.get('cv-tables').innerHTML,/CN observed p/);
+assert.match(studyFields.get('cv-expect').textContent,/time-error floor/);
+assert.throws(()=>study.makeStudyRuns([10,20],1,{...study.readStudyConfigs(),btcs:{mode:'dt',par:0}}));
+// A truly fixed physical Δt has the same schedule on every spatial grid.
+const fixed=study.makeStudyRuns([10,20,40],0.37,study.readStudyConfigs());
+fixed.forEach(run=>{close(run.methods.btcs.dt,0.185);assert.equal(run.methods.btcs.steps,2);});
+// CN and FTCS still demonstrate joint spatial order 2 when each has its own fixed r.
+for(const k of ['ftcs','btcs','cn','theta']){studyFields.get(`cv-${k}-mode`).value='r';studyFields.get(`cv-${k}-par`).value=k==='ftcs'?0.25:k==='btcs'?2:k==='cn'?3:0.4;}
+studyFields.get('cv-ns').value='20,40,80';studyFields.get('cv-t').value=1;study.runStudy();
+while(studyQueue.length)studyQueue.shift()();result=study.current();
+for(const k of ['ftcs','btcs','cn','theta']){
+ const a=result.runs[1].err[k].max,b=result.runs[2].err[k].max;assert.ok(Math.log2(a/b)>1.8&&Math.log2(a/b)<2.2,`${k}: independent-r refinement order`);
+}
+console.log('PASS: independent convergence policies reach a common final time, reproduce modal errors, expose actual per-method schedules in CSV, and recover second-order refinement.');
+// An unstable explicit schedule must not truncate a stable implicit schedule.
+vm.runInContext("ic='pulse';setupExact();",sandbox);
+studyFields.get('cv-ftcs-par').value=5;
+studyFields.get('cv-ns').value='80,160';study.runStudy();
+while(studyQueue.length)studyQueue.shift()();result=study.current();
+assert.ok(result.runs.some(run=>run.err.ftcs===null&&run.methods.ftcs.stepsTaken<run.methods.ftcs.steps));
+for(const run of result.runs)for(const k of ['btcs','cn','theta']){
+ assert.equal(run.methods[k].stepsTaken,run.methods[k].steps);assert.ok(run.err[k]);
+}
+console.log('PASS: explicit divergence stops only its own schedule; stable implicit studies still reach the final time.');

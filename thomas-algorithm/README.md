@@ -7,7 +7,11 @@ step by step and then run on example systems from CFD.
 
 **Open it here: https://computationalgasdynamicslab.github.io/ME464/thomas-algorithm/**
 
-It runs in any web browser, with nothing to install. It has two parts.
+It runs in any web browser, with nothing to install. A new illustrated introduction connects a rod to the linear system before the two algorithm views.
+
+**Start with a physical problem.** Select one of three interior nodes, adjust r and the wall/old temperatures, and watch its BTCS equation and matrix row highlight together. There are three unknown temperatures and four spatial intervals; the known wall values move to the right-hand side. **Solve these three equations below** loads that exact assembled system into the numerical stepper.
+
+The two-pass overview explains the direction and purpose of each sweep. In the normalized row xᵢ + c′ᵢxᵢ₊₁ = d′ᵢ, the primes mean *modified coefficients*, not derivatives. A repeated-BTCS example factors the rod matrix once and solves three successive right-hand sides, using each new temperature profile as the next old profile.
 
 **1 · Derive the algorithm.** A playable symbolic derivation on a general 5×5 system. Each step
 shows one row operation on the augmented matrix $`[A \mid d]`$, with the changed entries highlighted,
@@ -27,10 +31,13 @@ and the derived formulas build up into the complete algorithm:
   together; each step marks the values it reads and the values it writes
 - pick an example system: a warm-up with exact answer $`x = 1`$, 1D steady conduction,
   one implicit (BTCS) step of the heat equation, convection–diffusion with cell Péclet number 1,
-  or a random diagonally dominant system
+  a random diagonally dominant system, or a diagnostic failure/scaling example
 - choose the number of unknowns $`n`$ (3 to 10) and edit any coefficient
-- turn on **Pause to predict** to hide each new value until you reveal it
-- see the zero-pivot failure when the system is not diagonally dominant
+- turn on **Pause to predict**, enter the current d′ or x, and get sign/index/pivot feedback before revealing the step
+- check an individual original equation after solving, and read the normalized infinity-norm residual
+- distinguish a nonsingular system needing pivoting, a singular disconnected block, a tiny relative pivot, and a uniformly scaled warm-up
+
+The default warm-up has three equations and the hand-checkable solution x = [1,1,1]. Numerical examples still support 3–10 unknowns.
 
 ## The algorithm
 
@@ -49,3 +56,25 @@ x_n = d'_n, \qquad x_i = d'_i - c'_i x_{i+1}, \qquad i = n-1, \dots, 1
 ```
 
 The cost is about $`8n`$ operations, compared with about $`\tfrac{2}{3}n^3`$ for dense Gaussian elimination.
+
+## Failure cases and numerical checks
+
+The solver rejects an exactly zero pivot or nonfinite arithmetic. It does **not** reject a uniformly small but well-scaled matrix using an absolute 10⁻¹² cutoff. It flags pivots smaller than 10⁻¹⁰ times their local coefficient/elimination scale, while allowing the demonstration to continue so students can inspect cancellation and the resulting residual. Small numbers use scientific notation rather than being rounded to zero on screen.
+
+The input badge distinguishes strict diagonal dominance, irreducible weak diagonal dominance with at least one strict row, and symmetric positive definiteness. These are sufficient non-breakdown conditions in exact arithmetic, not requirements for every solvable tridiagonal system. A missing certificate does not mean singularity. In particular, one strict row does not protect a disconnected singular block. The derivation and error explanation now state this explicitly.
+
+The final verification uses the original coefficients, not the transformed identity matrix. Select a row to inspect its three contributions, right-hand side and residual. The scale-aware check is
+
+```math
+\eta = \frac{\|A x-d\|_\infty}{\|A\|_\infty\|x\|_\infty+\|d\|_\infty}.
+```
+
+A small scaled residual is evidence of a small backward error; forward solution error also depends on conditioning. The tiny-pivot example illustrates that elimination without pivoting can lose accuracy even when the matrix is nonsingular. General-purpose tridiagonal solvers can use [partial pivoting, as in LAPACK DGTSV](https://netlib.org/lapack/explore-html/d1/db3/dgtsv_8f_source.html).
+
+## Verification
+
+```bash
+node verify.cjs
+```
+
+The dependency-free checks compare the actual solver with a pivoted dense reference, verify the original-equation residuals, preserve the uniformly scaled solution, distinguish nonsingular zero-pivot and singular examples, exercise the positive-definite certificate, and compare factor reuse with fresh solves. A minimal DOM smoke test executes the real page initialization, rod loading, prediction feedback, row checks and failure-case rendering. MathJax rendering and visual browser layout are outside the DOM adapter's coverage.

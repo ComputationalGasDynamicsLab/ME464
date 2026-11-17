@@ -144,6 +144,19 @@ is no steady state: the temperature keeps rising (or falling) at the rate $`\alp
 
 ## Grid convergence: observing the order
 
+The convergence study has **independent time-step settings for FTCS, BTCS, Crank–Nicolson, and the general θ-method**. For each method, choose:
+
+- **Fixed r:** enter r; requested Δt = rΔx²/α on each grid.
+- **Fixed Δt/Δx:** enter λ; requested Δt = λΔx.
+- **Fixed physical Δt:** enter the same requested step for every spatial grid.
+
+Defaults are r = 0.25 for FTCS and the θ-method, and r = 5 for BTCS and CN. **Use FTCS time-step settings for all methods** restores a common policy and parameter when that comparison is desired. These settings are independent of both the shared-step animation and the independent FTCS/BTCS time-history comparison.
+
+Every method/grid combination rounds its step count up, then uses Δt_actual = t_end/steps so all errors are measured at exactly the same final time. Each method has its own table reporting actual Δt, actual r, step count, error, observed p, and finite-grid stability. The common error plot compares all methods. CSV export includes the policy, parameter, requested/actual Δt, actual r, planned/taken steps, error, and order separately for every method. A diverging method stops early while the remaining methods and grids continue.
+
+**Fixed physical Δt is a different experiment from joint space/time refinement.** Temporal error can remain as Δx decreases, giving an error floor rather than the formal spatial order. FTCS and θ < ½ can also become unstable as r increases on fine meshes. The expected-order notes and each table’s stability verdict account for the chosen method policy. Smooth compatible initial data and sufficiently fine grids are needed to observe the design orders.
+
+
 If the error behaves like $`E \approx C \Delta x^p`$, two grids give the observed order
 
 ```math
@@ -199,7 +212,7 @@ E = O(\Delta t^2) + O(\Delta x^2).
 
 Averaging the old and new diffusion operators applies the trapezoidal rule in time. For smooth compatible solutions, halving Δt reduces the time-error contribution by approximately four, until spatial error dominates. Halving Δx reduces the spatial-error contribution by approximately four.
 
-The CN result card states both orders. In the grid-convergence section, press **Run study** and read **CN observed p** (scroll horizontally if needed). Both available refinement policies should give p approaching 2 for CN. With fixed r, Δt ∝ Δx² makes its time error O(Δx⁴), while the O(Δx²) spatial error sets the joint order. With fixed Δt/Δx, both contributions are O(Δx²). Initial discontinuities, incompatible boundary data and pre-asymptotic cancellation can obscure the design order.
+The CN result card states both orders. In the grid-convergence section, press **Run study** and read **CN observed p** in its dedicated table (scroll horizontally if needed). Fixed r and fixed Δt/Δx should give p approaching 2 for CN; fixed physical Δt can instead expose a time-error floor. With fixed r, Δt ∝ Δx² makes its time error O(Δx⁴), while the O(Δx²) spatial error sets the joint order. With fixed Δt/Δx, both contributions are O(Δx²). Initial discontinuities, incompatible boundary data and pre-asymptotic cancellation can obscure the design order.
 
 ## General explicit–implicit θ-method
 

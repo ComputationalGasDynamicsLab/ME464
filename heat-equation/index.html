@@ -208,6 +208,17 @@ table.cv tr:last-child td { border-bottom: 0; }
 .results-toolbar { gap:10px; }
 @media (max-width:1120px) and (min-width:901px) { .method-grid { grid-template-columns:minmax(0,1fr); } }
 @media (max-width:640px) { .method-grid { grid-template-columns:minmax(0,1fr); } }
+.cv-method-settings { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.cv-method-setting { min-width:0; margin:0; padding:12px; border:1px solid var(--line); border-radius:7px; display:grid; gap:10px; }
+.cv-method-setting legend { font-size:13px; font-weight:600; padding:0 4px; }
+.cv-method-tables { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.cv-method-tables article { min-width:0; }
+.cv-method-tables h3 { font:700 14px var(--display); margin:0 0 6px; }
+.cv-method-tables .hint { margin:0 0 8px; }
+.cv-method-tables table.cv { font-size:12px; }
+@media(max-width:1100px) { .cv-method-tables { grid-template-columns:minmax(0,1fr); } }
+@media(max-width:900px) { .cv-method-settings { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:540px) { .cv-method-settings { grid-template-columns:minmax(0,1fr); } }
 </style>
 </head>
 <body>
@@ -518,23 +529,12 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
 
   <section class="panel conv" id="conv" aria-label="Grid convergence study">
     <h2>Grid convergence study: measure the order of accuracy</h2>
-    <p class="cv-expect"><b>Crank–Nicolson: time order 2, space order 2.</b> For smooth compatible solutions, E = O(Δt² + Δx²). With either refinement option below, expect the <b>CN observed p</b> column to approach 2. Press <b>Run study</b> to compute it; scroll the table horizontally on smaller screens to reach the CN columns.</p>
+    <p class="cv-expect"><b>Crank–Nicolson: time order 2, space order 2.</b> For smooth compatible solutions, E = O(Δt² + Δx²). With fixed r or fixed Δt/Δx, expect <b>CN observed p</b> to approach 2. With fixed physical Δt, time error can remain as the grid is refined, so an order of 2 is not guaranteed. Press <b>Run study</b> to compute it; scroll the table horizontally on smaller screens to reach the CN columns.</p>
     <p class="lead">Run the problem chosen above (<span id="cv-problem">sin(πx), T = 0 at both ends</span>) on several grids, up to the same final time, and compare each error <i>E</i> with the exact solution. If <i>E ≈ C Δx<sup>p</sup></i>, the observed order between two grids is <i>p = ln(E<sub>coarse</sub> / E<sub>fine</sub>) / ln(Δx<sub>coarse</sub> / Δx<sub>fine</sub>)</i>. Halving Δx should cut the error by 2<sup>p</sup>: 2× for first order, 4× for second.</p>
     <div class="conv-controls">
       <div class="field">
         <label for="cv-ns">Values of N (up to 10, each 4–1000)</label>
         <input type="text" id="cv-ns" value="10, 20, 40, 80, 160" spellcheck="false" autocomplete="off">
-      </div>
-      <div class="field">
-        <label for="cv-mode">How Δt is refined</label>
-        <select id="cv-mode">
-          <option value="r" selected>Fixed r: Δt ∝ Δx²</option>
-          <option value="lam">Fixed Δt/Δx: Δt ∝ Δx</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="cv-par" id="cv-par-lab">r = αΔt/Δx²</label>
-        <input type="number" id="cv-par" min="0.001" max="50" step="any" value="0.25" inputmode="decimal">
       </div>
       <div class="field">
         <label for="cv-t">Final time (≤ 1000)</label>
@@ -548,6 +548,14 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
         </select>
       </div>
     </div>
+    <p class="lead">Choose a separate time-step rule for each method. Each run reaches the same final time; the actual Δt, r and step count are shown in its own table.</p>
+    <div class="cv-method-settings">
+      <fieldset class="cv-method-setting"><legend id="cv-ftcs-title">FTCS · explicit</legend><div class="field"><label for="cv-ftcs-mode">Time-step rule</label><select id="cv-ftcs-mode"><option value="r" selected>Fixed r: Δt ∝ Δx²</option><option value="lam">Fixed Δt/Δx: Δt ∝ Δx</option><option value="dt">Fixed physical Δt</option></select></div><div class="field"><label id="cv-ftcs-par-lab" for="cv-ftcs-par">r = αΔt/Δx²</label><input id="cv-ftcs-par" type="number" min="0" max="1000" step="any" value="0.25"></div></fieldset>
+      <fieldset class="cv-method-setting"><legend id="cv-btcs-title">BTCS · implicit</legend><div class="field"><label for="cv-btcs-mode">Time-step rule</label><select id="cv-btcs-mode"><option value="r" selected>Fixed r: Δt ∝ Δx²</option><option value="lam">Fixed Δt/Δx: Δt ∝ Δx</option><option value="dt">Fixed physical Δt</option></select></div><div class="field"><label id="cv-btcs-par-lab" for="cv-btcs-par">r = αΔt/Δx²</label><input id="cv-btcs-par" type="number" min="0" max="1000" step="any" value="5"></div></fieldset>
+      <fieldset class="cv-method-setting"><legend id="cv-cn-title">Crank–Nicolson · implicit</legend><div class="field"><label for="cv-cn-mode">Time-step rule</label><select id="cv-cn-mode"><option value="r" selected>Fixed r: Δt ∝ Δx²</option><option value="lam">Fixed Δt/Δx: Δt ∝ Δx</option><option value="dt">Fixed physical Δt</option></select></div><div class="field"><label id="cv-cn-par-lab" for="cv-cn-par">r = αΔt/Δx²</label><input id="cv-cn-par" type="number" min="0" max="1000" step="any" value="5"></div></fieldset>
+      <fieldset class="cv-method-setting"><legend id="cv-theta-title">General θ-method</legend><div class="field"><label for="cv-theta-mode">Time-step rule</label><select id="cv-theta-mode"><option value="r" selected>Fixed r: Δt ∝ Δx²</option><option value="lam">Fixed Δt/Δx: Δt ∝ Δx</option><option value="dt">Fixed physical Δt</option></select></div><div class="field"><label id="cv-theta-par-lab" for="cv-theta-par">r = αΔt/Δx²</label><input id="cv-theta-par" type="number" min="0" max="1000" step="any" value="0.25"></div></fieldset>
+    </div>
+    <div><button id="cv-copy-settings">Use FTCS time-step settings for all methods</button></div>
     <div class="conv-actions">
       <button class="primary" id="cv-run">Run study</button>
       <button id="cv-copy">Copy table as CSV</button>
@@ -555,10 +563,10 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
     </div>
     <p class="cv-expect" id="cv-expect"></p>
     <div class="conv-body">
-      <div class="tablewrap"><table class="cv" id="cv-table"></table></div>
+      <div class="cv-method-tables" id="cv-tables"></div>
       <canvas id="cvplot" role="img" aria-label="Log-log plot of error versus N for each scheme, with reference slopes"></canvas>
     </div>
-    <p class="hint">Δt is rounded down slightly so every run lands exactly on the final time; the table shows the r actually used. Smooth initial conditions that match the boundary values show the design order. A discontinuous one (pulse, step) or one that disagrees with a fixed boundary value lowers the observed order, especially at early times.</p>
+    <p class="hint">For each method and grid, the number of steps is rounded up and Δt is reduced so the run lands exactly on the final time. Its table shows the actual Δt and r, which can differ from the requested values. An unstable method stops if it diverges; the other studies continue. Smooth initial conditions that match the boundary values show the design order. A discontinuous one (pulse, step) or one that disagrees with a fixed boundary value lowers the observed order, especially at early times.</p>
   </section>
 
   <section class="notes-wrap">
@@ -1309,18 +1317,50 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
   // ---- grid convergence study: run every N to the same final time, compare with the exact solution
   const cvc = $("cvplot"), cvx = cvc.getContext("2d");
   let cv = null;                            // the current or last study
-  function cvExpect() {
-    const mode = $("cv-mode").value, par = +$("cv-par").value;
-    $("cv-par-lab").textContent = mode === "r" ? "r = αΔt/Δx²" : "λ = Δt/Δx";
-    let h;
-    if (mode === "r") {
-      h = "Expected with fixed r: Δt = rΔx²/α shrinks like Δx², so the O(Δt) time error of FTCS and BTCS also behaves like Δx². All methods should show order 2 for smooth compatible data. For Crank–Nicolson, the O(Δt²) contribution becomes O(Δx⁴), but the O(Δx²) spatial error still gives joint order 2.";
-      if (Math.abs(par - 1 / 6) < 2e-3) h += " At r = 1/6 the leading FTCS error cancels, so FTCS should show order 4.";
-      if (par > 0.5) h += " With r > ½, FTCS violates the all-wavelength bound; the finite-grid limit depends on N and the boundaries.";
-    } else {
-      h = "Expected with fixed Δt/Δx: now Δt shrinks only like Δx. BTCS, first order in time, should drop to order 1, while Crank–Nicolson (second order in time) stays at order 2. FTCS has r = αλ/Δx, which grows on fine grids: it becomes unstable once r > ½. Because its r also changes from grid to grid (and passes the special value 1/6), the FTCS orders on the stable grids jump around.";
+  const studyName = k => k === "cn" ? "CN" : k === "theta" ? "θ-method" : k.toUpperCase();
+  function studyPolicyLabel(config) {
+    return config.mode === "r" ? `fixed r = ${config.par}` : config.mode === "lam" ? `fixed Δt/Δx = ${config.par}` : `fixed requested Δt = ${config.par}`;
+  }
+  function readStudyConfigs() {
+    return Object.fromEntries(KEYS.map(k => [k,{mode:$("cv-"+k+"-mode").value,par:Number($("cv-"+k+"-par").value)}]));
+  }
+  function makeStudyRuns(Ns, tE, configs) {
+    if (!Number.isFinite(tE) || tE <= 0 || tE > 1000) throw new Error("The final time must be between 0 and 1000.");
+    for (const k of KEYS) {
+      const c = configs[k];
+      if (!c || !["r","lam","dt"].includes(c.mode) || !Number.isFinite(c.par) || c.par <= 0 || c.par > 1000)
+        throw new Error(`${studyName(k)}: enter a positive time-step parameter up to 1000.`);
     }
-    $("cv-expect").textContent = h + ` General θ = ${theta}: time order ${theta === 0.5 ? 2 : 1}; for θ < ½ check r ≤ 1/[2(1−2θ)] (all wavelengths).`;
+    return Ns.map(Nn => {
+      const h=L/Nn, methods={};
+      for (const k of KEYS) {
+        const c=configs[k], requestedDt=c.mode === "r" ? c.par*h*h/ALPHA : c.mode === "lam" ? c.par*h : c.par;
+        const steps=Math.max(1,Math.ceil(tE/requestedDt));
+        if (!Number.isSafeInteger(steps)) throw new Error(`${studyName(k)}: the requested step is too small to represent its step count. Increase the parameter.`);
+        const dt=tE/steps;
+        methods[k]={requestedDt,dt,steps,r:ALPHA*dt/(h*h),stepsTaken:0,done:false};
+      }
+      return {N:Nn,dx:h,methods,err:{},done:false};
+    });
+  }
+  function cvExpect() {
+    const configs=readStudyConfigs(), messages=[];
+    $("cv-theta-title").textContent=`General θ-method · θ = ${theta}`;
+    for (const k of KEYS) {
+      const c=configs[k];
+      $("cv-"+k+"-par-lab").textContent=c.mode === "r" ? "r = αΔt/Δx²" : c.mode === "lam" ? "λ = Δt/Δx" : "Requested Δt";
+      const timeOrder=k === "cn" || (k === "theta" && theta === 0.5) ? 2 : 1;
+      let expected=c.mode === "dt" ? "a fixed time-error floor can flatten the grid convergence; p = 2 is not guaranteed" : c.mode === "r" ? "expected joint p ≈ 2" : `expected p ≈ ${timeOrder}`;
+      if(k === "ftcs" && c.mode === "r" && Math.abs(c.par-1/6)<1e-9)expected="expected p ≈ 4 from leading-error cancellation";
+      if(k === "ftcs" || (k === "theta" && theta<0.5))expected+="; check the actual finite-grid stability verdict on every grid";
+      messages.push(`${studyName(k)} (${studyPolicyLabel(c)}): ${expected}.`);
+    }
+    $("cv-expect").textContent=messages.join(" ")+" Expected orders assume smooth compatible data and sufficiently fine grids.";
+  }
+  function invalidateStudySettings() {
+    if(cv && cv.running)cv.running=false;
+    cv=null;$("cv-run").textContent="Run study";$("cv-msg").textContent="Time-step settings changed. Press Run study to recompute.";
+    cvExpect();renderStudy();
   }
   function parseNs() {
     const vals = $("cv-ns").value.split(/[\s,;]+/).filter(Boolean).map(Number);
@@ -1329,86 +1369,72 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
     return u.length >= 2 && u.length <= 10 ? u : null;
   }
   function runStudy() {
-    if (cv && cv.running) { cv.running = false; $("cv-run").textContent = "Run study"; $("cv-msg").textContent = "Stopped."; return; }
-    const Ns = parseNs(), mode = $("cv-mode").value, par = +$("cv-par").value, tE = +$("cv-t").value;
-    if (!Ns) { $("cv-msg").textContent = "Enter 2 to 10 whole numbers between 4 and 1000, e.g. 10, 20, 40, 80."; return; }
-    if (!(par > 0 && par <= 50)) { $("cv-msg").textContent = "Enter a positive " + (mode === "r" ? "r" : "Δt/Δx") + "."; return; }
-    if (!(tE > 0 && tE <= 1000)) { $("cv-msg").textContent = "The final time must be between 0 and 1000."; return; }
-    const runs = Ns.map(Nn => {
-      const h = L / Nn, dt0 = mode === "r" ? par * h * h / ALPHA : par * h;
-      const steps = Math.max(1, Math.ceil(tE / dt0 - 1e-9)), dtn = tE / steps;
-      return { N: Nn, dx: h, dt: dtn, steps, r: ALPHA * dtn / (h * h), err: {}, done: false };
-    });
-    cv = { runs, tE, mode, par, key: [ic, bc, vL, vR].join("|"), running: true, k: 0, cur: null };
-    $("cv-run").textContent = "Stop"; $("cv-msg").textContent = "";
-    renderStudy();
-    setTimeout(studyChunk, 0);
+    if (cv && cv.running) { cv.running=false;$("cv-run").textContent="Run study";$("cv-msg").textContent="Stopped.";return; }
+    const Ns=parseNs(),configs=readStudyConfigs(),tE=Number($("cv-t").value);
+    if(!Ns){$("cv-msg").textContent="Enter 2 to 10 whole numbers between 4 and 1000, e.g. 10, 20, 40, 80.";return;}
+    let runs;
+    try{runs=makeStudyRuns(Ns,tE,configs);}catch(error){$("cv-msg").textContent=error.message;return;}
+    cv={runs,tE,configs,bc,key:[ic,bc,vL,vR,theta].join("|"),theta,running:true,k:0,methodIndex:0,cur:null};
+    $("cv-run").textContent="Stop";$("cv-msg").textContent="";renderStudy();setTimeout(studyChunk,0);
   }
   function studyChunk() {
-    if (!cv || !cv.running) return;
-    if (cv.key !== [ic, bc, vL, vR].join("|")) {
-      cv.running = false; $("cv-run").textContent = "Run study";
-      $("cv-msg").textContent = "The initial or boundary conditions changed, so the study stopped. Press Run study again."; return;
+    if(!cv || !cv.running)return;
+    if(cv.key!==[ic,bc,vL,vR,theta].join("|")){
+      cv.running=false;$("cv-run").textContent="Run study";$("cv-msg").textContent="The problem or θ changed, so the study stopped. Press Run study again.";return;
     }
-    const t0 = performance.now();
-    while (performance.now() - t0 < 25) {
-      const run = cv.runs[cv.k];
-      if (!cv.cur) {                         // start this grid
-        const g = makeGrid(run.N, run.r), xs = Float64Array.from({ length: run.N + 1 }, (_, i) => i * g.dx);
-        const T0 = Float64Array.from(xs, f0);
-        if (leftFixed()) T0[0] = vL;
-        if (rightFixed()) T0[run.N] = vR;
-        cv.cur = { g, xs, n: 0, T: {}, ok: {} };
-        for (const k of KEYS) { cv.cur.T[k] = Float64Array.from(T0); cv.cur.ok[k] = true; }
+    const start=performance.now();
+    while(performance.now()-start<25){
+      const run=cv.runs[cv.k],key=KEYS[cv.methodIndex],method=run.methods[key];
+      if(!cv.cur){
+        if(!run.xs){run.xs=Float64Array.from({length:run.N+1},(_,i)=>i*run.dx);run.reference=Float64Array.from(run.xs,xx=>exact(xx,cv.tE));}
+        const T=Float64Array.from(run.xs,f0);
+        if(leftFixed())T[0]=vL;if(rightFixed())T[run.N]=vR;
+        cv.cur={g:makeGrid(run.N,method.r),T,n:0,key};
       }
-      const c = cv.cur;
-      for (const k of KEYS) if (c.ok[k]) c.ok[k] = stepScheme(k, c.T[k], c.g);
-      c.n++;
-      if (c.n >= run.steps) {                // finished this grid: errors at the final time
-        for (const k of KEYS) {
-          if (!c.ok[k]) { run.err[k] = null; continue; }
-          let emax = 0, s2 = 0;
-          for (let i = 0; i <= run.N; i++) { const e = Math.abs(c.T[k][i] - exact(c.xs[i], cv.tE)); emax = Math.max(emax, e); s2 += e * e; }
-          run.err[k] = { max: emax, rms: Math.sqrt(s2 / (run.N + 1)) };
+      const c=cv.cur,ok=stepScheme(key,c.T,c.g);c.n++;
+      if(!ok || c.n>=method.steps){
+        method.stepsTaken=c.n;method.done=true;
+        if(!ok)run.err[key]=null;
+        else{
+          let max=0,sum=0;
+          for(let i=0;i<=run.N;i++){const e=c.T[i]-run.reference[i];max=Math.max(max,Math.abs(e));sum+=e*e;}
+          run.err[key]={max,rms:Math.sqrt(sum/(run.N+1))};
         }
-        run.done = true; cv.cur = null; cv.k++;
-        if (cv.k >= cv.runs.length) { cv.running = false; break; }
+        cv.cur=null;cv.methodIndex++;
+        if(cv.methodIndex>=KEYS.length){run.done=true;cv.k++;cv.methodIndex=0;if(cv.k>=cv.runs.length){cv.running=false;break;}}
       }
     }
-    if (cv.running) {
-      const run = cv.runs[cv.k], pct = cv.cur ? Math.round(100 * cv.cur.n / run.steps) : 0;
-      $("cv-msg").textContent = `Running N = ${run.N}: step ${cv.cur ? cv.cur.n : 0} of ${run.steps} (${pct}%)`;
-      setTimeout(studyChunk, 0);
-    } else {
-      $("cv-run").textContent = "Run study";
-      const last = cv.runs.slice(-2), o = KEYS.map(k => {
-        const p = order(last[0], last[1], k);
-        return `${k === "cn" ? "CN" : k.toUpperCase()} ${p === null ? "—" : p.toFixed(2)}`;
-      });
-      $("cv-msg").textContent = "Done. Observed order on the two finest grids: " + o.join(", ") + ".";
+    if(cv.running){
+      const run=cv.runs[cv.k],key=KEYS[cv.methodIndex],method=run.methods[key];
+      $("cv-msg").textContent=`Running N = ${run.N}, ${studyName(key)}: step ${cv.cur?cv.cur.n:0} of ${method.steps}`;
+      setTimeout(studyChunk,0);
+    }else{
+      $("cv-run").textContent="Run study";const last=cv.runs.slice(-2);
+      $("cv-msg").textContent="Done. Observed order on the two finest grids: "+KEYS.map(k=>{const p=order(last[0],last[1],k);return `${studyName(k)} ${p===null?"—":p.toFixed(2)}`;}).join(", ")+".";
     }
     renderStudy();
   }
   const normOf = () => $("cv-norm").value;
-  const errOf = (run, k) => run.done && run.err[k] ? run.err[k][normOf()] : null;
+  const errOf = (run, k) => run.methods[k].done && run.err[k] ? run.err[k][normOf()] : null;
   function order(a, b, k) {
     const ea = errOf(a, k), eb = errOf(b, k);
     return ea && eb && ea > 0 && eb > 0 ? Math.log(ea / eb) / Math.log(a.dx / b.dx) : null;
   }
   const fmtE = e => e === 0 ? "0" : e.toExponential(3);
   function renderStudy() {
-    const tb = $("cv-table");
-    const head = '<tr><th>N</th><th>Δx</th><th>Δt</th><th>r</th><th>steps</th>' +
-      KEYS.map(k => `<th class="${k}">${k === "cn" ? "CN" : k.toUpperCase()} error</th><th class="${k}">${k === "cn" ? "CN" : k.toUpperCase()} observed p</th>`).join("") + "</tr>";
-    if (!cv) { tb.innerHTML = head; renderStudyPlot(); return; }
-    tb.innerHTML = head + cv.runs.map((run, j) => {
-      const cells = KEYS.map(k => {
-        if (!run.done) return '<td>…</td><td></td>';
-        if (!run.err[k]) return '<td class="bad">unstable</td><td></td>';
-        const p = j ? order(cv.runs[j - 1], run, k) : null;
-        return `<td>${fmtE(errOf(run, k))}</td><td class="ord">${p === null ? (j ? "—" : "") : p.toFixed(2)}</td>`;
-      }).join("");
-      return `<tr><td>${run.N}</td><td>${+run.dx.toPrecision(4)}</td><td>${run.dt < 1e-3 ? run.dt.toExponential(2) : +run.dt.toPrecision(4)}</td><td class="${run.r > 0.5 ? "bad" : ""}">${+run.r.toPrecision(3)}</td><td>${run.steps}</td>${cells}</tr>`;
+    const configs=cv?cv.configs:readStudyConfigs();
+    $("cv-tables").innerHTML=KEYS.map(k=>{
+      const title=k === "cn" ? "Crank–Nicolson (CN)" : k === "theta" ? `General θ-method (θ = ${cv?cv.theta:theta})` : studyName(k);
+      const head=`<tr><th>N</th><th>Δx</th><th>Actual Δt</th><th>Actual r</th><th>Steps</th><th>${studyName(k)} error</th><th>${studyName(k)} observed p</th><th>Grid stability</th></tr>`;
+      const rows=cv?cv.runs.map((run,j)=>{
+        const m=run.methods[k],done=m.done,e=done&&run.err[k]?run.err[k][normOf()]:null;
+        const p=j&&done?order(cv.runs[j-1],run,k):null;
+        const th=k === "theta"?cv.theta:k === "btcs"?1:k === "cn"?0.5:0;
+        const stable=m.r<=stabilityLimits(th,gridSmax(run.N,cv.bc)).stable+1e-12;
+        const steps=done&&m.stepsTaken<m.steps?`${m.stepsTaken} / ${m.steps} (stopped)`:m.steps;
+        return `<tr><td>${run.N}</td><td>${+run.dx.toPrecision(4)}</td><td>${fmtE(m.dt)}</td><td>${+m.r.toPrecision(5)}</td><td>${steps}</td><td class="${done&&!run.err[k]?"bad":""}">${!done?"…":run.err[k]?fmtE(e):"diverged"}</td><td class="ord">${p===null?"—":p.toFixed(2)}</td><td class="${stable?"":"bad"}">${stable?"Stable":"Unstable"}</td></tr>`;
+      }).join(""):"";
+      return `<article><h3 style="color:var(--${k})">${title}</h3><p class="hint">${studyPolicyLabel(configs[k])}${cv?`; common final time t = ${cv.tE}`:""}</p><div class="tablewrap"><table class="cv">${head}${rows}</table></div></article>`;
     }).join("");
     renderStudyPlot();
   }
@@ -1441,7 +1467,7 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
     c.save(); c.beginPath(); c.rect(m.l, m.t, pw, ph); c.clip();
     // reference slopes through the largest error on the coarsest grid
     const N0 = Ns[0], e0 = Math.max(...KEYS.map(k => errOf(cv.runs[0], k) || 0)) * 2.5, N1 = Ns[Ns.length - 1];
-    const slopes = [1, 2]; if (cv.mode === "r" && Math.abs(cv.par - 1 / 6) < 2e-3) slopes.push(4);
+    const slopes = [1, 2]; if (cv.configs.ftcs.mode === "r" && Math.abs(cv.configs.ftcs.par - 1 / 6) < 1e-9) slopes.push(4);
     if (e0 > 0) for (const sl of slopes) {
       c.strokeStyle = css("--muted"); c.setLineDash([5, 5]); c.lineWidth = 1.2;
       c.beginPath(); c.moveTo(X(N0), Y(e0)); c.lineTo(X(N1), Y(e0 * (N0 / N1) ** sl)); c.stroke(); c.setLineDash([]);
@@ -1464,20 +1490,27 @@ n ← n + 1; t ← t + Δt</pre><p class="hint">Apply boundary values, plot the 
       c.fillRect(m.l + 10, ly - 1.5, 18, 3); c.fillText(k === "cn" ? "Crank–Nicolson" : k.toUpperCase(), m.l + 34, ly); });
   }
   function studyCSV() {
-    if (!cv) return "";
-    const rows = [["N", "dx", "dt", "r", "steps", ...KEYS.flatMap(k => [k + "_" + normOf() + "_error", k + "_order"])]];
-    cv.runs.forEach((run, j) => rows.push([run.N, run.dx, run.dt, run.r, run.steps, ...KEYS.flatMap(k => {
-      const e = errOf(run, k), p = j ? order(cv.runs[j - 1], run, k) : null;
-      return [e === null ? (run.done ? "unstable" : "") : e.toExponential(6), p === null ? "" : p.toFixed(4)];
+    if(!cv)return "";
+    const rows=[["N","dx","final_time",...KEYS.flatMap(k=>[k+"_policy",k+"_parameter",k+"_requested_dt",k+"_actual_dt",k+"_r",k+"_planned_steps",k+"_steps_taken",k+"_"+normOf()+"_error",k+"_order"])]];
+    cv.runs.forEach((run,j)=>rows.push([run.N,run.dx,cv.tE,...KEYS.flatMap(k=>{
+      const m=run.methods[k],e=errOf(run,k),p=j?order(cv.runs[j-1],run,k):null;
+      return [cv.configs[k].mode,cv.configs[k].par,m.requestedDt,m.dt,m.r,m.steps,m.done?m.stepsTaken:"",e===null?(m.done?"diverged":""):e.toExponential(6),p===null?"":p.toFixed(4)];
     })]));
-    return rows.map(r => r.join(",")).join("\n");
+    return rows.map(row=>row.join(",")).join("\n");
   }
-  $("cv-run").addEventListener("click", runStudy);
-  $("cv-norm").addEventListener("change", renderStudy);
-  $("cv-mode").addEventListener("change", e => {
-    $("cv-par").value = e.target.value === "r" ? 0.25 : 1; cvExpect();
+  $("cv-run").addEventListener("click",runStudy);
+  $("cv-norm").addEventListener("change",renderStudy);
+  for(const k of KEYS){
+    $("cv-"+k+"-mode").addEventListener("change",e=>{
+      $("cv-"+k+"-par").value=e.target.value === "r"?(k === "btcs" || k === "cn"?5:0.25):e.target.value === "lam"?1:0.01;
+      invalidateStudySettings();
+    });
+    $("cv-"+k+"-par").addEventListener("change",invalidateStudySettings);
+  }
+  $("cv-copy-settings").addEventListener("click",()=>{
+    for(const k of KEYS){$("cv-"+k+"-mode").value=$("cv-ftcs-mode").value;$("cv-"+k+"-par").value=$("cv-ftcs-par").value;}
+    invalidateStudySettings();
   });
-  $("cv-par").addEventListener("input", cvExpect);
   $("cv-copy").addEventListener("click", async () => {
     const text = studyCSV();
     if (!text) { $("cv-msg").textContent = "Run the study first."; return; }

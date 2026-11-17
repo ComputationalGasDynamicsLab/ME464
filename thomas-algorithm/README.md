@@ -39,6 +39,34 @@ and the derived formulas build up into the complete algorithm:
 
 The default warm-up has three equations and the hand-checkable solution x = [1,1,1]. Numerical examples still support 3–10 unknowns.
 
+## Old temperature, boundary contribution, and time-step figures
+
+The node equation now explicitly shows its old-temperature RHS before substituting a known wall. With the default values, node 1 is
+
+```math
+-0.5T_0^{k+1}+2T_1^{k+1}-0.5T_2^{k+1}=T_1^k=20.
+```
+
+Here 20 is the **old interior temperature**, independently specified from the walls. Substituting the known left wall T₀ = 100 and moving its term to the right produces
+
+```math
+2T_1^{k+1}-0.5T_2^{k+1}=d_1=20+0.5(100)=70.
+```
+
+Both stages are shown before the matrix. Selecting a different node or editing the old/wall temperatures updates the explanation.
+
+**Watch the temperature after each BTCS time step** shows a separate figure for the initial profile and each completed solve. **Compute next BTCS time step** advances the latest solution using the previous step's temperatures; **Take 3 BTCS steps** starts a three-step history, and **Restart** returns to the initial profile. The matrix factors are reused throughout a history. Up to 20 steps can be displayed.
+
+Select a saved figure to inspect its actual old temperatures, boundary contributions, assembled d, new interior temperatures and scaled residual. Selecting an older figure does not change which state the next step advances. Selecting another rod node preserves the history; changing rod parameters resets it.
+
+All figures use shared temperature axes and include both fixed wall nodes. Blue identifies the current time level, dashed gray the previous one, and orange squares the prescribed walls. Lines join the selected grid nodes; they are not exact continuum curves. The uniform old interior and imposed walls can disagree initially, which is stated beside the initial figure. For the illustrative L = 1 and α = 0.01, Δx = 1/N and r = αΔt/Δx². The default N = 4 and Δt = 3.125 match the three-node example at r = 0.5.
+
+**Refine the temperature grid.** The history has independent controls for N (4–400 spatial intervals) and Δt (default 3.125). N intervals give N + 1 nodes, including the two walls, and N − 1 interior unknowns. Try N = 40, 100 or 400 for more spatial detail. The Thomas matrix is assembled and factored for the actual selected grid; the three-unknown equation demonstration and row-operation stepper stay small enough to follow by hand. Wall and initial temperatures are shared. The top r control belongs to the three-unknown algebra example; the history computes its own r from N and Δt.
+
+Changing N holds Δt fixed, so the same number of steps reaches the same physical time across grids. Changing N or Δt restarts the history and refactors the matrix. Larger N reduces spatial discretization error, while temporal error still depends on Δt; unconditional BTCS stability does not imply accuracy. Dense-grid figures use continuous node-joining lines and omit interior markers above N = 80. Long vectors show their first/last three entries and the full entry count.
+
+A Thomas elimination/back-substitution operation is a stage of solving **one** linear system. It is not another physical time step. The original partial-x plot and new BTCS history explicitly distinguish these two meanings of “step.”
+
 ## The algorithm
 
 For $`a_i x_{i-1} + b_i x_i + c_i x_{i+1} = d_i`$, $`i = 1, \dots, n`$, with $`a_1 = c_n = 0`$:
@@ -77,4 +105,4 @@ A small scaled residual is evidence of a small backward error; forward solution 
 node verify.cjs
 ```
 
-The dependency-free checks compare the actual solver with a pivoted dense reference, verify the original-equation residuals, preserve the uniformly scaled solution, distinguish nonsingular zero-pivot and singular examples, exercise the positive-definite certificate, and compare factor reuse with fresh solves. A minimal DOM smoke test executes the real page initialization, rod loading, prediction feedback, row checks and failure-case rendering. MathJax rendering and visual browser layout are outside the DOM adapter's coverage.
+The dependency-free checks compare the actual solver with a pivoted dense reference, verify the original-equation residuals, preserve the uniformly scaled solution, distinguish nonsingular zero-pivot and singular examples, exercise the positive-definite certificate, and compare factor reuse with fresh solves. A minimal DOM smoke test executes the real page initialization, rod loading, prediction feedback, row checks and failure-case rendering. Variable-grid checks through N = 400 verify a discrete sine eigenmode, spatial convergence for a smooth solution, maximum-principle bounds at large diffusion numbers, and fixed-time comparisons when N changes. MathJax rendering and visual browser layout are outside the DOM adapter's coverage.

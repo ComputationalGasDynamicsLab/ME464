@@ -4,7 +4,7 @@ const html=fs.readFileSync(__dirname+'/index.html','utf8'),script=[...html.match
 new vm.Script(script);
 const sandbox={document:{getElementById:()=>({})}};vm.createContext(sandbox);
 const kernel=script.slice(script.indexOf('  const $ ='),script.indexOf('  // ---------- render ----------'));
-vm.runInContext(kernel+'\nglobalThis.api={load,compute,dominance,factorize,solveFactored,residuals,assembleRod,reuseRodSteps,checkPrediction,fmt,info,state:()=>S,assign:v=>Object.assign(S,v)};',sandbox);
+vm.runInContext(kernel+'\nglobalThis.api={load,compute,dominance,factorize,solveFactored,residuals,assembleRod,reuseRodSteps,startRodSession,advanceRodSession,temperatureFigure,checkPrediction,fmt,info,state:()=>S,assign:v=>Object.assign(S,v)};',sandbox);
 const A=sandbox.api,close=(a,b,t=2e-11)=>assert.ok(Math.abs(a-b)<t,`${a} vs ${b}`);
 function dense(a,b,c,d){
  const n=b.length,M=b.map((v,i)=>Array.from({length:n},(_,j)=>i===j?v:j===i-1?a[i]:j===i+1?c[i]:0)),rhs=Array.from(d);
@@ -44,3 +44,53 @@ ui.lab.S.step=7;ui.lab.S.revealed=true;ui.lab.render();assert.match(elements.get
 for(const preset of ['pivoting','singular','tiny','scaled']){ui.lab.load(preset);ui.lab.S.step=ui.lab.compute().last;ui.lab.render();}
 ui.lab.dGo(10);assert.match(elements.get('d-step').innerHTML,/sufficient|right-hand|remaining|back|pivot/i);
 console.log('PASS: real page initializes, assembles/loads the rod, reuses factors, checks predictions, verifies original rows and renders failure examples.');
+
+// Time-level metadata and figures must use the previous solution, including nonuniform later states.
+const session=A.startRodSession({r:.5,left:100,right:20,old:20});
+const step1=A.advanceRodSession(session),step2=A.advanceRodSession(session);
+close(step1.old[0],20);close(step1.d[0],70);close(step1.time,3.125);
+step1.x.forEach((v,i)=>close(step2.old[i],v));close(step2.d[0],step1.x[0]+50);close(step2.time,6.25);
+assert.match(A.temperatureFigure(session,step2),/BTCS time step 2/);assert.match(A.temperatureFigure(session,step2),/stroke-dasharray/);
+assert.match(elements.get('assembly-old-explanation').textContent,/20.*OLD interior temperature/);
+assert.match(elements.get('assembly-equation').textContent,/T1ᵏ = 20/);assert.match(elements.get('assembly-reduced').textContent,/d₁ = 70/);
+assert.match(elements.get('reuse-figures').innerHTML,/step 3/);
+rodButtons[1].listeners.click();assert.match(elements.get('reuse-figures').innerHTML,/step 3/);
+elements.get('reuse-figures').listeners.click({target:{dataset:{rodStep:'1'}}});assert.match(elements.get('reuse-step-detail').innerHTML,/Time step 1/);
+elements.get('reuse-next').listeners.click();assert.match(elements.get('reuse-figures').innerHTML,/step 4/);assert.match(elements.get('reuse-step-detail').innerHTML,/Time step 4/);
+elements.get('reuse-reset').listeners.click();assert.doesNotMatch(elements.get('reuse-figures').innerHTML,/step 1/);
+for(let i=0;i<22;i++)elements.get('reuse-next').listeners.click();assert.equal(elements.get('reuse-next').disabled,true);assert.doesNotMatch(elements.get('reuse-figures').innerHTML,/step 21/);
+elements.get('assembly-old').value=32;elements.get('assembly-old').listeners.change();assert.doesNotMatch(elements.get('reuse-figures').innerHTML,/step 1/);assert.match(elements.get('assembly-old-explanation').textContent,/32.*OLD interior temperature/);
+console.log('PASS: explicit old-temperature versus boundary RHS, per-time-step figures, correct previous-state reuse, history inspection, restart and parameter-reset behavior.');
+
+// Variable grids retain boundary assembly and fixed physical time; validate a smooth eigenmode.
+let previousError;
+for(const N of [20,40,80,400]){
+ const dt=1e-5,r=.01*dt*N*N,fine=A.startRodSession({N,r,left:0,right:0,old:0});
+ fine.history[0].x=Array.from({length:N-1},(_,i)=>Math.sin(Math.PI*(i+1)/N));
+ const row=A.advanceRodSession(fine),gain=1/(1+4*r*Math.sin(Math.PI/(2*N))**2);
+ assert.equal(row.x.length,N-1);close(row.time,dt);
+ row.x.forEach((v,i)=>close(v,gain*Math.sin(Math.PI*(i+1)/N)));
+ assert.ok(row.scaled<1e-13);
+ const error=Math.abs(row.x[N/2-1]-Math.exp(-.01*Math.PI**2*dt));
+ if(previousError&&N<=80)assert.ok(previousError/error>3.8,'Spatial refinement should approach second-order accuracy');
+ previousError=error;
+}
+for(const dt of [3.125,100]){
+ const N=400,fine=A.startRodSession({N,r:.01*dt*N*N,left:100,right:20,old:20});
+ for(let k=0;k<3;k++){
+  const row=A.advanceRodSession(fine);assert.equal(row.x.length,399);
+  assert.ok(row.x.every(v=>v>=20-1e-8&&v<=100+1e-8));assert.ok(row.scaled<1e-13);close(row.time,(k+1)*dt);
+ }
+}
+elements.get('profile-n').value=100;elements.get('profile-n').listeners.change();
+assert.match(elements.get('reuse-time-note').textContent,/N = 100 intervals, 99 interior unknowns/);
+assert.match(elements.get('reuse-time-note').textContent,/Δt = 3.125/);
+assert.doesNotMatch(elements.get('reuse-figures').innerHTML,/step 1/);
+elements.get('reuse-next').listeners.click();assert.match(elements.get('reuse-step-detail').innerHTML,/99 entries/);
+assert.match(elements.get('reuse-time-note').textContent,/r = αΔt\/Δx² = 312.5/);
+elements.get('assembly-load').listeners.click();assert.equal(ui.lab.S.n,3);
+elements.get('profile-dt').value=.25;elements.get('profile-dt').listeners.change();
+assert.match(elements.get('reuse-time-note').textContent,/Δt = 0.25/);assert.doesNotMatch(elements.get('reuse-figures').innerHTML,/step 1/);
+elements.get('reuse-run').listeners.click();assert.match(elements.get('reuse-figures').innerHTML,/t = 0.75/);
+elements.get('profile-n').value=5000;elements.get('profile-n').listeners.change();assert.equal(elements.get('profile-n').value,400);
+console.log('PASS: variable grids through N=400, smooth-mode spatial convergence, large-r maximum principle, independent algebra grid, fixed-time comparisons and input reset/clamping.');

@@ -1,10 +1,18 @@
 # ME464 · 1D Burgers Equation Lab
 
-An interactive finite-volume laboratory for
+An interactive finite-volume laboratory for Burgers’ equation. The page introduces the **non-conservative form** first:
 
 ```math
-u_t + (u^2/2)_x = \nu u_{xx},\qquad 0<x<1.
+u_t + u u_x = \nu u_{xx},\qquad 0<x<1,
 ```
+
+then the **conservative form**:
+
+```math
+u_t + [f(u)]_x = \nu u_{xx},\qquad f(u)=u^2/2.
+```
+
+The forms are equivalent for differentiable solutions. Inviscid shocks require the conservative weak formulation and entropy selection; set ν = 0 for the inviscid model.
 
 Open `dist/index.html` directly; all calculations run in the browser with no installation or build step. To serve locally:
 
@@ -15,6 +23,16 @@ python3 -m http.server 8766 --directory dist
 The Sites identity and static directory are recorded in `.openai/hosting.json`. The hosted version is initially owner-private.
 
 Live owner-private Site: https://me464-burgers-lab.zhangchonglin.chatgpt.site
+
+## Illustrated introduction for students
+
+The page now begins with **Before you press Play**, before the live experiment. It explains the velocity-like meaning of u, local wave speed, nonlinear transport, viscosity, and the distinction between this scalar model and a full gas-dynamics system. Three diagrams compare compression, rarefaction, and a viscous layer.
+
+A selected-problem initial-condition plot and formula follow the main controls, along with boundary illustrations that switch between periodic ghost-cell copies and exact exterior data. The notes distinguish cell averages from pointwise curves and explain why boundary fluxes matter to conservation.
+
+The finite-volume illustration shows neighboring cell averages, face fluxes, and the incoming-minus-outgoing update. Four algorithm summaries explain Godunov, Rusanov, MUSCL/SSP-RK2, and MacCormack. An independent five-cell worked example runs the actual solver kernels for one selected method; it reveals the new averages, center-cell update and conserved total without advancing the main experiment. A Godunov hand calculation yields center value 0.92.
+
+The final introductory reading guide explains profiles, signed errors, norms, conservation residuals, time-step limits and the post-breaking reference cutoff. The introductory diagrams remain visible on small screens and include text descriptions for accessibility.
 
 ## Learning objectives
 
@@ -32,12 +50,14 @@ Live owner-private Site: https://me464-burgers-lab.zhangchonglin.chatgpt.site
 | Rarefaction | 0 → 1 at x₀ = 0.3; u = (x−x₀)/t inside the fan | Exact whole-line ghost-cell averages |
 | Transonic rarefaction | −1 → 1 at x₀ = 0.5; entropy fan through u = 0 | Exact whole-line ghost-cell averages |
 | Stationary shock | 1 → −1 at x₀ = 0.5; s = 0 | Exact whole-line ghost-cell averages |
-| Smooth periodic wave | u₀ = ½ + ½ sin(2πx); characteristics before tₛ = 1/π | Periodic |
+| Smooth sine (default) | u₀ = ½ + A sin(2πx); tₛ = 1/(2πA) | Periodic |
+| Two smooth sine waves | u₀ = ½ + A sin(4πx); tₛ = 1/(4πA) | Periodic |
+| Smooth periodic pulse | u₀ = 0.2 + A exp{4[cos(2π(x−0.3))−1]}; analytic gradient sets tₛ | Periodic |
 | Viscous traveling shock | s − (Δu/2)tanh[Δu(x−x₀−st)/(4ν)], with 1 → 0 | Exact traveling-wave ghost-cell averages |
 
-The inviscid Riemann references are entropy solutions. The sine reference solves x = ξ + u₀(ξ)t by bisection, uniquely before the classical shock time. After tₛ, the numerical solutions continue, but the exact line and error norms are explicitly unavailable. This is not a post-shock entropy reference.
+The inviscid Riemann references are entropy solutions. The smooth-profile references solve x = ξ + u₀(ξ)t by bisection, uniquely before the classical shock time. After tₛ, the numerical solutions continue, but the exact line and error norms are explicitly unavailable. This is not a post-shock entropy reference.
 
-Exact averages for shocks, rarefactions and viscous shocks are evaluated analytically. The pre-shock sine uses four-point Gauss–Legendre quadrature of the characteristic solution. The plotted exact line is pointwise; the error comparison uses cell averages. The traveling shock uses a stable log-cosh antiderivative, including at small viscosity.
+Exact averages for shocks, rarefactions and viscous shocks are evaluated analytically. The pre-shock smooth profiles use eight-point Gauss–Legendre quadrature of the characteristic solution. The plotted exact line is pointwise; the error comparison uses cell averages. The traveling shock uses a stable log-cosh antiderivative, including at small viscosity. Initial sine averages are analytic; the smooth pulse initial averages use the same eight-point quadrature.
 
 For nonperiodic cases, the ghost values are supplied by the exact solution at each numerical stage. They are not fixed wall or generic outflow boundaries. This keeps a controlled reference experiment even if a wave reaches an endpoint. Two ghost layers support MUSCL reconstruction.
 
@@ -67,6 +87,12 @@ The cards report actual C + 2D using the largest speed over both stages, where C
 
 ## Read the figures
 
+The lab starts from a continuous sine profile. The **Smooth initial data** group contains a single sine (A = 0.5), a two-wave sine (A = 0.5), and a Gaussian-like periodic pulse (A = 0.8). All three are smooth at the periodic seam. The amplitude slider spans 0.1–1.0; changing it resets all runs and sets the default final time to 1.6 times the predicted breaking time (final times up to 5 are supported).
+
+The initial-profile panel shows the formula, initial curve, predicted tₛ and current stage (initial, steepening, or after breaking). The **Start smooth → form a shock** preset restores the single-sine experiment. The characteristic diagram uses the chosen profile and marks tₛ. The numerical curves continue after breaking, while the classical reference and corresponding error norms stop.
+
+For inviscid Burgers, tₛ = −1/min u₀′. For the pulse with κ = 4, write c = (sqrt(1+4κ²)−1)/(2κ). Then tₛ = 1/[2πκA sqrt(1−c²) exp(κ(c−1))]. Doubling A halves the predicted breaking time. At default amplitudes, the sine breaks at approximately 0.3183, the double sine at 0.1592, and the pulse at approximately 0.1692 (the page computes the exact formula).
+
 Every method has its own solution and signed-error figure, L₁/RMS errors, min/max, CFL load, total variation and conservation residual. Solution axes can be shared or fitted independently; error axes always fit each method and are labeled accordingly. Characteristic diagrams are guides; straight continuations beyond a crossing or shock are not physical multivalued solutions.
 
 The conservation residual is
@@ -91,7 +117,7 @@ node verify-ui.cjs
 node --check dist/app.js
 ```
 
-The dependency-free checks exercise Riemann fluxes, constant preservation, periodic conservation (inviscid and viscous), time-dependent boundary-flux budgets, transonic entropy fans, shock propagation, exact viscous averages and reference validity. A resolved traveling shock with ν = 0.04 yields L₁ orders near 1 for Godunov/Rusanov and 2 for MUSCL/MacCormack on N = 80,160,320.
+The dependency-free checks exercise Riemann fluxes, constant preservation, periodic conservation (inviscid and viscous), time-dependent boundary-flux budgets, transonic entropy fans, shock propagation, exact viscous averages and reference validity. Additional smooth-profile checks verify periodicity, analytic gradients, shock times, characteristic solutions, inverse-amplitude scaling, post-breaking reference cutoff, and actual numerical steepening. A resolved traveling shock with ν = 0.04 yields L₁ orders near 1 for Godunov/Rusanov and 2 for MUSCL/MacCormack on N = 80,160,320.
 
 ## Sources
 

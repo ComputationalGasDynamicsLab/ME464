@@ -34,3 +34,23 @@ const sine=B.problem('sine',80);assert.ok(B.referenceAvailable(sine,.3));assert.
 // Exact average agrees with pointwise quadrature across a narrow viscous layer.
 const v=B.problem('viscous',80,.001);let integral=0;const M=10000;for(let j=0;j<M;j++)integral+=B.exactPoint(v,.29+.02*(j+.5)/M,0)/M;close(B.exactAverage(v,.29,.31,0),integral,1e-9);
 console.log('PASS: exact Riemann fluxes, entropy fan, shock propagation, periodic conservation, boundary-flux budgets, smooth grid convergence, viscous averages and reference validity.');
+// Smooth periodic initial conditions: analytic gradient, shock time and characteristic solution.
+for(const key of ['sine','sine2','gaussian']){
+ const p=B.problem(key,320),half=B.problem(key,320,.01,p.amplitude/2);
+ close(half.tShock,2*p.tShock);
+ let minSlope=0;
+ for(let j=0;j<20000;j++)minSlope=Math.min(minSlope,B.initialSlope(p,j/20000));
+ close(-1/minSlope,p.tShock,2e-8);
+ for(const x of [.02,.23,.49,.83]){
+  close(B.initialPoint(p,x),B.initialPoint(p,x+1));
+  const h=1e-6;close((B.initialPoint(p,x+h)-B.initialPoint(p,x-h))/(2*h),B.initialSlope(p,x),2e-8);
+  const t=.7*p.tShock,u=B.exactPoint(p,x,t);close(u,B.initialPoint(p,x-t*u),2e-12);
+ }
+ assert.equal(B.referenceAvailable(p,p.tShock),false);
+ assert.equal(B.exactAverage(p,.2,.3,1.5*p.tShock),null);
+ const u0=B.initial(p),compress=u=>Math.max(...Array.from(u,(v,i)=>(v-u[(i+1)%p.N])/p.dx));
+ const r=run('godunov',p,1.5*p.tShock);
+ assert.ok(compress(r.u)>2*compress(u0),`${key}: descending front did not steepen`);
+ assert.ok(r.stats.min>=p.range[0]-1e-12&&r.stats.max<=p.range[1]+1e-12);
+}
+console.log('PASS: smooth profile periodicity, gradients, inverse-amplitude shock times, characteristics, conservation and nonlinear steepening.');

@@ -40,7 +40,7 @@ Use **Step +1** to discuss the old and new time levels, or **Play** to animate a
 2. **Explicit instability (r = 0.6):** a square pulse excites short waves immediately. FTCS develops growing oscillations while BTCS remains stable.
 3. **Large implicit step (r = 5):** take two steps to the same final time as the first experiment. BTCS stays stable, but its error demonstrates that stability does not guarantee accuracy. A smooth sine can hide FTCS instability over just two steps; try the pulse to excite short waves.
 
-Each experiment resets the grid, initial condition, zero Dirichlet boundaries, time step and visible methods, and pauses at the initial condition.
+Each experiment resets the grid, initial condition, zero Dirichlet boundaries, time step and visible methods, and pauses at the initial condition. It seeds both independent comparison steps with the experiment r, except the large-step experiment, which uses FTCS r = 0.4 and BTCS r = 5.
 The notes show the BTCS tridiagonal matrix and a one-step hand check for both methods.
 All four cards remain visible in the classroom experiments; the checkboxes can hide individual methods.
 
@@ -75,10 +75,9 @@ Runs freeze individually at the first nonfinite temperature or max |T| > 10⁶. 
 
 The collapsible **Overlay all selected methods** figure retains the original box zoom and zoom buttons. Frozen methods are omitted there to keep the overlay at one physical time. The existing independent-step FTCS/BTCS comparison below is also retained.
 
-## Side-by-side comparison with independent time steps
+## Choose independent FTCS and BTCS time steps
 
-The **Side by side** section uses the same grid, initial condition and boundary conditions as the main demo,
-but lets FTCS and BTCS use independent diffusion numbers (and hence independent time steps).
+The **Choose separate time steps** section is above the four-method plots. It uses the same grid, initial condition and boundary conditions as the shared-step demo, but gives FTCS and BTCS their own directly editable **requested Δt**. Each Δt is linked to that method’s r = αΔt/Δx², so either input can be used. Editing BTCS does not change the FTCS requested step, and vice versa. Requested Δt values from 10⁻⁸ to 1000 are accepted, including implicit r values above 50; these interface limits are not mathematical stability bounds.
 The defaults are r = 0.4 for FTCS and r = 5 for BTCS.
 
 Press **Step to next shared time** or **Play comparison**. Both plots show the same physical time,
@@ -88,7 +87,7 @@ At each shared time interval of 5, FTCS takes twelve steps of 0.4 and one shorte
 while BTCS takes one step of 5. By t = 10 the counts are 26 and 2.
 
 The last substep is shortened whenever necessary to synchronize the methods or reach the final time.
-Changing the main problem parameters resets the comparison. Independent comparison controls do not change
+Changing either requested step resets both comparison runs to the initial condition. Changing the main problem parameters also resets the comparison. A mesh change keeps the requested diffusion numbers and recomputes the displayed Δt values; re-enter Δt afterward if a fixed physical step is desired. Independent comparison controls do not change
 the original shared-step plot. Counts measure numerical steps; a BTCS step also requires a tridiagonal solve,
 so the counts do not directly measure CPU time.
 
@@ -192,7 +191,15 @@ algorithm. The error is still $`O(\Delta t) + O(\Delta x^2)`$.
 -\frac{r}{2} T_{i-1}^{n+1} + (1 + r) T_i^{n+1} - \frac{r}{2} T_{i+1}^{n+1} = \frac{r}{2} T_{i-1}^n + (1 - r) T_i^n + \frac{r}{2} T_{i+1}^n
 ```
 
-The average of FTCS and BTCS, with error $`O(\Delta t^2) + O(\Delta x^2)`$.
+**Crank–Nicolson is second order in time and second order in space:**
+
+```math
+E = O(\Delta t^2) + O(\Delta x^2).
+```
+
+Averaging the old and new diffusion operators applies the trapezoidal rule in time. For smooth compatible solutions, halving Δt reduces the time-error contribution by approximately four, until spatial error dominates. Halving Δx reduces the spatial-error contribution by approximately four.
+
+The CN result card states both orders. In the grid-convergence section, press **Run study** and read **CN observed p** (scroll horizontally if needed). Both available refinement policies should give p approaching 2 for CN. With fixed r, Δt ∝ Δx² makes its time error O(Δx⁴), while the O(Δx²) spatial error sets the joint order. With fixed Δt/Δx, both contributions are O(Δx²). Initial discontinuities, incompatible boundary data and pre-asymptotic cancellation can obscure the design order.
 
 ## General explicit–implicit θ-method
 

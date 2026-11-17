@@ -65,9 +65,9 @@ for (const key of ['ftcs','btcs','cn']) {
   for(let n=0;n<50;n++) stepScheme(key,T,g);
   close(heat(T),h,1e-11);
 }
-// Fixed-r joint refinement should approach second order for both methods.
+// Fixed-r joint refinement should approach second order, including Crank–Nicolson.
 boundary('dd');
-for (const key of ['ftcs','btcs']) {
+for (const key of ['ftcs','btcs','cn']) {
   const errors = [10,20,40].map(N => {
     const T = sine(N), g = makeGrid(N,0.25), steps = N*N/25;
     for(let n=0;n<steps;n++) stepScheme(key,T,g);
@@ -199,3 +199,35 @@ for(const key of ['ftcs','btcs','cn','theta']) {
   for(const type of ['profile','error','factor']) assert.match(html,new RegExp(`id="${type}-${key}"`));
 }
 console.log('PASS: per-method weighted diagnostics, finite-grid verdicts, and frozen results retain their actual time while other methods advance.');
+
+// Exercise actual independent Δt controls, conversion, validation and resets.
+const compareFields = new Map();
+sandbox.document.getElementById = id => {
+  if(!compareFields.has(id)) compareFields.set(id,{value:id==='compare-ftcs-r'?0.4:id==='compare-btcs-r'?5:'',textContent:'',disabled:false});
+  return compareFields.get(id);
+};
+vm.runInContext(script.slice(script.indexOf('  let comparison ='),script.indexOf('  function renderComparison()'))+`
+  function renderComparison() {}
+  globalThis.dtControls = { resetComparison,setComparisonDt,current:()=>comparison,
+    resize(nn) { N=nn;dx=1/nn;x=Float64Array.from({length:nn+1},(_,i)=>i*dx); }
+  };
+`,sandbox);
+configure(10);
+const controls=sandbox.dtControls;controls.resetComparison();
+close(Number(compareFields.get('compare-ftcs-dt').value),0.4);
+close(Number(compareFields.get('compare-btcs-dt').value),5);
+assert.equal(controls.setComparisonDt('btcs',1.7),true);
+let c=controls.current();close(c.runs.ftcs.dt,0.4);close(c.runs.btcs.dt,1.7);
+advanceComparison(c,Infinity);close(c.time,1.7);assert.equal(c.runs.ftcs.steps,5);assert.equal(c.runs.btcs.steps,1);
+assert.equal(controls.setComparisonDt('btcs',100),true); // r > 50 is valid for the implicit comparison.
+c=controls.current();close(c.time,0);close(c.runs.ftcs.dt,0.4);close(c.runs.btcs.dt,100);
+for(const bad of [0,-1,NaN,Infinity,1001,1e-10]) {
+  assert.equal(controls.setComparisonDt('btcs',bad),false);assert.equal(controls.current(),c);
+  close(Number(compareFields.get('compare-btcs-dt').value),100);
+}
+assert.equal(controls.setComparisonDt('ftcs',0.1),true);
+c=controls.current();close(c.runs.btcs.dt,100);close(c.runs.ftcs.dt,0.1);
+controls.resize(50);controls.resetComparison();
+close(controls.current().runs.btcs.dt,4); // Requested r is retained across a mesh change.
+assert.ok(html.indexOf('id="independent-steps"')<html.indexOf('class="main"'));
+console.log('PASS: independent direct Δt inputs preserve the other method, synchronize results, accept large implicit steps, reject invalid values, and reset consistently.');

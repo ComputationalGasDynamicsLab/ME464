@@ -232,6 +232,30 @@ td.rd .num-in { border-color: var(--phase); }
 .learning-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.pass-flow{display:grid;gap:8px}.pass-flow>b:first-child{color:var(--fwd)}.pass-flow>b{color:var(--back)}.failure-guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-top:14px}.failure-guide b{font-size:14px}.failure-guide p{margin-top:8px}
 .pass-status{font:12px/1.7 var(--f-mono);border-left:3px solid var(--fwd);padding:10px 14px;background:var(--fwd-soft);border-radius:5px}.prediction-practice{border:1px solid var(--line);padding:12px;border-radius:7px;display:grid;gap:8px}.prediction-practice input{max-width:180px}.row-check{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;display:grid;gap:8px}.row-check select{max-width:200px}.residual-note{font-size:12px!important;color:var(--muted)}#reuse-output{overflow-x:auto;font:12px/1.8 var(--f-mono)}.learning summary{cursor:pointer;font-weight:600}
 @media(max-width:800px){.assembly-inputs{grid-template-columns:1fr 1fr}.assembly-grid,.learning-grid{grid-template-columns:1fr}.failure-guide{grid-template-columns:1fr}.rod-nodes{gap:5px}.rod-nodes>span,.rod-nodes>button{font-size:11px;padding:9px 3px}.assembly-matrix th,.assembly-matrix td{padding:6px}}
+/* Gaussian elimination pane (the prestep) */
+main.wrap.ggrid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-areas: "matrix step" "mult count" "code bridge"; }
+@media (max-width: 980px) { main.wrap.ggrid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "step" "matrix" "mult" "count" "code" "bridge"; } }
+.g-matrix { grid-area: matrix; } .g-mult { grid-area: mult; } .g-count { grid-area: count; } .g-code { grid-area: code; } .g-bridge { grid-area: bridge; }
+.mx td.piv { box-shadow: inset 0 0 0 2px var(--phase); border-radius: 4px; font-weight: 600; }
+.mx td.kill { background: var(--phase-soft); color: var(--phase); font-weight: 600; }
+.mx td.lv { color: var(--phase); font-weight: 600; }
+.mx td.idle { color: var(--faint); }
+.mx tr.wasted td, .mx tr.wasted th { opacity: .55; }
+.count-grid { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; font-size: 14px; align-items: baseline; }
+.count-grid dt { color: var(--muted); }
+.count-grid dd { margin: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.count-bar { height: 9px; border-radius: 5px; background: var(--line); overflow: hidden; margin-top: 2px; }
+.count-bar span { display: block; height: 100%; background: var(--phase); }
+.count-note { font-size: 13px; color: var(--muted); margin: 0; }
+.bridge-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; border-top: 1px solid var(--line); padding-top: 8px; }
+.bridge-pair > div { min-width: 0; overflow-x: auto; }
+.bridge-pair b { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.bridge-pair mjx-container[display="true"] { text-align: left !important; margin: 4px 0 !important; }
+@media (max-width: 620px) { .bridge-pair { grid-template-columns: 1fr; } }
+.g-rowops { display: grid; gap: 6px; font-family: var(--f-mono); font-size: 13.5px; background: var(--bg); border-radius: 6px; padding: 10px 12px; overflow-x: auto; }
+.g-rowops b { color: var(--phase); font-weight: 600; }
+.g-xvec { font-family: var(--f-mono); font-size: 13.5px; }
+.g-xvec .known { color: var(--back); font-weight: 600; }
 .old-temperature-note{border-left:3px solid var(--back);padding:10px 14px;background:var(--back-soft);border-radius:5px}.reuse-controls{display:flex;flex-wrap:wrap;gap:10px}.temperature-series{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));gap:14px}.temperature-snapshot{margin:0;padding:10px;border:1px solid var(--line);border-radius:7px;min-width:0}.temperature-snapshot.selected{border:2px solid var(--fwd);padding:9px;background:var(--fwd-soft)}.temperature-snapshot svg{width:100%;height:auto;display:block}.temperature-snapshot svg text{font:11px var(--f-mono);fill:var(--muted)}.temperature-snapshot figcaption{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;font:12px var(--f-mono)}.temperature-snapshot figcaption .btn{font-size:12px}.step-detail{padding:12px;border:1px solid var(--line);border-radius:7px;background:var(--bg);font-size:13px;overflow-wrap:anywhere}.step-detail p{margin-top:8px}
 </style>
 <style>
@@ -245,9 +269,10 @@ body { margin: 0; } img { max-width: 100%; } [hidden] { display: none !important
   <header class="wrap">
     <div class="eyebrow">Tridiagonal matrix algorithm (TDMA)</div>
     <h1>Thomas Algorithm: Derivation and Demonstration</h1>
-    <p class="lede">Solves <var>a</var><sub>i</sub><var>x</var><sub>i−1</sub> + <var>b</var><sub>i</sub><var>x</var><sub>i</sub> + <var>c</var><sub>i</sub><var>x</var><sub>i+1</sub> = <var>d</var><sub>i</sub> in two passes. Part 1 derives the algorithm in symbols, one row operation at a time. Part 2 runs it on CFD example systems with real numbers.</p>
+    <p class="lede">Solves <var>a</var><sub>i</sub><var>x</var><sub>i−1</sub> + <var>b</var><sub>i</sub><var>x</var><sub>i</sub> + <var>c</var><sub>i</sub><var>x</var><sub>i+1</sub> = <var>f</var><sub>i</sub> in two passes. Part 0 runs plain Gaussian elimination on a full matrix and then on a tridiagonal one, so you can see what Thomas keeps and what it throws away. Part 1 derives the algorithm in symbols, one row operation at a time. Part 2 runs it on CFD example systems with real numbers.</p>
     <nav class="tabs" role="tablist">
-      <button role="tab" id="tab-derive" data-goto="derive" aria-selected="true">1 · Derive the algorithm</button>
+      <button role="tab" id="tab-gauss" data-goto="gauss" aria-selected="true">0 · Gauss elimination first</button>
+      <button role="tab" id="tab-derive" data-goto="derive" aria-selected="false">1 · Derive the algorithm</button>
       <button role="tab" id="tab-example" data-goto="example" aria-selected="false">2 · Run an example</button>
     </nav>
   </header>
@@ -256,15 +281,84 @@ body { margin: 0; } img { max-width: 100%; } [hidden] { display: none !important
     <div class="panel"><h2 id="learning-title">Before the algebra: a rod becomes three equations</h2><p>For one BTCS heat-equation step, each interior temperature depends on its two neighbors. Here <b>n = 3 unknowns</b> lie between two known wall temperatures: N = 4 intervals, Δx = ¼. In this diagram k is the time level; the algorithm’s n counts unknowns.</p>
       <div class="assembly-inputs"><label>Diffusion number r <input class="num-in" id="assembly-r" type="number" min="0.01" max="10" step="0.01" value="0.5"></label><label>Left wall T₀ <input class="num-in" id="assembly-left" type="number" min="-1000" max="1000" value="100"></label><label>Right wall T₄ <input class="num-in" id="assembly-right" type="number" min="-1000" max="1000" value="20"></label><label>Old interior temperature Tᵏᵢ (initially uniform) <input class="num-in" id="assembly-old" type="number" min="-1000" max="1000" value="20"></label></div>
       <div class="rod-nodes" role="group" aria-label="Select an interior node to highlight its equation"><span class="wall-node">Known wall<br><b id="wall-left">100</b><small>x = 0</small></span><button class="btn" data-assembly-row="0">Unknown T₁<sup>k+1</sup><small>x = ¼</small></button><button class="btn" data-assembly-row="1">Unknown T₂<sup>k+1</sup><small>x = ½</small></button><button class="btn" data-assembly-row="2">Unknown T₃<sup>k+1</sup><small>x = ¾</small></button><span class="wall-node">Known wall<br><b id="wall-right">20</b><small>x = 1</small></span></div>
-      <p id="assembly-old-explanation" class="old-temperature-note" aria-live="polite"></p><p class="hint"><b>Before inserting known wall temperatures:</b></p><p id="assembly-equation" class="assembly-equation" aria-live="polite"></p><p class="hint"><b>After moving known wall terms to the right:</b></p><p id="assembly-reduced" class="assembly-equation"></p><div class="assembly-grid"><div class="scroll"><table class="assembly-matrix" id="assembly-matrix" aria-label="Three interior BTCS equations with the selected row highlighted"></table></div><div><p id="assembly-boundary"></p><p class="hint">The wall values move to d; they are not additional unknowns. The entries −r, 1+2r, −r form the three diagonals. In Ax = d, xᵢ is the new temperature Tᵢ<sup>k+1</sup>.</p><button class="btn primary" id="assembly-load">Solve these three equations below ↓</button></div></div>
+      <p id="assembly-old-explanation" class="old-temperature-note" aria-live="polite"></p><p class="hint"><b>Before inserting known wall temperatures:</b></p><p id="assembly-equation" class="assembly-equation" aria-live="polite"></p><p class="hint"><b>After moving known wall terms to the right:</b></p><p id="assembly-reduced" class="assembly-equation"></p><div class="assembly-grid"><div class="scroll"><table class="assembly-matrix" id="assembly-matrix" aria-label="Three interior BTCS equations with the selected row highlighted"></table></div><div><p id="assembly-boundary"></p><p class="hint">The wall values move to f; they are not additional unknowns. The entries −r, 1+2r, −r form the three diagonals. In Ax = f, xᵢ is the new temperature Tᵢ<sup>k+1</sup>.</p><button class="btn primary" id="assembly-load">Solve these three equations below ↓</button></div></div>
     </div>
-    <div class="learning-grid"><article class="panel"><h3>Two passes, two jobs</h3><div class="pass-flow"><b>Forward sweep → 1, 2, …, n</b><p>Remove the left neighbor and normalize each row. This prepares c′ and d′; it does not finish all x values.</p><div class="assembly-equation">xᵢ + c′ᵢxᵢ₊₁ = d′ᵢ</div><b>Back substitution ← n, …, 2, 1</b><p>Start with xₙ = d′ₙ, then recover each xᵢ from the known value to its right.</p></div><p class="hint"><b>The prime means modified, not a derivative.</b> c′ᵢ is the remaining right-neighbor coefficient after elimination and normalization. d′ᵢ is the transformed right-hand side. mᵢ is the pivot before normalization.</p></article>
-    <article class="panel"><h3>One matrix, many heat-equation steps</h3><p>If the mesh, r and boundary-condition types stay fixed, A stays fixed. New old-time temperatures change d. Factor A once, then reuse its pivots and upper coefficients to solve each new right-hand side.</p><button class="btn" id="reuse-run">Take 3 BTCS steps with one factorization</button><div id="reuse-output" aria-live="polite"></div><p class="hint">This independent example uses the temperature-history grid and time step below, with the wall and initial temperatures above. The first old interior profile is uniform; later steps use the temperatures just computed. <a href="../heat-equation/">Open the heat-equation lab.</a> Changing the mesh or time step generally requires refactorization.</p></article></div>
+    <div class="learning-grid"><article class="panel"><h3>Two passes, two jobs</h3><div class="pass-flow"><b>Forward sweep → 1, 2, …, n</b><p>Remove the left neighbor and normalize each row. This prepares c′ and f′; it does not finish all x values.</p><div class="assembly-equation">xᵢ + c′ᵢxᵢ₊₁ = f′ᵢ</div><b>Back substitution ← n, …, 2, 1</b><p>Start with xₙ = f′ₙ, then recover each xᵢ from the known value to its right.</p></div><p class="hint"><b>The prime means modified, not a derivative.</b> c′ᵢ is the remaining right-neighbor coefficient after elimination and normalization. f′ᵢ is the transformed right-hand side. mᵢ is the pivot before normalization.</p><p class="hint"><b>Notation.</b> The right-hand side of Ax = f is written <b>f</b> throughout this lab, as in the lecture notes. Many textbooks call the same vector d or r; only the name differs.</p></article>
+    <article class="panel"><h3>One matrix, many heat-equation steps</h3><p>If the mesh, r and boundary-condition types stay fixed, A stays fixed. New old-time temperatures change f. Factor A once, then reuse its pivots and upper coefficients to solve each new right-hand side.</p><button class="btn" id="reuse-run">Take 3 BTCS steps with one factorization</button><div id="reuse-output" aria-live="polite"></div><p class="hint">This independent example uses the temperature-history grid and time step below, with the wall and initial temperatures above. The first old interior profile is uniform; later steps use the temperatures just computed. <a href="../heat-equation/">Open the heat-equation lab.</a> Changing the mesh or time step generally requires refactorization.</p></article></div>
     <article class="panel" aria-labelledby="reuse-figure-title"><h3 id="reuse-figure-title">Watch the temperature after each BTCS time step</h3><p>A complete Thomas solve produces one new temperature profile. Its forward and backward row operations are <b>not separate physical time steps</b>. Start from the initial profile, solve one time step at a time, and inspect any saved figure.</p><div class="assembly-inputs"><label>Spatial intervals N (4–400)<input class="num-in" id="profile-n" type="number" min="4" max="400" step="1" value="4"></label><label>Time step Δt<input class="num-in" id="profile-dt" type="number" min="0.000001" max="100" step="any" value="3.125"></label></div><p class="hint">This profile grid is independent of the three-unknown algebra example above. It shares the wall and initial temperatures. N intervals give N + 1 grid nodes and N − 1 unknown interior temperatures. Try N = 40, 100 or 400. Changing N keeps Δt fixed, so equal step numbers represent equal physical times. Increasing N reduces spatial error; reduce Δt too when time error dominates. BTCS is unconditionally stable, but stability does not guarantee accuracy. Changing either control restarts the history.</p><div class="reuse-controls"><button class="btn primary" id="reuse-next">Compute next BTCS time step →</button><button class="btn" id="reuse-reset">Restart at the initial profile</button></div><p id="reuse-time-note" class="hint"></p><p class="hint">Blue line/dots: this time level; dashed gray: the previous time level; orange squares: fixed wall temperatures. Every figure uses identical axes; the lines connect grid nodes and are not exact spatial curves. The next-step button always advances the latest solution, even if an older figure is selected. Up to 20 steps can be displayed.</p><div id="reuse-figures" class="temperature-series"></div><div id="reuse-step-detail" class="step-detail" aria-live="polite"></div></article>
     <details class="panel"><summary>When can Thomas elimination fail?</summary><div class="failure-guide"><div><b>Zero pivot ≠ singular system</b><p>A nonsingular matrix can need a row exchange. This unpivoted algorithm cannot perform one. Try “Needs pivoting” in the examples.</p></div><div><b>Small relative pivot ≠ small matrix</b><p>A pivot tiny compared with its row can magnify cancellation. Uniformly scaling all coefficients down need not cause a problem. Try “Tiny pivot” and “Scaled warm-up.”</p></div><div><b>Diagonal dominance is sufficient, not necessary</b><p>Strict dominance in every row guarantees nonzero pivots in exact arithmetic. Weak dominance needs additional conditions, such as an irreducible matrix with at least one strict row. Symmetric positive definite tridiagonal matrices are another safe class.</p></div></div><p class="hint">Nonzero pivots alone do not guarantee a small forward error. The scaled residual below checks how well the computed x satisfies the original system; conditioning also matters. General-purpose tridiagonal solvers may use <a href="https://netlib.org/lapack/explore-html/d1/db3/dgtsv_8f_source.html">partial pivoting (LAPACK DGTSV)</a>.</p></details>
-    <details class="panel"><summary>Three quick checks before you finish</summary><ol><li>For the three-row warm-up, predict d′₂ and explain why it is not yet x₂.</li><li>Why can “Needs pivoting” have a unique solution while Thomas stops at its first row?</li><li>For repeated BTCS solves, which quantities can be reused when only old-time temperatures change? What changes if Δt changes?</li></ol></details>
+    <details class="panel"><summary>Three quick checks before you finish</summary><ol><li>For the three-row warm-up, predict f′₂ and explain why it is not yet x₂.</li><li>Why can “Needs pivoting” have a unique solution while Thomas stops at its first row?</li><li>For repeated BTCS solves, which quantities can be reused when only old-time temperatures change? What changes if Δt changes?</li></ol></details>
     <div class="pass-status" id="pass-status" role="status">Forward sweep → prepares rows; back substitution ← recovers x.</div>
   </section>
+
+  <div class="pane" id="gauss" data-phase="intro">
+   <div class="wrap">
+    <div class="setup">
+      <div class="field"><label for="g-system">System</label><select id="g-system"></select></div>
+      <label class="toggle"><input type="checkbox" id="g-skip"> Hide rows whose multiplier is already zero</label>
+      <span id="g-badge" class="badge"></span>
+    </div>
+    <p class="note" id="g-note"></p>
+   </div>
+
+   <div class="controls">
+    <div class="wrap">
+      <div class="ctl-row">
+        <button class="btn" id="g-first" aria-label="Back to start">⏮ Start</button>
+        <button class="btn" id="g-prev">◀ Prev</button>
+        <button class="btn primary" id="g-next">Next ▶</button>
+        <button class="btn" id="g-play">▶ Play</button>
+        <button class="btn" id="g-last" aria-label="Jump to end">End ⏭</button>
+        <span class="spacer"></span>
+        <span class="phase-chip" id="g-chip">Setup</span>
+        <span class="counter" id="g-counter"></span>
+      </div>
+      <div class="track" id="g-track"></div>
+      <div class="track-legend">
+        <span style="--c: var(--muted)">The method</span>
+        <span style="--c: var(--fwd)">Forward elimination (column by column)</span>
+        <span style="--c: var(--back)">Back substitution (row n upward)</span>
+        <span style="--c: var(--ok)">What Thomas keeps</span>
+      </div>
+    </div>
+   </div>
+
+   <main class="wrap ggrid">
+    <section class="panel a-step" id="g-step" aria-live="polite"></section>
+
+    <section class="panel g-matrix">
+      <div class="panel-h"><h3>Augmented matrix [ A | f ]</h3><span class="hint" id="g-mxhint"></span></div>
+      <div class="scroll"><table class="mx" id="g-mx"></table></div>
+      <div class="legend">
+        <span><span class="sw hl"></span>row being changed</span>
+        <span><span class="sw rd"></span>pivot</span>
+        <span><span class="sw wr"></span>entry driven to zero</span>
+      </div>
+      <div id="g-xvec" class="g-xvec"></div>
+    </section>
+
+    <section class="panel g-mult">
+      <div class="panel-h"><h3>Multipliers ℓ<sub>ik</sub> — the <var>L</var> of <var>A</var> = <var>LU</var></h3><span class="hint">One number per elimination</span></div>
+      <div class="scroll"><table class="mx" id="g-lx"></table></div>
+      <p class="hint" id="g-lhint"></p>
+    </section>
+
+    <section class="panel g-count">
+      <div class="panel-h"><h3>Arithmetic so far</h3><span class="hint">× ÷ + − counted one by one</span></div>
+      <div id="g-count"></div>
+    </section>
+
+    <section class="panel g-code">
+      <div class="panel-h"><h3>Textbook Gaussian elimination</h3><span class="hint">Highlighted lines run in this step</span></div>
+      <ol class="code" id="g-code"></ol>
+    </section>
+
+    <section class="panel g-bridge">
+      <div class="panel-h"><h3>From Gauss to Thomas</h3><span class="hint">Same row operations, cheaper bookkeeping</span></div>
+      <div id="g-bridge"></div>
+    </section>
+   </main>
+  </div>
 
   <div class="pane" id="der" data-phase="intro">
     <div class="controls">
@@ -291,7 +385,7 @@ body { margin: 0; } img { max-width: 100%; } [hidden] { display: none !important
     <main class="wrap dgrid">
       <section class="panel a-step" id="d-step" aria-live="polite"></section>
       <section class="panel d-matrix">
-        <div class="panel-h"><h3>Augmented matrix [ A | d ], n = 5</h3><span class="hint" id="d-op"></span></div>
+        <div class="panel-h"><h3>Augmented matrix [ A | f ], n = 5</h3><span class="hint" id="d-op"></span></div>
         <div class="scroll" id="d-mx"></div>
       </section>
       <section class="panel d-algo">
@@ -341,12 +435,12 @@ body { margin: 0; } img { max-width: 100%; } [hidden] { display: none !important
     <section class="panel a-step" id="step" aria-live="polite"></section>
 
     <section class="panel a-matrix">
-      <div class="panel-h"><h3>Augmented matrix [ A | d ]</h3><span class="hint" id="mxhint"></span></div>
+      <div class="panel-h"><h3>Augmented matrix [ A | f ]</h3><span class="hint" id="mxhint"></span></div>
       <div class="scroll"><table class="mx" id="mx"></table></div>
     </section>
 
     <section class="panel a-table">
-      <div class="panel-h"><h3>Working vectors</h3><span class="hint">Only these 4 + 3 arrays are stored. Edit <var>a</var>, <var>b</var>, <var>c</var>, <var>d</var> directly.</span></div>
+      <div class="panel-h"><h3>Working vectors</h3><span class="hint">Only these 4 + 3 arrays are stored. Edit <var>a</var>, <var>b</var>, <var>c</var>, <var>f</var> directly.</span></div>
       <div class="legend">
         <span><span class="sw rd"></span>read this step</span>
         <span><span class="sw wr"></span>written this step</span>
@@ -398,12 +492,12 @@ window.MathJax = {
     },
     conduction: {
       label: "1D steady conduction", n: 6,
-      note: "d²T/dx² = 0 with central differences on n interior nodes: Tᵢ₋₁ − 2Tᵢ + Tᵢ₊₁ = 0. Wall temperatures T = 100 (left) and T = 20 (right) are known, so they move to the right-hand side as d₁ = −100 and dₙ = −20. The exact answer is a straight line.",
+      note: "d²T/dx² = 0 with central differences on n interior nodes: Tᵢ₋₁ − 2Tᵢ + Tᵢ₊₁ = 0. Wall temperatures T = 100 (left) and T = 20 (right) are known, so they move to the right-hand side as f₁ = −100 and fₙ = −20. The exact answer is a straight line.",
       gen: (n) => ({ a: fill(n, 1), b: fill(n, -2), c: fill(n, 1), d: fill(n, (i) => (i === 0 ? -100 : i === n - 1 ? -20 : 0)) }),
     },
     btcs: {
       label: "Implicit heat equation (BTCS)", n: 6,
-      note: "One backward-Euler time step of ∂T/∂t = α ∂²T/∂x² with r = αΔt/Δx² = 0.5: −r Tᵢ₋₁ⁿ⁺¹ + (1+2r) Tᵢⁿ⁺¹ − r Tᵢ₊₁ⁿ⁺¹ = Tᵢⁿ. The rod starts at 20; the left wall is held at 100, so d₁ = 20 + 0.5·100.",
+      note: "One backward-Euler time step of ∂T/∂t = α ∂²T/∂x² with r = αΔt/Δx² = 0.5: −r Tᵢ₋₁ⁿ⁺¹ + (1+2r) Tᵢⁿ⁺¹ − r Tᵢ₊₁ⁿ⁺¹ = Tᵢⁿ. The rod starts at 20; the left wall is held at 100, so f₁ = 20 + 0.5·100.",
       gen: (n) => ({ a: fill(n, -0.5), b: fill(n, 2), c: fill(n, -0.5), d: fill(n, (i) => 20 + (i === 0 ? 50 : 0) + (i === n - 1 ? 10 : 0)) }),
     },
     convdiff: {
@@ -414,7 +508,7 @@ window.MathJax = {
     pivoting: {label:"Needs pivoting (nonsingular)",n:3,note:"The first pivot is zero, but the matrix is nonsingular. A pivoted solver can solve it; unpivoted Thomas cannot. The manufactured solution is x = 1.",gen:n=>{const a=fill(n,1),b=fill(n,2),c=fill(n,1);b[0]=0;return {a,b,c,d:fill(n,i=>b[i]+(i?1:0)+(i<n-1?1:0))};}},
     tiny: {label:"Tiny relative pivot (cancellation)",n:3,note:"The first diagonal is 10⁻¹⁶ beside an off-diagonal of 1. Elimination creates huge intermediate coefficients. Compare the solution and scaled residual; a tiny relative pivot can be harmful even for a nonsingular matrix.",gen:n=>{const a=fill(n,1),b=fill(n,2),c=fill(n,1);b[0]=1e-16;return {a,b,c,d:fill(n,i=>b[i]+(i?1:0)+(i<n-1?1:0))};}},
     singular: {label:"Singular disconnected block",n:3,note:"A strict first row does not rescue a disconnected singular block. All rows are weakly diagonally dominant, but the later block has a zero pivot and no unique solution.",gen:n=>{const a=fill(n,-1),b=fill(n,2),c=fill(n,-1);a[1]=0;c[0]=0;b[0]=1;b[1]=b[n-1]=1;return {a,b,c,d:fill(n,i=>i===0?1:0)};}},
-    scaled: {label:"Scaled warm-up (10⁻¹⁴ A and d)",n:4,note:"Uniformly scaling A and d by 10⁻¹⁴ leaves x = 1 unchanged. Small absolute pivots are not necessarily small relative to the matrix. This example must not be rejected by an absolute 10⁻¹² threshold.",gen:n=>({a:fill(n,-1e-14),b:fill(n,2e-14),c:fill(n,-1e-14),d:fill(n,i=>i===0||i===n-1?1e-14:0)})},
+    scaled: {label:"Scaled warm-up (10⁻¹⁴ A and f)",n:4,note:"Uniformly scaling A and f by 10⁻¹⁴ leaves x = 1 unchanged. Small absolute pivots are not necessarily small relative to the matrix. This example must not be rejected by an absolute 10⁻¹² threshold.",gen:n=>({a:fill(n,-1e-14),b:fill(n,2e-14),c:fill(n,-1e-14),d:fill(n,i=>i===0||i===n-1?1e-14:0)})},
     random: {
       label: "Random diagonally dominant", n: 5,
       note: "Random integer coefficients with |bᵢ| > |aᵢ| + |cᵢ|. Pick it again for a new system to practise on.",
@@ -560,7 +654,7 @@ window.MathJax = {
     $("reuse-time-note").textContent=`L = 1, N = ${p.N} intervals, ${p.N-1} interior unknowns, Δx = ${fmt(1/p.N)}, α = 0.01, Δt = ${fmt(p.r/(p.N*p.N*.01))}, r = αΔt/Δx² = ${fmt(p.r)}. Shared axes are fixed by the initial and wall temperatures.`;
     $("reuse-figures").innerHTML=session.history.map(row=>`<figure class="temperature-snapshot ${row.step===session.selected?"selected":""}">${temperatureFigure(session,row)}<figcaption><button class="btn" data-rod-step="${row.step}" aria-pressed="${row.step===session.selected}">${row.step===0?"Initial profile · k = 0":`Inspect step k = ${row.step}`}</button><span>t = ${fmt(row.time)}</span></figcaption></figure>`).join("");
     if(selected.step===0)$("reuse-step-detail").innerHTML=`<b>Initial time level k = 0.</b> The interior temperatures are ${temperatureVector(selected.x)}. The walls are held at ${fmt(p.left)} and ${fmt(p.right)}. The initial left-wall/interior difference is imposed at t = 0; the connecting line is a nodal guide.`;
-    else $("reuse-step-detail").innerHTML=`<b>Time step ${selected.step}: use the previous solution, not the initial uniform temperature again.</b><p>Old interior T<sup>${selected.step-1}</sup> = ${temperatureVector(selected.old)}.</p><p>Boundary contributions: d₁ = ${fmt(selected.old[0])} + ${fmt(p.r)} × (${fmt(p.left)}) = ${fmt(selected.d[0])}; d<sub>${p.N-1}</sub> = ${fmt(selected.old[selected.old.length-1])} + ${fmt(p.r)} × (${fmt(p.right)}) = ${fmt(selected.d[selected.d.length-1])}. Other entries equal their old interior temperatures. RHS vector d = ${temperatureVector(selected.d)}.</p><p>New interior T<sup>${selected.step}</sup> = ${temperatureVector(selected.x)}; scaled residual η = ${fmt(selected.scaled)}.</p>`;
+    else $("reuse-step-detail").innerHTML=`<b>Time step ${selected.step}: use the previous solution, not the initial uniform temperature again.</b><p>Old interior T<sup>${selected.step-1}</sup> = ${temperatureVector(selected.old)}.</p><p>Boundary contributions: f₁ = ${fmt(selected.old[0])} + ${fmt(p.r)} × (${fmt(p.left)}) = ${fmt(selected.d[0])}; f<sub>${p.N-1}</sub> = ${fmt(selected.old[selected.old.length-1])} + ${fmt(p.r)} × (${fmt(p.right)}) = ${fmt(selected.d[selected.d.length-1])}. Other entries equal their old interior temperatures. right-hand-side vector f = ${temperatureVector(selected.d)}.</p><p>New interior T<sup>${selected.step}</sup> = ${temperatureVector(selected.x)}; scaled residual η = ${fmt(selected.scaled)}.</p>`;
     $("reuse-next").disabled=count>=20;
   }
 
@@ -588,13 +682,13 @@ window.MathJax = {
     document.querySelectorAll("[data-assembly-row]").forEach(button=>button.setAttribute("aria-pressed",Number(button.dataset.assemblyRow)===i));
     $("assembly-old-explanation").textContent=`The right-hand-side ${fmt(p.old)} is T${i+1}ᵏ: the known OLD interior temperature at node ${i+1}. It is not a boundary contribution. In this initial example all three old interior nodes are set to ${fmt(p.old)}.`;
     $("assembly-equation").textContent=`Node ${i+1}: −${fmt(p.r)} T${i}ᵏ⁺¹ + ${fmt(1+2*p.r)} T${i+1}ᵏ⁺¹ − ${fmt(p.r)} T${i+2}ᵏ⁺¹ = T${i+1}ᵏ = ${fmt(p.old)}`;
-    $("assembly-matrix").innerHTML='<thead><tr><th>row</th><th>x₁</th><th>x₂</th><th>x₃</th><th>= d</th></tr></thead><tbody>'+A.b.map((b,j)=>{
+    $("assembly-matrix").innerHTML='<thead><tr><th>row</th><th>x₁</th><th>x₂</th><th>x₃</th><th>= f</th></tr></thead><tbody>'+A.b.map((b,j)=>{
       const row=[j===0?b:j===1?A.a[1]:0,j===0?A.c[0]:j===1?b:A.a[2],j===2?b:j===1?A.c[1]:0];
       return `<tr class="${j===i?"selected":""}"><th>${j+1}</th>${row.map(v=>`<td>${fmt(v)}</td>`).join("")}<td>${fmt(A.d[j])}</td></tr>`;
     }).join("")+"</tbody>";
-    $("assembly-boundary").textContent=i===0?`T₀ is known: move −rT₀ to the right. d₁ = ${fmt(p.old)} + ${fmt(p.r)} × ${fmt(p.left)} = ${fmt(A.d[0])}.`:i===2?`T₄ is known: move −rT₄ to the right. d₃ = ${fmt(p.old)} + ${fmt(p.r)} × ${fmt(p.right)} = ${fmt(A.d[2])}.`:`Both neighbors are unknown here. Keep them in A; d₂ = ${fmt(p.old)}.`;
+    $("assembly-boundary").textContent=i===0?`T₀ is known: move −rT₀ to the right. f₁ = ${fmt(p.old)} + ${fmt(p.r)} × ${fmt(p.left)} = ${fmt(A.d[0])}.`:i===2?`T₄ is known: move −rT₄ to the right. f₃ = ${fmt(p.old)} + ${fmt(p.r)} × ${fmt(p.right)} = ${fmt(A.d[2])}.`:`Both neighbors are unknown here. Keep them in A; f₂ = ${fmt(p.old)}.`;
     const b=fmt(1+2*p.r),r=fmt(p.r);
-    $("assembly-reduced").textContent=i===0?`${b} T1ᵏ⁺¹ − ${r} T2ᵏ⁺¹ = d₁ = ${fmt(A.d[0])}`:i===1?`−${r} T1ᵏ⁺¹ + ${b} T2ᵏ⁺¹ − ${r} T3ᵏ⁺¹ = d₂ = ${fmt(A.d[1])}`:`−${r} T2ᵏ⁺¹ + ${b} T3ᵏ⁺¹ = d₃ = ${fmt(A.d[2])}`;
+    $("assembly-reduced").textContent=i===0?`${b} T1ᵏ⁺¹ − ${r} T2ᵏ⁺¹ = f₁ = ${fmt(A.d[0])}`:i===1?`−${r} T1ᵏ⁺¹ + ${b} T2ᵏ⁺¹ − ${r} T3ᵏ⁺¹ = f₂ = ${fmt(A.d[1])}`:`−${r} T2ᵏ⁺¹ + ${b} T3ᵏ⁺¹ = f₃ = ${fmt(A.d[2])}`;
     const profile=profileSettings();
     if(!rodSession || JSON.stringify(rodSession.settings)!==JSON.stringify(profile))rodSession=startRodSession(profile);
     renderRodTimeline();
@@ -606,7 +700,7 @@ window.MathJax = {
   }
   function verificationHTML(R){
     const V=residuals(S.a,S.b,S.c,S.d,R.x);checkRow=Math.min(checkRow,S.n-1);const row=V.rows[checkRow];
-    return `<div class="row-check"><h3>Check an original equation</h3><label for="check-row">Choose original row</label><select id="check-row">${S.b.map((_,i)=>`<option value="${i}" ${i===checkRow?"selected":""}>Row ${i+1}</option>`).join("")}</select><div class="eq">${fmt(row.left)} + ${fmt(row.center)} + ${fmt(row.right)} = ${fmt(row.lhs)}; original d = ${fmt(row.rhs)}</div><p class="residual-note">Left, diagonal and right contributions use the original a, b, c and the computed x. Row residual Ax − d = ${fmt(row.residual)}.</p><p><b>Scaled residual η = ${fmt(V.scaled)}</b></p><p class="residual-note">η = ‖Ax−d‖∞ / (‖A‖∞‖x‖∞ + ‖d‖∞). ${V.scaled<100*Number.EPSILON*S.n?"This is a small scaled residual.":"The scaled residual is appreciable; inspect pivot sensitivity and arithmetic."} A small residual does not guarantee a small solution error when A is ill-conditioned.</p></div>`;
+    return `<div class="row-check"><h3>Check an original equation</h3><label for="check-row">Choose original row</label><select id="check-row">${S.b.map((_,i)=>`<option value="${i}" ${i===checkRow?"selected":""}>Row ${i+1}</option>`).join("")}</select><div class="eq">${fmt(row.left)} + ${fmt(row.center)} + ${fmt(row.right)} = ${fmt(row.lhs)}; original f = ${fmt(row.rhs)}</div><p class="residual-note">Left, diagonal and right contributions use the original a, b, c and the computed x. Row residual Ax − f = ${fmt(row.residual)}.</p><p><b>Scaled residual η = ${fmt(V.scaled)}</b></p><p class="residual-note">η = ‖Ax−f‖∞ / (‖A‖∞‖x‖∞ + ‖f‖∞). ${V.scaled<100*Number.EPSILON*S.n?"This is a small scaled residual.":"The scaled residual is appreciable; inspect pivot sensitivity and arithmetic."} A small residual does not guarantee a small solution error when A is ill-conditioned.</p></div>`;
   }
   function checkPrediction(value,R,I){
     const target=I.phase==="fwd"?R.dp[I.row]:R.x[I.row],answer=Number(value);
@@ -614,8 +708,105 @@ window.MathJax = {
     const magnitude=Math.abs(target),scientific=magnitude>0&&(magnitude<1e-3||magnitude>=1e5);
     const tolerance=(scientific?5e-4*10**Math.floor(Math.log10(magnitude)):5e-5)+8*Number.EPSILON*magnitude;
     if(Math.abs(answer-target)<=tolerance)return {correct:true,message:"Correct to the displayed precision. Press Reveal to show all values in this step."};
-    const hint=answer*target<0?"Check the sign: subtract the eliminated term before dividing.":I.phase==="fwd"?"Use the updated previous d′ and the new pivot m, not the original diagonal b.":"Use the x just found to the right, and subtract c′ times that x from d′.";
+    const hint=answer*target<0?"Check the sign: subtract the eliminated term before dividing.":I.phase==="fwd"?"Use the updated previous f′ and the new pivot m, not the original diagonal b.":"Use the x just found to the right, and subtract c′ times that x from f′.";
     return {correct:false,message:hint+" Try again, or press Reveal."};
+  }
+
+  // ---------- Gaussian elimination: the prestep to Thomas ----------
+  // A plain, structure-blind elimination on a full matrix, then the same code on a tridiagonal
+  // one. Everything here is data only; the pane renders it.
+  const triMatrix = (n, lo, di, up) =>
+    Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => (i === j ? di : j === i - 1 ? lo : j === i + 1 ? up : 0)));
+
+  const GAUSS_SYSTEMS = {
+    dense4: {
+      label: "Dense 4×4 (a general matrix)", kind: "dense",
+      note: "A full matrix with no special structure. Every elimination touches every remaining column, and every row below the pivot has work to do. This is the O(n³) case the Thomas algorithm avoids. The exact solution is x = (1, 2, −1, 1).",
+      A: [[2, 1, -1, 3], [4, 3, 1, -2], [-2, 5, 3, 1], [6, 2, -4, 2]], d: [8, 7, 6, 16],
+    },
+    tri4: {
+      label: "Tridiagonal 4×4 (the warm-up, x = 1)", kind: "tri",
+      note: "The same elimination, now on a tridiagonal matrix: 2 on the diagonal, −1 beside it. Watch two things. Most multipliers are zero, because the entries below the diagonal are already zero. And no elimination ever creates a new nonzero, so the band never widens. Every unknown comes out exactly 1.",
+      A: triMatrix(4, -1, 2, -1), d: [1, 0, 0, 1],
+    },
+    tri5: {
+      label: "Tridiagonal 5×5 (same n as the derivation)", kind: "tri",
+      note: "The 5×5 system used symbolically in part 1, run here with numbers by ordinary Gaussian elimination. Of the ten eliminations a dense code performs, only four do anything.",
+      A: triMatrix(5, -1, 2, -1), d: [1, 0, 0, 0, 1],
+    },
+    rod3: {
+      label: "BTCS rod, 3 unknowns (r = 0.5)", kind: "tri",
+      note: "One implicit heat-equation time step for the rod assembled at the top of this page: −0.5 Tᵢ₋₁ + 2 Tᵢ − 0.5 Tᵢ₊₁ = Tᵢᵏ, with the known walls 100 and 20 already moved into f = (70, 20, 30). This is the system part 2 solves with the Thomas algorithm.",
+      A: triMatrix(3, -0.5, 2, -0.5), d: [70, 20, 30],
+    },
+  };
+
+  // Cost of one elimination (row i, column k) and of one back-substitution row, as a plain
+  // triple-loop implementation executes it: one division for the multiplier, then a multiply and a
+  // subtract for each remaining column of the row and for the right-hand side. The entry being
+  // eliminated is set to zero rather than computed, in the dense count as well, so every operation
+  // the two counters differ by is one that structural zeros made unnecessary.
+  const denseElimOps = (n, k) => 3 + 2 * (n - k - 1);
+  const denseBackOps = (n, i) => 1 + 2 * (n - 1 - i);
+
+  function gaussTrace(key) {
+    const sys = GAUSS_SYSTEMS[key] || GAUSS_SYSTEMS.dense4;
+    const n = sys.d.length;
+    const M = sys.A.map((r) => r.slice()), d = sys.d.slice();
+    const L = Array.from({ length: n }, () => Array(n).fill(null));
+    const x = Array(n).fill(null);
+    const work = { real: 0, dense: 0, skipped: 0, elims: 0, trivial: 0 };
+    const steps = [];
+    const snap = (extra) => ({
+      M: M.map((r) => r.slice()), d: d.slice(), L: L.map((r) => r.slice()), x: x.slice(),
+      work: { ...work }, ...extra,
+    });
+
+    steps.push(snap({ phase: "intro", kind: "intro" }));
+
+    let err = null;
+    outer:
+    for (let k = 0; k < n - 1; k++) {
+      for (let i = k + 1; i < n; i++) {
+        if (M[k][k] === 0) { err = { col: k }; steps.push(snap({ phase: "error", kind: "zeropivot", col: k, row: k })); break outer; }
+        const mult = M[i][k] / M[k][k], dense = denseElimOps(n, k), touched = [];
+        let used = 0;
+        if (mult === 0) work.trivial++;
+        else {
+          work.elims++; used += 1;                    // the multiplier itself
+          M[i][k] = 0;                                // exact, not computed
+          for (let j = k + 1; j < n; j++) if (M[k][j] !== 0) { M[i][j] -= mult * M[k][j]; used += 2; touched.push(j); }
+          if (d[k] !== 0) { d[i] -= mult * d[k]; used += 2; }
+        }
+        work.dense += dense; work.real += used; work.skipped += dense - used;
+        L[i][k] = mult;
+        steps.push(snap({ phase: "fwd", kind: "elim", col: k, row: i, pivotRow: k, mult, trivial: mult === 0, touched, rhsChanged: mult !== 0 && d[k] !== 0, dense }));
+      }
+    }
+
+    if (!err) {
+      steps.push(snap({ phase: "fwd", kind: "triangular" }));
+      for (let i = n - 1; i >= 0; i--) {
+        let sum = d[i]; const terms = [];
+        for (let j = i + 1; j < n; j++) {
+          work.dense += 2;
+          if (M[i][j] !== 0) { sum -= M[i][j] * x[j]; work.real += 2; terms.push(j); }
+          else work.skipped += 2;
+        }
+        work.dense += 1; work.real += 1;
+        x[i] = sum / M[i][i];
+        steps.push(snap({ phase: "back", kind: "solve", row: i, terms, dense: denseBackOps(n, i) }));
+      }
+      steps.push(snap({ phase: "done", kind: "summary" }));
+    }
+
+    let residual = 0;
+    if (!err) for (let i = 0; i < n; i++) {
+      let lhs = 0;
+      for (let j = 0; j < n; j++) lhs += sys.A[i][j] * x[j];
+      residual = Math.max(residual, Math.abs(lhs - sys.d[i]));
+    }
+    return { key, sys, n, kind: sys.kind, steps, work: { ...work }, x: x.slice(), U: M.map((r) => r.slice()), L, err, residual };
   }
 
   // ---------- render ----------
@@ -680,7 +871,7 @@ window.MathJax = {
       const ex = Math.min(n, 3);
       h = `<div class="eyebrow">Step 0 · the problem</div>
         <h2 class="step-title">${n} equations, at most 3 unknowns per row</h2>
-        <p class="explain">Each row couples a node only to its two neighbours, so the matrix has nonzeros on just three diagonals. Instead of an <var>n</var>×<var>n</var> array, the algorithm stores four vectors: sub-diagonal <var>a</var>, diagonal <var>b</var>, super-diagonal <var>c</var> and right-hand side <var>d</var> (with <var>a</var><sub>1</sub> = <var>c</var><sub>n</sub> = 0).</p>
+        <p class="explain">Each row couples a node only to its two neighbours, so the matrix has nonzeros on just three diagonals. Instead of an <var>n</var>×<var>n</var> array, the algorithm stores four vectors: sub-diagonal <var>a</var>, diagonal <var>b</var>, super-diagonal <var>c</var> and right-hand side <var>f</var> (with <var>a</var><sub>1</sub> = <var>c</var><sub>n</sub> = 0).</p>
         <div class="eqs">${eq(`Row ${ex === 3 ? 2 : 1}`, ex === 3 ? `${sym("a", 2)}${sym("x", 1)} + ${sym("b", 2)}${sym("x", 2)} + ${sym("c", 2)}${sym("x", 3)}` : `${sym("b", 1)}${sym("x", 1)} + ${sym("c", 1)}${sym("x", 2)}`, null,
           ex === 3 ? fmt(d[1]) : fmt(d[0]))}</div>
         <p class="explain">This is Gaussian elimination that skips every zero. <strong style="color:var(--fwd)">Forward sweep</strong>: for rows 1 to <var>n</var>, remove <var>a</var><sub>i</sub> using the row above and divide by the pivot so the diagonal becomes 1. <strong style="color:var(--back)">Back substitution</strong>: the last row is then solved, and each row above needs only the value below it.</p>
@@ -693,20 +884,20 @@ window.MathJax = {
           <p class="explain">Row 1 has no sub-diagonal term, so there is nothing to eliminate. Divide the whole row by its pivot <var>b</var><sub>1</sub> to make the diagonal 1.</p>
           <div class="eqs">
             ${eq(sym("c", 1, 1), `${sym("c", 1)} / ${sym("b", 1)}`, `${fmt(c[0])} / ${par(b[0])}`, q(cp[0]))}
-            ${eq(sym("d", 1, 1), `${sym("d", 1)} / ${sym("b", 1)}`, `${fmt(d[0])} / ${par(b[0])}`, q(dp[0]))}
+            ${eq(sym("f", 1, 1), `${sym("f", 1)} / ${sym("b", 1)}`, `${fmt(d[0])} / ${par(b[0])}`, q(dp[0]))}
           </div>
           <p class="explain">Row 1 now reads <var>x</var><sub>1</sub> + ${masked ? "?" : par(cp[0])}·<var>x</var><sub>2</sub> = ${masked ? "?" : fmt(dp[0])}.</p>`;
       } else {
         const lastRow = i === n - 1;
         h = `<div class="eyebrow">Forward sweep · row ${k} of ${n}</div>
           <h2 class="step-title">Eliminate ${sym("a", k)} using row ${k - 1}</h2>
-          <p class="explain">Row ${k - 1} already reads <var>x</var><sub>${k - 1}</sub> + ${sym("c", k - 1, 1)}<var>x</var><sub>${k}</sub> = ${sym("d", k - 1, 1)}. Subtract ${sym("a", k)} × (row ${k - 1}) from row ${k}: the ${sym("x", k - 1)} term vanishes and the diagonal becomes the new pivot ${sym("m", k)}. Then divide row ${k} by ${sym("m", k)}.</p>
+          <p class="explain">Row ${k - 1} already reads <var>x</var><sub>${k - 1}</sub> + ${sym("c", k - 1, 1)}<var>x</var><sub>${k}</sub> = ${sym("f", k - 1, 1)}. Subtract ${sym("a", k)} × (row ${k - 1}) from row ${k}: the ${sym("x", k - 1)} term vanishes and the diagonal becomes the new pivot ${sym("m", k)}. Then divide row ${k} by ${sym("m", k)}.</p>
           <div class="eqs">
             ${eq(sym("m", k), `${sym("b", k)} − ${sym("a", k)}·${sym("c", k - 1, 1)}`, `${par(b[i])} − ${par(a[i])}·${par(cp[i - 1])}`, q(m[i]), "New diagonal after elimination (the pivot).")}
             ${lastRow
               ? eq(sym("c", k, 1), `${sym("c", k)} / ${sym("m", k)}`, null, "0", "Last row has no super-diagonal, so there is nothing to store.")
               : eq(sym("c", k, 1), `${sym("c", k)} / ${sym("m", k)}`, `${par(c[i])} / ${masked ? "?" : par(m[i])}`, q(cp[i]))}
-            ${eq(sym("d", k, 1), `(${sym("d", k)} − ${sym("a", k)}·${sym("d", k - 1, 1)}) / ${sym("m", k)}`, `(${fmt(d[i])} − ${par(a[i])}·${par(dp[i - 1])}) / ${masked ? "?" : par(m[i])}`, q(dp[i]))}
+            ${eq(sym("f", k, 1), `(${sym("f", k)} − ${sym("a", k)}·${sym("f", k - 1, 1)}) / ${sym("m", k)}`, `(${fmt(d[i])} − ${par(a[i])}·${par(dp[i - 1])}) / ${masked ? "?" : par(m[i])}`, q(dp[i]))}
           </div>
           <p class="explain">Row ${k} now reads <var>x</var><sub>${k}</sub>${lastRow ? "" : ` + ${masked ? "?" : par(cp[i])}·<var>x</var><sub>${k + 1}</sub>`} = ${masked ? "?" : fmt(dp[i])}.${lastRow ? " The forward sweep is finished: the matrix is upper bidiagonal with 1s on the diagonal." : ""}</p>`;
       }
@@ -715,13 +906,13 @@ window.MathJax = {
       if (i === n - 1) {
         h = `<div class="eyebrow">Back substitution · row ${n}</div>
           <h2 class="step-title">The last row is already solved</h2>
-          <p class="explain">After the forward sweep, row ${n} reads 1·${sym("x", n)} = ${sym("d", n, 1)}. No arithmetic is needed.</p>
-          <div class="eqs">${eq(sym("x", n), sym("d", n, 1), null, q(x[i]))}</div>`;
+          <p class="explain">After the forward sweep, row ${n} reads 1·${sym("x", n)} = ${sym("f", n, 1)}. No arithmetic is needed.</p>
+          <div class="eqs">${eq(sym("x", n), sym("f", n, 1), null, q(x[i]))}</div>`;
       } else {
         h = `<div class="eyebrow">Back substitution · row ${k}</div>
           <h2 class="step-title">Substitute ${sym("x", k + 1)} into row ${k}</h2>
-          <p class="explain">Row ${k} reads ${sym("x", k)} + ${sym("c", k, 1)}${sym("x", k + 1)} = ${sym("d", k, 1)}, and ${sym("x", k + 1)} was found in the previous step. Move it to the right-hand side.</p>
-          <div class="eqs">${eq(sym("x", k), `${sym("d", k, 1)} − ${sym("c", k, 1)}·${sym("x", k + 1)}`, `${par(dp[i])} − ${par(cp[i])}·${par(x[i + 1])}`, q(x[i]))}</div>`;
+          <p class="explain">Row ${k} reads ${sym("x", k)} + ${sym("c", k, 1)}${sym("x", k + 1)} = ${sym("f", k, 1)}, and ${sym("x", k + 1)} was found in the previous step. Move it to the right-hand side.</p>
+          <div class="eqs">${eq(sym("x", k), `${sym("f", k, 1)} − ${sym("c", k, 1)}·${sym("x", k + 1)}`, `${par(dp[i])} − ${par(cp[i])}·${par(x[i + 1])}`, q(x[i]))}</div>`;
       }
       h += `<p class="explain" style="color:var(--muted)">${i === 0 ? "This was the last unknown." : `${i} unknown${i > 1 ? "s" : ""} left, each costing one multiply and one subtract.`}</p>`;
     } else if (I.phase === "error") {
@@ -741,7 +932,7 @@ window.MathJax = {
         <p class="explain">Each back-substitution step cleared one super-diagonal entry, so [A | d] became [I | x].</p>
         <div class="xs">x = [ ${x.map(fmt).join(", ")} ]</div>
         <dl class="kv">
-          <dt>Check, max |Ax − d|</dt><dd>${fmt(res)} (absolute residual; scale matters)</dd>
+          <dt>Check, max |Ax − f|</dt><dd>${fmt(res)} (absolute residual; scale matters)</dd>
           <dt>Thomas, about 8n − 7 ops</dt><dd>${thomas.toLocaleString()} ops for n = ${n}</dd>
           <dt>Dense Gauss, about 2n³/3</dt><dd>${gauss.toLocaleString()} ops for n = ${n}</dd>
           <dt>At n = 1000</dt><dd>7,993 vs 666,666,667</dd>
@@ -750,7 +941,7 @@ window.MathJax = {
     }
     if(I.phase === "done")h+=verificationHTML(R);
     if(I.phase === "fwd" && R.relative[I.row]<1e-10)h+=`<p class="badge warn">Tiny relative pivot: |m|/row scale = ${fmt(R.relative[I.row])}. Elimination may amplify cancellation; inspect the final scaled residual.</p>`;
-    if (masked) h += `<div class="prediction-practice"><label for="prediction-answer">Predict ${I.phase === "fwd"?"d′":"x"}<sub>${I.row+1}</sub> before revealing the step</label><input id="prediction-answer" class="num-in" type="number" step="any"><div><button class="btn" id="prediction-check">Check my value</button> <span class="hint">Reveal shows the step; Next then advances.</span></div><p id="prediction-feedback" aria-live="polite"></p></div>`;
+    if (masked) h += `<div class="prediction-practice"><label for="prediction-answer">Predict ${I.phase === "fwd"?"f′":"x"}<sub>${I.row+1}</sub> before revealing the step</label><input id="prediction-answer" class="num-in" type="number" step="any"><div><button class="btn" id="prediction-check">Check my value</button> <span class="hint">Reveal shows the step; Next then advances.</span></div><p id="prediction-feedback" aria-live="polite"></p></div>`;
     $("step").innerHTML = h;
   }
 
@@ -768,7 +959,7 @@ window.MathJax = {
     const { n, a, b, c, d } = S;
     let h = "<thead><tr><th class='rowh'></th>";
     for (let j = 0; j < n; j++) h += `<th>${sym("x", j + 1)}</th>`;
-    h += `<th>${I.phase === "done" ? "x" : "rhs"}</th></tr></thead><tbody>`;
+    h += `<th>${I.phase === "done" ? "x" : "f"}</th></tr></thead><tbody>`;
     for (let r = 0; r < n; r++) {
       const st = rowState(r, I, R);
       const active = r === I.row;
@@ -805,8 +996,8 @@ window.MathJax = {
     const { n, a, b, c, d } = S;
     const focusId = document.activeElement && document.activeElement.id;
     let h = `<thead><tr class="grp"><th></th><th colspan="4">input coefficients</th><th colspan="3" class="gsep">forward sweep</th><th class="gsep">back sub.</th></tr>
-      <tr><th style="text-align:left">i</th><th>${sym("a", "i")}</th><th>${sym("b", "i")}</th><th>${sym("c", "i")}</th><th>${sym("d", "i")}</th>
-      <th class="gsep">${sym("m", "i")}</th><th>${sym("c", "i", 1)}</th><th>${sym("d", "i", 1)}</th><th class="gsep">${sym("x", "i")}</th></tr></thead><tbody>`;
+      <tr><th style="text-align:left">i</th><th>${sym("a", "i")}</th><th>${sym("b", "i")}</th><th>${sym("c", "i")}</th><th>${sym("f", "i")}</th>
+      <th class="gsep">${sym("m", "i")}</th><th>${sym("c", "i", 1)}</th><th>${sym("f", "i", 1)}</th><th class="gsep">${sym("x", "i")}</th></tr></thead><tbody>`;
     for (let r = 0; r < n; r++) {
       const st = rowState(r, I, R);
       const f = I.phase === "fwd" || I.phase === "error", bk = I.phase === "back";
@@ -822,7 +1013,7 @@ window.MathJax = {
       };
       const input = (key) => {
         if ((key === "a" && r === 0) || (key === "c" && r === n - 1)) return cell(key, "—", "empty");
-        return cell(key, `<input class="num-in" type="number" step="any" id="in-${key}-${r}" data-k="${key}" data-r="${r}" value="${S[key][r]}" aria-label="${key} row ${r + 1}">`);
+        return cell(key, `<input class="num-in" type="number" step="any" id="in-${key}-${r}" data-k="${key}" data-r="${r}" value="${S[key][r]}" aria-label="${key === "d" ? "f" : key} row ${r + 1}">`);
       };
       const out = (key, arr, visible, extra = "") => {
         if (!visible) return cell(key, "", (extra + " empty").trim());
@@ -840,15 +1031,15 @@ window.MathJax = {
 
   const CODE = [
     { t: "// forward sweep", cmt: true },
-    { t: "c′[1] ← c[1] / b[1];  d′[1] ← d[1] / b[1]" },
+    { t: "c′[1] ← c[1] / b[1];  f′[1] ← f[1] / b[1]" },
     { t: "for i = 2 … n:" },
     { t: "    m     ← b[i] − a[i]·c′[i−1]" },
     { t: "    c′[i] ← c[i] / m" },
-    { t: "    d′[i] ← (d[i] − a[i]·d′[i−1]) / m" },
+    { t: "    f′[i] ← (f[i] − a[i]·f′[i−1]) / m" },
     { t: "// back substitution", cmt: true },
-    { t: "x[n] ← d′[n]" },
+    { t: "x[n] ← f′[n]" },
     { t: "for i = n−1 … 1:" },
-    { t: "    x[i] ← d′[i] − c′[i]·x[i+1]" },
+    { t: "    x[i] ← f′[i] − c′[i]·x[i+1]" },
   ];
   function renderCode(I) {
     let on = [], tagAt = -1;
@@ -894,7 +1085,7 @@ window.MathJax = {
       h += `<polyline class="ln" points="${vis.map((i) => `${X(i)},${Y(R.x[i])}`).join(" ")}"/>`;
       for (const i of vis) h += `<circle class="pt ${i === I.row ? "cur" : ""}" cx="${X(i)}" cy="${Y(R.x[i])}" r="${i === I.row ? 6 : 4.5}"><title>x${i + 1} = ${fmt(R.x[i])}</title></circle>`;
     } else {
-      h += `<text class="msg" x="${(L + W - Rm) / 2}" y="${(T + H - B) / 2}" text-anchor="middle">No x values yet. The forward sweep only prepares c′ and d′.</text>`;
+      h += `<text class="msg" x="${(L + W - Rm) / 2}" y="${(T + H - B) / 2}" text-anchor="middle">No x values yet. The forward sweep only prepares c′ and f′.</text>`;
     }
     $("plot").innerHTML = h + "</svg>";
   }
@@ -970,75 +1161,76 @@ window.MathJax = {
       phase: "intro", st: "ooooo", hl: [], op: "",
       title: "A tridiagonal system",
       body: T`<p>A three-point stencil, such as the central difference for \(\partial^2\phi/\partial x^2\), links each node only to its two neighbours. One equation per node gives</p>
-\[\begin{aligned} b_1x_1 + c_1x_2 &= d_1\\ a_ix_{i-1} + b_ix_i + c_ix_{i+1} &= d_i, \qquad i = 2,\dots,n-1\\ a_nx_{n-1} + b_nx_n &= d_n \end{aligned}\]
-<p>In matrix form \(A\mathbf{x} = \mathbf{d}\), the only nonzeros lie on three diagonals: sub-diagonal \(a_i\), diagonal \(b_i\), super-diagonal \(c_i\). By convention \(a_1 = 0\) and \(c_n = 0\).</p>
-<p>Example: \(\phi_{i-1} - 2\phi_i + \phi_{i+1} = 0\) has \(a_i = 1,\ b_i = -2,\ c_i = 1\). The matrix on the right shows \(n = 5\).</p>`,
+\[\begin{aligned} b_1x_1 + c_1x_2 &= f_1\\ a_ix_{i-1} + b_ix_i + c_ix_{i+1} &= f_i, \qquad i = 2,\dots,n-1\\ a_nx_{n-1} + b_nx_n &= f_n \end{aligned}\]
+<p>In matrix form \(A\mathbf{x} = \mathbf{f}\), the only nonzeros lie on three diagonals: sub-diagonal \(a_i\), diagonal \(b_i\), super-diagonal \(c_i\). By convention \(a_1 = 0\) and \(c_n = 0\).</p>
+<p>Example: \(\phi_{i-1} - 2\phi_i + \phi_{i+1} = 0\) has \(a_i = 1,\ b_i = -2,\ c_i = 1\). The matrix on the right shows \(n = 5\).</p>
+<p>Everything below is ordinary Gaussian elimination with the zeros skipped. <button class="btn" data-goto="gauss">See the elimination it comes from ◀</button></p>`,
     },
     {
       phase: "intro", st: "ooooo", hl: [], op: "",
       title: "The plan: make it bidiagonal",
-      body: T`<p>Dense Gaussian elimination costs \(\mathcal{O}(n^3)\). Here each column has only one entry below the diagonal, so eliminating it changes only the next row. The forward sweep rewrites every row in the form</p>
-\[x_i + c'_i\,x_{i+1} = d'_i \quad (i \lt n), \qquad x_n = d'_n\]
+      body: T`<p>Dense Gaussian elimination costs \(\mathcal{O}(n^3)\); part 0 runs it step by step if you want to see where that cost comes from. Here each column has only one entry below the diagonal, so eliminating it changes only the next row. The forward sweep rewrites every row in the form</p>
+\[x_i + c'_i\,x_{i+1} = f'_i \quad (i \lt n), \qquad x_n = f'_n\]
 <p>which is the unit upper-bidiagonal system</p>
-\[\begin{bmatrix}1 & c'_1 \\ & 1 & c'_2 \\ & & \ddots & \ddots \\ & & & 1 & c'_{n-1}\\ & & & & 1\end{bmatrix}\begin{bmatrix} x_1\\ x_2\\ \vdots\\ x_{n-1}\\ x_n\end{bmatrix} = \begin{bmatrix} d'_1\\ d'_2\\ \vdots\\ d'_{n-1}\\ d'_n\end{bmatrix}\]
-<p>Back substitution then solves it from the bottom up. The task is to find formulas for the new coefficients \(c'_i\) and \(d'_i\).</p>`,
+\[\begin{bmatrix}1 & c'_1 \\ & 1 & c'_2 \\ & & \ddots & \ddots \\ & & & 1 & c'_{n-1}\\ & & & & 1\end{bmatrix}\begin{bmatrix} x_1\\ x_2\\ \vdots\\ x_{n-1}\\ x_n\end{bmatrix} = \begin{bmatrix} f'_1\\ f'_2\\ \vdots\\ f'_{n-1}\\ f'_n\end{bmatrix}\]
+<p>Back substitution then solves it from the bottom up. The task is to find formulas for the new coefficients \(c'_i\) and \(f'_i\).</p>`,
     },
     {
       phase: "fwd", st: "foooo", hl: ["1,1", "1,2", "1,6"], op: T`R_1 \leftarrow R_1 / b_1`,
       title: "Row 1: divide by the pivot",
       body: T`<p>Row 1 has no \(x_0\) term, so there is nothing to eliminate. Divide it by its diagonal \(b_1\):</p>
-\[b_1x_1 + c_1x_2 = d_1 \quad\xrightarrow{\ \div\, b_1\ }\quad x_1 + \underbrace{\frac{c_1}{b_1}}_{\class{hl}{c'_1}}\,x_2 = \underbrace{\frac{d_1}{b_1}}_{\class{hl}{d'_1}}\]
-<p>Row 1 is now in the target form \(x_1 + c'_1x_2 = d'_1\).</p>`,
+\[b_1x_1 + c_1x_2 = f_1 \quad\xrightarrow{\ \div\, b_1\ }\quad x_1 + \underbrace{\frac{c_1}{b_1}}_{\class{hl}{c'_1}}\,x_2 = \underbrace{\frac{f_1}{b_1}}_{\class{hl}{f'_1}}\]
+<p>Row 1 is now in the target form \(x_1 + c'_1x_2 = f'_1\).</p>`,
     },
     {
       phase: "fwd", st: "feooo", hl: ["2,1", "2,2", "2,6"], op: T`R_2 \leftarrow R_2 - a_2R_1`,
       title: T`Row 2: eliminate \(x_1\)`,
       body: T`<p>Row 2 contains \(x_1\). Remove it by subtracting \(a_2\) times the new row 1:</p>
-\[\begin{array}{rrrcl} a_2x_1 & +\;b_2x_2 & +\;c_2x_3 & = & d_2\\ -\;a_2x_1 & -\;a_2c'_1x_2 & & = & -\;a_2d'_1\\ \hline \class{hl}{0} & +\;\class{hl}{(b_2 - a_2c'_1)}\,x_2 & +\;c_2x_3 & = & \class{hl}{d_2 - a_2d'_1}\end{array}\]
+\[\begin{array}{rrrcl} a_2x_1 & +\;b_2x_2 & +\;c_2x_3 & = & f_2\\ -\;a_2x_1 & -\;a_2c'_1x_2 & & = & -\;a_2f'_1\\ \hline \class{hl}{0} & +\;\class{hl}{(b_2 - a_2c'_1)}\,x_2 & +\;c_2x_3 & = & \class{hl}{f_2 - a_2f'_1}\end{array}\]
 <p>The sub-diagonal entry is gone. Only the diagonal and the right-hand side changed. \(c_2\) is untouched because row 1 has no \(x_3\) term.</p>`,
     },
     {
       phase: "fwd", st: "ffooo", hl: ["2,2", "2,3", "2,6"], op: T`R_2 \leftarrow R_2 / m_2`,
       title: "Row 2: divide by the new pivot",
       body: T`<p>Call the new diagonal the <strong>pivot</strong>, \(m_2 = b_2 - a_2c'_1\), and divide row 2 by it:</p>
-\[x_2 + \underbrace{\frac{c_2}{m_2}}_{\class{hl}{c'_2}}\,x_3 = \underbrace{\frac{d_2 - a_2d'_1}{m_2}}_{\class{hl}{d'_2}}\]
+\[x_2 + \underbrace{\frac{c_2}{m_2}}_{\class{hl}{c'_2}}\,x_3 = \underbrace{\frac{f_2 - a_2f'_1}{m_2}}_{\class{hl}{f'_2}}\]
 <p>Row 2 now has exactly the same form as row 1. This is the key observation: the same two moves work on row 3, then row 4, and so on down the matrix.</p>`,
     },
     {
       phase: "fwd", st: "ffffo", hl: ["3,2", "3,3", "3,4", "3,6", "4,3", "4,4", "4,5", "4,6"], op: T`R_i \leftarrow (R_i - a_iR_{i-1})/m_i,\ \ i = 3,4`,
       title: T`Any row \(i\): the recurrence`,
-      body: T`<p>Suppose row \(i-1\) is already \(x_{i-1} + c'_{i-1}x_i = d'_{i-1}\). Row \(i\) is \(a_ix_{i-1} + b_ix_i + c_ix_{i+1} = d_i\). Apply \(R_i \leftarrow R_i - a_iR_{i-1}\):</p>
-\[(b_i - a_ic'_{i-1})\,x_i + c_ix_{i+1} = d_i - a_id'_{i-1}\]
+      body: T`<p>Suppose row \(i-1\) is already \(x_{i-1} + c'_{i-1}x_i = f'_{i-1}\). Row \(i\) is \(a_ix_{i-1} + b_ix_i + c_ix_{i+1} = f_i\). Apply \(R_i \leftarrow R_i - a_iR_{i-1}\):</p>
+\[(b_i - a_ic'_{i-1})\,x_i + c_ix_{i+1} = f_i - a_if'_{i-1}\]
 <p>Then divide by the pivot. This is the forward-sweep recurrence:</p>
-\[\boxed{\;m_i = b_i - a_i\,c'_{i-1},\qquad c'_i = \frac{c_i}{m_i},\qquad d'_i = \frac{d_i - a_i\,d'_{i-1}}{m_i}\;}\]
-<p>Each row needs only two numbers from the row above, \(c'_{i-1}\) and \(d'_{i-1}\). Rows 3 and 4 in the matrix were done this way.</p>`,
+\[\boxed{\;m_i = b_i - a_i\,c'_{i-1},\qquad c'_i = \frac{c_i}{m_i},\qquad f'_i = \frac{f_i - a_i\,f'_{i-1}}{m_i}\;}\]
+<p>Each row needs only two numbers from the row above, \(c'_{i-1}\) and \(f'_{i-1}\). Rows 3 and 4 in the matrix were done this way.</p>`,
     },
     {
       phase: "fwd", st: "fffff", hl: ["5,4", "5,5", "5,6"], op: T`R_5 \leftarrow (R_5 - a_5R_4)/m_5`,
       title: "Last row: the sweep ends",
       body: T`<p>The last row has no super-diagonal (\(c_n = 0\)), so \(c'_n = 0\) and the recurrence leaves</p>
-\[\class{hl}{x_n = d'_n} = \frac{d_n - a_n\,d'_{n-1}}{b_n - a_n\,c'_{n-1}}\]
+\[\class{hl}{x_n = f'_n} = \frac{f_n - a_n\,f'_{n-1}}{b_n - a_n\,c'_{n-1}}\]
 <p>The forward sweep is complete. The matrix is unit upper bidiagonal and the last unknown is already determined.</p>`,
     },
     {
-      phase: "back", st: "ffffb", hl: ["5,6"], op: T`x_5 = d'_5`,
+      phase: "back", st: "ffffb", hl: ["5,6"], op: T`x_5 = f'_5`,
       title: T`Back substitution starts at \(x_n\)`,
-      body: T`<p>Read the last row: \(1\cdot x_n = d'_n\), so</p>
-\[\class{hl}{x_n = d'_n}\]
+      body: T`<p>Read the last row: \(1\cdot x_n = f'_n\), so</p>
+\[\class{hl}{x_n = f'_n}\]
 <p>Back substitution now runs upward, from row \(n-1\) to row 1. Each row has one unknown left once the one below it is known.</p>`,
     },
     {
       phase: "back", st: "fffbb", hl: ["4,5", "4,6"], op: T`R_4 \leftarrow R_4 - c'_4R_5`,
       title: T`Row \(n-1\): substitute \(x_n\)`,
-      body: T`<p>Row 4 reads \(x_4 + c'_4x_5 = d'_4\), and \(x_5\) is known. Move it to the right-hand side:</p>
-\[\class{hl}{x_4 = d'_4 - c'_4\,x_5}\]
+      body: T`<p>Row 4 reads \(x_4 + c'_4x_5 = f'_4\), and \(x_5\) is known. Move it to the right-hand side:</p>
+\[\class{hl}{x_4 = f'_4 - c'_4\,x_5}\]
 <p>In matrix terms this is \(R_4 \leftarrow R_4 - c'_4R_5\), which clears the super-diagonal entry of row 4.</p>`,
     },
     {
       phase: "back", st: "bbbbb", hl: ["3,4", "3,6", "2,3", "2,6", "1,2", "1,6"], op: T`R_i \leftarrow R_i - c'_iR_{i+1},\ \ i = 3,2,1`,
       title: "All remaining rows",
       body: T`<p>Every row above works the same way, using the value just found below it:</p>
-\[\boxed{\;x_i = d'_i - c'_i\,x_{i+1},\qquad i = n-1,\,n-2,\,\dots,\,1\;}\]
+\[\boxed{\;x_i = f'_i - c'_i\,x_{i+1},\qquad i = n-1,\,n-2,\,\dots,\,1\;}\]
 <p>The augmented matrix has become \([\,I \mid \mathbf{x}\,]\): the system is solved.</p>`,
     },
     {
@@ -1052,12 +1244,12 @@ window.MathJax = {
   ];
 
   const ALG = {
-    a1: T`c'_1 = \dfrac{c_1}{b_1},\qquad d'_1 = \dfrac{d_1}{b_1}`,
-    a2: T`m_2 = b_2 - a_2c'_1,\quad c'_2 = \dfrac{c_2}{m_2},\quad d'_2 = \dfrac{d_2 - a_2d'_1}{m_2}`,
-    ag: T`\begin{aligned}&\textbf{for } i = 2,\dots,n:\\ &\quad m_i = b_i - a_i\,c'_{i-1}\\ &\quad c'_i = c_i / m_i \qquad (c'_n = 0)\\ &\quad d'_i = (d_i - a_i\,d'_{i-1}) / m_i\end{aligned}`,
-    xn: T`x_n = d'_n`,
-    x4: T`x_{n-1} = d'_{n-1} - c'_{n-1}\,x_n`,
-    ab: T`\begin{aligned}&\textbf{for } i = n-1,\dots,1:\\ &\quad x_i = d'_i - c'_i\,x_{i+1}\end{aligned}`,
+    a1: T`c'_1 = \dfrac{c_1}{b_1},\qquad f'_1 = \dfrac{f_1}{b_1}`,
+    a2: T`m_2 = b_2 - a_2c'_1,\quad c'_2 = \dfrac{c_2}{m_2},\quad f'_2 = \dfrac{f_2 - a_2f'_1}{m_2}`,
+    ag: T`\begin{aligned}&\textbf{for } i = 2,\dots,n:\\ &\quad m_i = b_i - a_i\,c'_{i-1}\\ &\quad c'_i = c_i / m_i \qquad (c'_n = 0)\\ &\quad f'_i = (f_i - a_i\,f'_{i-1}) / m_i\end{aligned}`,
+    xn: T`x_n = f'_n`,
+    x4: T`x_{n-1} = f'_{n-1} - c'_{n-1}\,x_n`,
+    ab: T`\begin{aligned}&\textbf{for } i = n-1,\dots,1:\\ &\quad x_i = f'_i - c'_i\,x_{i+1}\end{aligned}`,
   };
   function algoLines(k) {
     const f = [], b = [];
@@ -1072,7 +1264,7 @@ window.MathJax = {
 
   function dCell(state, r, c, h) {
     let s;
-    if (c === 6) s = { o: `d_{${r}}`, e: `d_{${r}} - a_{${r}}d'_{${r - 1}}`, f: `d'_{${r}}`, b: `x_{${r}}` }[state];
+    if (c === 6) s = { o: `f_{${r}}`, e: `f_{${r}} - a_{${r}}f'_{${r - 1}}`, f: `f'_{${r}}`, b: `x_{${r}}` }[state];
     else if (state === "o") s = c === r - 1 ? `a_{${r}}` : c === r ? `b_{${r}}` : c === r + 1 ? `c_{${r}}` : "0";
     else if (state === "e") s = c === r - 1 ? "0" : c === r ? `b_{${r}} - a_{${r}}c'_{${r - 1}}` : c === r + 1 ? `c_{${r}}` : "0";
     else if (state === "f") s = c === r ? "1" : c === r + 1 ? `c'_{${r}}` : "0";
@@ -1139,16 +1331,288 @@ window.MathJax = {
   $("d-play").addEventListener("click", dPlay);
   $("d-track").addEventListener("click", (e) => { const k = e.target.dataset && e.target.dataset.k; if (k !== undefined) { dStop(); dGo(+k); } });
 
+  // ---------- Gaussian elimination pane ----------
+  const G = { key: "dense4", step: 0, skip: false, trace: gaussTrace("dense4"), timer: null };
+  const gSteps = () => G.trace.steps.filter((s) => !(G.skip && s.trivial));
+  const gLast = () => gSteps().length - 1;
+  function gLoad(key) { G.key = GAUSS_SYSTEMS[key] ? key : "dense4"; G.trace = gaussTrace(G.key); G.step = 0; }
+
+  const GCODE = [
+    { t: "// forward elimination", cmt: true },
+    { t: "for k = 1 … n−1:                  // pivot column" },
+    { t: "    for i = k+1 … n:              // every row below the pivot" },
+    { t: "        ℓ ← A[i][k] / A[k][k]" },
+    { t: "        for j = k … n:" },
+    { t: "            A[i][j] ← A[i][j] − ℓ·A[k][j]" },
+    { t: "        f[i] ← f[i] − ℓ·f[k]" },
+    { t: "// back substitution", cmt: true },
+    { t: "x[n] ← f[n] / A[n][n]" },
+    { t: "for i = n−1 … 1:" },
+    { t: "    x[i] ← (f[i] − Σ A[i][j]·x[j]) / A[i][i]" },
+  ];
+
+  const gRowText = (s, r) => "[ " + s.M[r].map(fmt).join(", ") + " | " + fmt(s.d[r]) + " ]";
+
+  function gStepHTML(s) {
+    const t = G.trace, n = t.n, tri = t.kind === "tri";
+    const head = (eyebrow, title) => `<div class="eyebrow">${eyebrow}</div><h2 class="step-title">${title}</h2>`;
+    if (s.kind === "intro") {
+      return head("Step 0 · the method", "Gaussian elimination, assuming nothing about A") +
+        `<p class="explain">This is the general method every direct solver descends from, written here with no knowledge of where the zeros are. It has two phases.</p>
+         <p class="explain"><strong style="color:var(--fwd)">Forward elimination.</strong> Take column 1. For every row below row 1, subtract a multiple of row 1 chosen to kill that row's entry in column 1. Then move to column 2 and repeat with row 2 as the pivot row, and so on. When the last column is done, every entry below the diagonal is zero.</p>
+         <p class="explain"><strong style="color:var(--back)">Back substitution.</strong> The last row now reads <var>u</var><sub>nn</sub><var>x</var><sub>n</sub> = <var>f</var><sub>n</sub>, one equation in one unknown. Solve it, substitute into the row above, and work upward.</p>
+         <p class="explain">The right-hand side <var>f</var> rides along through every row operation, which is why the matrix is shown augmented as [ <var>A</var> | <var>f</var> ].</p>
+         <p class="explain">${tri
+           ? "This system is tridiagonal. Run the method anyway, exactly as written, and count how many of its operations do nothing."
+           : "This matrix is full. Every elimination will touch every remaining column of every remaining row — the worst case, and the baseline the Thomas algorithm improves on."}</p>
+         <p class="explain" style="color:var(--muted)">Press <strong>Next</strong> or <kbd>→</kbd> to start.</p>`;
+    }
+    if (s.kind === "zeropivot") {
+      return head(`Step ${G.step} · stopped`, `Zero pivot in column ${s.col + 1}`) +
+        `<p class="explain">The pivot <var>A</var>[${s.col + 1}][${s.col + 1}] is zero, so no multiplier exists. A general-purpose code would exchange this row with one below it (partial pivoting) and continue. Neither this demonstration nor the unpivoted Thomas algorithm performs that exchange.</p>`;
+    }
+    if (s.kind === "elim") {
+      const k = s.col, i = s.row, prev = G.trace.steps[G.trace.steps.indexOf(s) - 1];
+      const before = prev ? prev.M[i][k] : 0, pivot = s.M[k][k];
+      if (s.trivial) {
+        return head(`Step ${G.step} · forward elimination`, `Column ${k + 1}: row ${i + 1} has nothing to remove`) +
+          `<div class="g-rowops"><div>A[${i + 1}][${k + 1}] = ${fmt(before)} &nbsp;→&nbsp; ℓ = ${fmt(before)} / ${par(pivot)} = <b>0</b></div>
+             <div>R<sub>${i + 1}</sub> ← R<sub>${i + 1}</sub> − 0 · R<sub>${k + 1}</sub> &nbsp; (row unchanged)</div></div>
+           <p class="explain">The entry is already zero, so the multiplier is zero and the row operation changes nothing. The code above does not know that: it still forms the multiplier and runs the inner loop, <strong>${s.dense} operations</strong> that produce no change.</p>
+           <p class="explain">${tri
+             ? `In a tridiagonal matrix this happens for every row except the one directly below the pivot. Column ${k + 1} needs <strong>one</strong> real elimination; the other ${n - k - 2} ${n - k - 2 === 1 ? "row is" : "rows are"} wasted motion.`
+             : "Zeros like this are accidental in a full matrix, so a dense code cannot rely on them."}</p>
+           <p class="explain" style="color:var(--muted)">Tick <strong>Hide rows whose multiplier is already zero</strong> above to skip these steps; the operation counter still records what a dense loop would spend.</p>`;
+      }
+      const row = s.touched.map((j) => `A[${i + 1}][${j + 1}]`).join(", ");
+      return head(`Step ${G.step} · forward elimination`, `Column ${k + 1}: eliminate the entry in row ${i + 1}`) +
+        `<div class="g-rowops">
+           <div>ℓ<sub>${i + 1}${k + 1}</sub> = A[${i + 1}][${k + 1}] / A[${k + 1}][${k + 1}] = ${fmt(before)} / ${par(pivot)} = <b>${fmt(s.mult)}</b></div>
+           <div>R<sub>${i + 1}</sub> ← R<sub>${i + 1}</sub> − ${par(s.mult)} · R<sub>${k + 1}</sub></div>
+           <div>new row ${i + 1}: <b>${gRowText(s, i)}</b></div>
+         </div>
+         <p class="explain">The entry in column ${k + 1} is now exactly zero — it is set, not computed. The entries that actually changed are ${row ? row : "none in A"}${s.rhsChanged ? ` and the right-hand side f[${i + 1}]` : ""}.</p>
+         <p class="explain">${tri
+           ? `Row ${k + 1} has nonzeros only in columns ${k + 1} and ${k + 2}, so subtracting a multiple of it can only alter column ${k + 2} and the right-hand side. <strong>No new nonzero appears</strong>: tridiagonal elimination creates no fill-in, and the band never widens. That single fact is what makes an O(n) algorithm possible.</p>`
+           : `Row ${k + 1} is full, so the subtraction reaches every column to the right. Each elimination costs ${s.dense} operations here, and there are ${((n - 1) * n) / 2} eliminations in all.</p>`}
+         <p class="explain" style="color:var(--muted)">The multiplier is kept, not discarded: collected in the table below it is the <var>L</var> of <var>A</var> = <var>LU</var>.</p>`;
+    }
+    if (s.kind === "triangular") {
+      return head(`Step ${G.step} · forward elimination complete`, "Upper triangular: the hard part is over") +
+        `<p class="explain">Every entry below the diagonal is zero. The matrix on the right is <var>U</var>, the multipliers below form <var>L</var>, and <var>A</var> = <var>LU</var>. The right-hand side was carried along by the same row operations.</p>
+         <p class="explain">So far this took <strong>${s.work.real} operations</strong>${s.work.skipped ? `, while the dense loops as written would spend ${s.work.dense}` : ""}.</p>
+         <p class="explain">${tri
+           ? "Note the shape of U: a diagonal and one super-diagonal, nothing else. L has a diagonal and one sub-diagonal. Each of them fits in a single vector, which is the storage the Thomas algorithm actually uses."
+           : "U is full above the diagonal, so back substitution will cost O(n²) as well."}</p>`;
+    }
+    if (s.kind === "solve") {
+      const i = s.row;
+      const terms = s.terms.map((j) => `${par(s.M[i][j])}·${fmt(s.x[j])}`).join(" − ");
+      return head(`Step ${G.step} · back substitution`, i === n - 1 ? `The last row has one unknown: x${i + 1}` : `Row ${i + 1}: substitute the x values already known`) +
+        `<div class="g-rowops">
+           <div>row ${i + 1}: ${gRowText(s, i)}</div>
+           <div>x<sub>${i + 1}</sub> = ( ${fmt(s.d[i])}${terms ? ` − ${terms}` : ""} ) / ${par(s.M[i][i])} = <b>${fmt(s.x[i])}</b></div>
+         </div>
+         <p class="explain">${i === n - 1
+           ? "Only the diagonal entry survives in the last row, so this unknown comes out directly. Every row above it has exactly one unknown left once the rows below are known."
+           : `${s.terms.length} known value${s.terms.length === 1 ? "" : "s"} move${s.terms.length === 1 ? "s" : ""} to the right-hand side, then a single division finishes the row.`}</p>
+         <p class="explain">${tri
+           ? "Each row of U has at most one entry to the right of the diagonal, so each unknown costs one multiply, one subtract and one divide — the same x<sub>i</sub> = f′<sub>i</sub> − c′<sub>i</sub>x<sub>i+1</sub> that part 1 derives."
+           : "A full row of U means every already-known x appears here, which is where the n²/2 of back substitution comes from."}</p>`;
+    }
+    const w = s.work, n100 = 100;
+    return head(`Step ${G.step} · the point of all this`, "What the Thomas algorithm keeps, and what it drops") +
+      `<p class="explain">The solution is x = (${s.x.map(fmt).join(", ")}), with largest residual |Ax − f| = ${fmt(G.trace.residual)}.</p>
+       <p class="explain">This run performed <strong>${w.real} operations</strong>. The loops as written would have performed <strong>${w.dense}</strong>; the difference, ${w.skipped}, was arithmetic on entries that were already zero${w.trivial ? `, including ${w.trivial} complete elimination${w.trivial === 1 ? "" : "s"} with a zero multiplier` : ""}.</p>
+       <p class="explain">The Thomas algorithm is <em>this</em> elimination with three changes, all of them bookkeeping:</p>
+       <ol class="explain">
+         <li><strong>Store three diagonals, not n² entries.</strong> The vectors a, b, c hold everything nonzero.</li>
+         <li><strong>One elimination per column.</strong> Only the row directly below the pivot has a nonzero to remove, so the inner loop over rows disappears.</li>
+         <li><strong>No fill-in, so the inner loop over columns collapses too.</strong> A pivot row has one entry to the right of the diagonal, so each elimination updates one coefficient and one right-hand side.</li>
+       </ol>
+       <p class="explain">What remains is a fixed, small amount of work per row: about 8n operations in total, against about ⅔n³ for the dense method. At n = ${n100} that is roughly ${(8 * n100).toLocaleString("en-US")} operations versus ${Math.round((2 / 3) * n100 ** 3).toLocaleString("en-US")}.</p>
+       <p class="explain">One more difference is cosmetic but worth knowing: Thomas divides each row by its pivot, so the diagonal becomes 1 and the stored coefficients are c′<sub>i</sub> = c<sub>i</sub>/m<sub>i</sub> and f′<sub>i</sub> = (f<sub>i</sub> − a<sub>i</sub>f′<sub>i−1</sub>)/m<sub>i</sub>. The pivot m<sub>i</sub> is the same number as u<sub>ii</sub> above.</p>
+       <p class="explain">The one thing dropped is the row exchange. Gaussian elimination normally pivots for stability; the plain Thomas sweep does not, which is why diagonal dominance matters in part 1.</p>
+       <p><button class="btn primary" data-goto="derive">Now derive the Thomas algorithm ▶</button> <button class="btn" data-goto="example">Skip to a worked example</button></p>`;
+  }
+
+  function gMatrixHTML(s) {
+    const n = G.trace.n;
+    let h = "<thead><tr><th class=\"rowh\"></th>";
+    for (let j = 0; j < n; j++) h += `<th>${sym("x", j + 1)}</th>`;
+    h += "<th>f</th></tr></thead><tbody>";
+    for (let r = 0; r < n; r++) {
+      const active = s.row !== undefined && r === s.row && s.kind !== "zeropivot";
+      const ref = s.pivotRow !== undefined && r === s.pivotRow;
+      const cls = [r === 0 ? "top" : "", r === n - 1 ? "bot" : "", active ? "active" : "", ref ? "ref" : "", active && s.trivial ? "wasted" : ""].join(" ");
+      h += `<tr class="${cls.trim()}"><th class="rowh">row ${r + 1}</th>`;
+      for (let j = 0; j <= n; j++) {
+        const isR = j === n, v = isR ? s.d[r] : s.M[r][j];
+        const c = ["band", isR ? "rhs" : "", j === 0 ? "first" : "", j === n - 1 ? "last" : "", !isR && v === 0 ? "z" : ""];
+        if (s.kind === "elim" && !s.trivial && active) {
+          if (!isR && j === s.col) c.push("kill");
+          else if (!isR && s.touched.includes(j)) c.push("chg");
+          else if (isR && s.rhsChanged) c.push("chg");
+        }
+        if (s.kind === "elim" && s.trivial && active && !isR && j === s.col) c.push("idle");
+        if (s.kind === "elim" && ref && !isR && j === s.col) c.push("piv");
+        if (s.kind === "solve" && r === s.row) {
+          if (!isR && j === r) c.push("piv");
+          else if (!isR && s.terms.includes(j)) c.push("chg");
+          else if (isR) c.push("chg");
+        }
+        h += `<td class="${c.join(" ").replace(/\s+/g, " ").trim()}">${fmt(v)}</td>`;
+      }
+      h += "</tr>";
+    }
+    const hint = {
+      intro: "Original system",
+      fwd: s.kind === "triangular" ? "Upper triangular U, with f transformed"
+        : s.trivial ? `Row ${s.row + 1} already has a zero in column ${s.col + 1}`
+        : `Row ${s.row + 1} minus ${fmt(s.mult)} × row ${s.pivotRow + 1}`,
+      back: `Row ${s.row + 1} gives x${s.row + 1}`, done: "Solved", error: "Elimination stopped",
+    }[s.phase];
+    $("g-mxhint").textContent = hint;
+    const solved = s.x.some((v) => v !== null);
+    $("g-xvec").innerHTML = solved
+      ? `x = ( ${s.x.map((v) => (v === null ? "<span style=\"color:var(--faint)\">?</span>" : `<span class="known">${fmt(v)}</span>`)).join(", ")} )`
+      : `<span class="hint">No x values yet — forward elimination only prepares the triangular system.</span>`;
+    return h + "</tbody>";
+  }
+
+  function gMultHTML(s) {
+    const n = G.trace.n, tri = G.trace.kind === "tri";
+    let h = "<thead><tr><th class=\"rowh\"></th>";
+    for (let j = 0; j < n; j++) h += `<th>col ${j + 1}</th>`;
+    h += "</tr></thead><tbody>";
+    for (let r = 0; r < n; r++) {
+      h += `<tr class="${r === 0 ? "top" : ""} ${r === n - 1 ? "bot" : ""} ${s.kind === "elim" && r === s.row ? "active" : ""}"><th class="rowh">row ${r + 1}</th>`;
+      for (let j = 0; j < n; j++) {
+        const c = ["band", j === 0 ? "first" : "", j === n - 1 ? "last" : ""];
+        let v;
+        if (j === r) { v = "1"; c.push("one"); }
+        else if (j > r) { v = fmt(0); c.push("z"); }
+        else if (s.L[r][j] === null) { v = "·"; c.push("idle"); }
+        else if (s.L[r][j] === 0) { v = fmt(0); c.push("z"); }
+        else { v = fmt(s.L[r][j]); c.push("lv"); }
+        if (s.kind === "elim" && r === s.row && j === s.col) c.push("chg");
+        h += `<td class="${c.join(" ").trim()}">${v}</td>`;
+      }
+      h += "</tr>";
+    }
+    $("g-lhint").textContent = tri
+      ? "Only the first sub-diagonal of L is ever nonzero, and U has only a diagonal and one super-diagonal. Two short vectors hold the entire factorization — this is what the Thomas algorithm stores."
+      : "L is full below the diagonal: n(n−1)/2 multipliers, every one of them needed. Together with U they reproduce A exactly, so a second right-hand side can be solved without repeating the elimination.";
+    return h + "</tbody>";
+  }
+
+  function gCountHTML(s) {
+    const w = s.work, pct = w.dense ? Math.round((100 * w.real) / w.dense) : 0, n = G.trace.n;
+    return `<dl class="count-grid">
+        <dt>Performed in this run</dt><dd>${w.real}</dd>
+        <dt>Dense loops, no zero checks</dt><dd>${w.dense}</dd>
+        <dt>Spent on known zeros</dt><dd>${w.skipped}</dd>
+        <dt>Eliminations done / skipped</dt><dd>${w.elims} / ${w.trivial}</dd>
+      </dl>
+      <div class="count-bar" role="img" aria-label="Useful work ${pct} percent of the dense operation count"><span style="width:${Math.min(100, pct)}%"></span></div>
+      <p class="count-note">${pct}% of the dense operation count did useful work on this ${n}×${n} system.</p>
+      <p class="count-note">Dense elimination grows like ⅔n³, dense back substitution like n². A tridiagonal sweep that skips the zeros grows like 8n. The gap is the whole reason this lab exists.</p>`;
+  }
+
+  function gCodeHTML(s) {
+    let on = [], tag = "", tagAt = -1;
+    if (s.kind === "elim") {
+      on = s.trivial ? [1, 2, 3] : [1, 2, 3, 4, 5, 6];
+      tag = `k = ${s.col + 1}, i = ${s.row + 1}`; tagAt = 3;
+    } else if (s.kind === "solve") {
+      on = s.row === G.trace.n - 1 ? [8] : [9, 10];
+      tag = `i = ${s.row + 1}`; tagAt = on[on.length - 1];
+    } else if (s.kind === "zeropivot") on = [3];
+    return GCODE.map((l, i) =>
+      `<li class="${l.cmt ? "cmt" : ""} ${on.includes(i) ? "on" : ""}"><span>${l.t}</span>${tag && i === tagAt ? `<span class="tag">${tag}</span>` : ""}</li>`).join("");
+  }
+
+  function gBridgeHTML(s) {
+    const t = G.trace, tri = t.kind === "tri";
+    const pair = `<div class="bridge-pair">
+        <div><b>Gaussian elimination</b>\\[\\begin{aligned}\\ell_i &= \\frac{a_i}{u_{i-1,i-1}}\\\\ u_{ii} &= b_i - \\ell_i\\,c_{i-1}\\\\ \\tilde f_i &= f_i - \\ell_i\\,\\tilde f_{i-1}\\end{aligned}\\]</div>
+        <div><b>Thomas algorithm</b>\\[\\begin{aligned}m_i &= b_i - a_i\\,c'_{i-1}\\\\ c'_i &= \\frac{c_i}{m_i}\\\\ f'_i &= \\frac{f_i - a_i\\,f'_{i-1}}{m_i}\\end{aligned}\\]</div>
+      </div>
+      <p class="hint">They are the same numbers. Thomas stores \\(c'_{i-1} = c_{i-1}/m_{i-1}\\) instead of the multiplier, so \\(a_i c'_{i-1} = \\dfrac{a_i}{m_{i-1}}c_{i-1} = \\ell_i c_{i-1}\\) and therefore \\(m_i = u_{ii}\\). Dividing each row by its pivot is the only extra move.</p>`;
+    if (!tri) {
+      return `<p class="explain">This matrix is full, so there is no shortcut to take: eliminating column k touches every row below it and every column to its right, giving the ⅔n³ count. Load a tridiagonal system to watch that triple loop collapse.</p>${pair}`;
+    }
+    let live = "";
+    if (s.kind === "elim" && !s.trivial) {
+      const i = s.row, k = s.col, A = t.sys.A;
+      live = `<p class="explain"><b>This step in both languages.</b> ℓ<sub>${i + 1}</sub> = a<sub>${i + 1}</sub>/u<sub>${k + 1}${k + 1}</sub> = ${fmt(A[i][k])}/${par(s.M[k][k])} = ${fmt(s.mult)}, and the new diagonal is u<sub>${i + 1}${i + 1}</sub> = b<sub>${i + 1}</sub> − ℓ<sub>${i + 1}</sub>c<sub>${k + 1}</sub> = ${fmt(A[i][i])} − ${par(s.mult)}·${par(A[k][i])} = <b>${fmt(s.M[i][i])}</b>. That number is exactly the Thomas pivot m<sub>${i + 1}</sub>.</p>`;
+    }
+    return live + pair;
+  }
+
+  function gRender() {
+    const V = gSteps(), last = V.length - 1;
+    G.step = Math.max(0, Math.min(last, G.step));
+    const s = V[G.step];
+    $("gauss").dataset.phase = s.phase;
+    const names = { intro: "The method", fwd: s.kind === "triangular" ? "Triangular" : "Forward elimination", back: "Back substitution", done: "Gauss → Thomas", error: "Zero pivot" };
+    $("g-chip").textContent = names[s.phase];
+    $("g-counter").textContent = `Step ${G.step} of ${last}`;
+    $("g-prev").disabled = $("g-first").disabled = G.step === 0;
+    $("g-next").disabled = $("g-last").disabled = G.step === last;
+    $("g-play").textContent = G.timer ? "❚❚ Pause" : "▶ Play";
+    $("g-track").innerHTML = V.map((v, k) =>
+      `<button class="${v.phase === "error" ? "back" : v.phase} ${k <= G.step ? "f" : ""} ${k === G.step ? "cur" : ""}" data-k="${k}" aria-label="Go to step ${k}"></button>`).join("");
+    $("g-system").value = G.key;
+    $("g-note").textContent = G.trace.sys.note;
+    const badge = $("g-badge");
+    badge.className = "badge " + (G.trace.kind === "tri" ? "ok" : "warn");
+    badge.textContent = G.trace.kind === "tri"
+      ? `Tridiagonal: ${G.trace.work.elims} of ${(G.trace.n * (G.trace.n - 1)) / 2} eliminations do anything`
+      : `Full matrix: all ${(G.trace.n * (G.trace.n - 1)) / 2} eliminations do work`;
+    $("g-step").innerHTML = gStepHTML(s);
+    $("g-mx").innerHTML = gMatrixHTML(s);
+    $("g-lx").innerHTML = gMultHTML(s);
+    $("g-count").innerHTML = gCountHTML(s);
+    $("g-code").innerHTML = gCodeHTML(s);
+    $("g-bridge").innerHTML = gBridgeHTML(s);
+    if (!$("gauss").hidden) $("pass-status").textContent = s.phase === "fwd"
+      ? `Gauss · forward elimination, column ${(s.col ?? G.trace.n - 1) + 1}: make the entries below the pivot zero.`
+      : s.phase === "back" ? `Gauss · back substitution, row ${s.row + 1}: one unknown left in this row.`
+      : s.phase === "done" ? "Gaussian elimination finished. Part 1 now does the same thing with three diagonals."
+      : "Gaussian elimination: forward elimination, then back substitution.";
+    typeset([$("g-bridge")]);
+  }
+  function gStop() { if (G.timer) { clearInterval(G.timer); G.timer = null; } }
+  function gGo(k) { G.step = Math.max(0, Math.min(gLast(), k)); gRender(); }
+  function gPlay() {
+    if (G.timer) { gStop(); gRender(); return; }
+    if (G.step >= gLast()) G.step = 0;
+    G.timer = setInterval(() => { if (G.step >= gLast()) { gStop(); gRender(); } else gGo(G.step + 1); }, 2600);
+    gRender();
+  }
+  $("g-system").innerHTML = Object.entries(GAUSS_SYSTEMS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+  $("g-system").addEventListener("change", (e) => { gStop(); gLoad(e.target.value); gRender(); });
+  $("g-skip").addEventListener("change", (e) => { gStop(); G.skip = !!e.target.checked; G.step = 0; gRender(); });
+  $("g-next").addEventListener("click", () => { gStop(); gGo(G.step + 1); });
+  $("g-prev").addEventListener("click", () => { gStop(); gGo(G.step - 1); });
+  $("g-first").addEventListener("click", () => { gStop(); gGo(0); });
+  $("g-last").addEventListener("click", () => { gStop(); gGo(gLast()); });
+  $("g-play").addEventListener("click", gPlay);
+  $("g-track").addEventListener("click", (e) => { const k = e.target.dataset && e.target.dataset.k; if (k !== undefined) { gStop(); gGo(+k); } });
+
   // ---------- tabs ----------
   function showTab(t) {
-    const derive = t !== "example";
-    $("der").hidden = !derive;
-    $("ex").hidden = derive;
-    $("tab-derive").setAttribute("aria-selected", derive);
-    $("tab-example").setAttribute("aria-selected", !derive);
-    dStop(); stop();
-    try { history.replaceState(null, "", "#" + (derive ? "derive" : "example")); } catch (e) {}
-    if (derive) dRender(); else render();
+    const tab = t === "example" ? "example" : t === "gauss" ? "gauss" : "derive";
+    $("gauss").hidden = tab !== "gauss";
+    $("der").hidden = tab !== "derive";
+    $("ex").hidden = tab !== "example";
+    $("tab-gauss").setAttribute("aria-selected", tab === "gauss");
+    $("tab-derive").setAttribute("aria-selected", tab === "derive");
+    $("tab-example").setAttribute("aria-selected", tab === "example");
+    gStop(); dStop(); stop();
+    try { history.replaceState(null, "", "#" + tab); } catch (e) {}
+    if (tab === "gauss") gRender(); else if (tab === "derive") dRender(); else render();
   }
   document.addEventListener("click", (e) => {
     const g = e.target.closest && e.target.closest("[data-goto]");
@@ -1158,16 +1622,16 @@ window.MathJax = {
   document.addEventListener("keydown", (e) => {
     const tag = (e.target.tagName || "").toLowerCase();
     if (tag === "input" || tag === "select" || tag === "textarea") return;
-    const derive = !$("der").hidden;
-    if (e.key === "ArrowRight") { e.preventDefault(); if (derive) { dStop(); dGo(D.step + 1); } else { stop(); next(); } }
-    else if (e.key === "ArrowLeft") { e.preventDefault(); $(derive ? "d-prev" : "prev").click(); }
-    else if (e.key === " " && tag !== "button") { e.preventDefault(); derive ? dPlay() : togglePlay(); }
+    const pane = !$("gauss").hidden ? "gauss" : !$("der").hidden ? "derive" : "example";
+    if (e.key === "ArrowRight") { e.preventDefault(); if (pane === "gauss") { gStop(); gGo(G.step + 1); } else if (pane === "derive") { dStop(); dGo(D.step + 1); } else { stop(); next(); } }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); $({ gauss: "g-prev", derive: "d-prev", example: "prev" }[pane]).click(); }
+    else if (e.key === " " && tag !== "button") { e.preventDefault(); pane === "gauss" ? gPlay() : pane === "derive" ? dPlay() : togglePlay(); }
   });
 
   renderAssembly();
   load("warmup",3);
   render();
-  showTab(location.hash === "#example" ? "example" : "derive");
+  showTab(location.hash === "#example" ? "example" : location.hash === "#derive" ? "derive" : "gauss");
 })();
 </script>
 </body>

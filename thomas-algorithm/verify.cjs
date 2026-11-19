@@ -4,7 +4,7 @@ const html=fs.readFileSync(__dirname+'/index.html','utf8'),script=[...html.match
 new vm.Script(script);
 const sandbox={document:{getElementById:()=>({})}};vm.createContext(sandbox);
 const kernel=script.slice(script.indexOf('  const $ ='),script.indexOf('  // ---------- render ----------'));
-vm.runInContext(kernel+'\nglobalThis.api={load,compute,dominance,factorize,solveFactored,residuals,assembleRod,reuseRodSteps,startRodSession,advanceRodSession,temperatureFigure,checkPrediction,fmt,info,gaussTrace,GAUSS_SYSTEMS,state:()=>S,assign:v=>Object.assign(S,v)};',sandbox);
+vm.runInContext(kernel+'\nglobalThis.api={load,compute,dominance,factorize,solveFactored,residuals,assembleRod,reuseRodSteps,startRodSession,advanceRodSession,temperatureFigure,checkPrediction,fmt,info,gaussTrace,GAUSS_SYSTEMS,rodSketch,stencilSketch,state:()=>S,assign:v=>Object.assign(S,v)};',sandbox);
 const A=sandbox.api,close=(a,b,t=2e-11)=>assert.ok(Math.abs(a-b)<t,`${a} vs ${b}`);
 function dense(a,b,c,d){
  const n=b.length,M=b.map((v,i)=>Array.from({length:n},(_,j)=>i===j?v:j===i-1?a[i]:j===i+1?c[i]:0)),rhs=Array.from(d);
@@ -133,6 +133,37 @@ for(const stray of ['<var>d</var>','[ A | d ]','d\u2032','d\u2081','\\mathbf{d}'
 for(const id of ['g-step','g-code','code','step','assembly-reduced','assembly-boundary'])assert.doesNotMatch(String(elements.get(id)._html||elements.get(id).textContent||''),/\bd\u2032|\bd\u2081/,`Right-hand side still shown as d in ${id}`);
 assert.match(elements.get('g-code').innerHTML,/f\[i\]/);
 console.log('PASS: the right-hand side is written f in every rendered panel, matching the lecture notes.');
+
+// The opening sketches: physical setup and BTCS stencil, both following the controls.
+{
+ const p={r:.5,left:100,right:20,old:20};
+ for(const i of [0,1,2]){
+  const rod=A.rodSketch(p,i),st=A.stencilSketch(p,i);
+  for(const svg of [rod,st]){
+   assert.match(svg,/^<svg /);assert.match(svg,/<\/svg>$/);
+   assert.doesNotMatch(svg,/undefined|NaN/);
+   assert.match(svg,/role="img" aria-label="[^"]{40,}"/);
+  }
+  assert.match(rod,/T\(0, t\) = 100/);assert.match(rod,/T\(L, t\) = 20/);
+  assert.match(rod,/T = 20 at every interior node/);assert.match(rod,/Δx = ¼/);
+  assert.match(st,/r = αΔt\/Δx² = 0.5/);
+  assert.match(st,i===1?/Both neighbours are unknown/:new RegExp(`The ${i===0?'left':'right'} neighbour is a known wall`));
+  assert.match(st,new RegExp(`T${'₁₂₃'[i]}ᵏ known`));
+ }
+ assert.match(A.rodSketch({...p,left:5,right:-7,old:3},0),/T\(0, t\) = 5[\s\S]*T\(L, t\) = −7/);
+ assert.match(A.stencilSketch({...p,r:2},1),/r = αΔt\/Δx² = 2/);
+}
+assert.match(elements.get('rod-sketch').innerHTML,/<svg /);
+assert.match(elements.get('stencil-sketch').innerHTML,/<svg /);
+rodButtons[2].listeners.click();
+assert.match(elements.get('stencil-sketch').innerHTML,/right neighbour is a known wall/);
+rodButtons[0].listeners.click();
+assert.match(elements.get('stencil-sketch').innerHTML,/left neighbour is a known wall/);
+elements.get('assembly-left').value=250;elements.get('assembly-left').listeners.change();
+assert.match(elements.get('rod-sketch').innerHTML,/T\(0, t\) = 250/);
+elements.get('assembly-left').value=100;elements.get('assembly-left').listeners.change();
+elements.get('reuse-run').listeners.click();   // restore the three-step history the later checks use
+console.log('PASS: rod and stencil sketches render valid labelled SVG, follow the wall/initial/r controls, and mark which neighbour is a known wall.');
 
 // Time-level metadata and figures must use the previous solution, including nonuniform later states.
 const session=A.startRodSession({r:.5,left:100,right:20,old:20});

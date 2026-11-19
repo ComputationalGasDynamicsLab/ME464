@@ -9,6 +9,8 @@ step by step and then run on example systems from CFD.
 
 It runs in any web browser, with nothing to install. An illustrated introduction connects a rod to the linear system, and three tabs then move from general Gaussian elimination to the Thomas algorithm and a worked example.
 
+The rod introduction runs for several screens, so the three part tabs are pinned to the top of the window on desktop widths and scroll the selected part into view rather than jumping to the top of the page. A link that ends in `#gauss`, `#derive` or `#example` opens on that part directly.
+
 **Notation.** The right-hand side of $`A\mathbf{x} = \mathbf{f}`$ is written $`f`$ throughout the page and this README, matching the course lecture notes; the modified right-hand side produced by the forward sweep is $`f'_i`$. Many textbooks call the same vector $`d`$ or $`r`$.
 
 **0 · Gauss elimination first.** The new opening tab runs ordinary, structure-blind Gaussian elimination one row operation at a time, so the Thomas algorithm arrives as a specialization rather than a recipe. You can:

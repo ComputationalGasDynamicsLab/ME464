@@ -53,8 +53,17 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .pane[data-phase="done"] { --phase: var(--ok); --phase-soft: var(--ok-soft); }
 .pane[data-phase="error"] { --phase: var(--warn); --phase-soft: var(--warn-soft); }
 
-/* tabs */
-.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin-top: 8px; }
+/* tabs: pinned to the top so the three parts stay reachable from anywhere on the page */
+:root { --tabbar-h: 43px; }
+.tabbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6; background: var(--bg); border-bottom: 1px solid var(--line); }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.tabs-note { font-size: 12px; color: var(--muted); margin-left: auto; }
+.pane { scroll-margin-top: calc(var(--tabbar-h) + env(safe-area-inset-top, 0px)); }
+@media (max-width: 760px) {
+  :root { --tabbar-h: 0px; }
+  .tabbar { position: static; }
+  .tabs-note { display: none; }
+}
 .tabs button { font: inherit; font-weight: 600; font-size: 15px; background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; padding: 8px 14px; color: var(--muted); cursor: pointer; }
 .tabs button:hover { color: var(--ink); }
 .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--fwd); }
@@ -103,7 +112,7 @@ select { padding: 6px 8px; max-width: 100%; }
 .note { margin: 0; color: var(--muted); font-size: 14px; max-width: 90ch; padding-bottom: 6px; }
 
 /* sticky step controls */
-.controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.controls { position: sticky; top: calc(var(--tabbar-h) + env(safe-area-inset-top, 0px)); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
 .controls .wrap { padding-block: 10px; display: grid; gap: 8px; }
 .ctl-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .ctl-row .spacer { flex: 1; }
@@ -278,12 +287,16 @@ body { margin: 0; } img { max-width: 100%; } [hidden] { display: none !important
     <div class="eyebrow">Tridiagonal matrix algorithm (TDMA)</div>
     <h1>Thomas Algorithm: Derivation and Demonstration</h1>
     <p class="lede">Solves <var>a</var><sub>i</sub><var>x</var><sub>i−1</sub> + <var>b</var><sub>i</sub><var>x</var><sub>i</sub> + <var>c</var><sub>i</sub><var>x</var><sub>i+1</sub> = <var>f</var><sub>i</sub> in two passes. Part 0 runs plain Gaussian elimination on a full matrix and then on a tridiagonal one, so you can see what Thomas keeps and what it throws away. Part 1 derives the algorithm in symbols, one row operation at a time. Part 2 runs it on CFD example systems with real numbers.</p>
-    <nav class="tabs" role="tablist">
+  </header>
+
+  <div class="tabbar">
+    <nav class="tabs wrap" role="tablist" aria-label="Lab parts">
       <button role="tab" id="tab-gauss" data-goto="gauss" aria-selected="true">0 · Gauss elimination first</button>
       <button role="tab" id="tab-derive" data-goto="derive" aria-selected="false">1 · Derive the algorithm</button>
       <button role="tab" id="tab-example" data-goto="example" aria-selected="false">2 · Run an example</button>
+      <span class="tabs-note">these jump down to the three parts of the lab ↓</span>
     </nav>
-  </header>
+  </div>
 
   <section class="wrap learning" aria-labelledby="sketch-title">
     <article class="panel" aria-labelledby="sketch-title">
@@ -1200,7 +1213,7 @@ window.MathJax = {
   for(const id of ["assembly-r","assembly-left","assembly-right","assembly-old","profile-n","profile-dt"])$(id).addEventListener("change",renderAssembly);
   document.querySelectorAll("[data-assembly-row]").forEach(button=>button.addEventListener("click",()=>{assemblyRow=Number(button.dataset.assemblyRow);renderAssembly();}));
   $("assembly-load").addEventListener("click",()=>{
-    stop();const p=rodSettings();Object.assign(S,assembleRod(p.r,p.left,p.right,p.old));S.n=3;S.preset="custom";S.step=0;S.revealed=false;showTab("example");$("ex").scrollIntoView({behavior:"smooth"});
+    stop();const p=rodSettings();Object.assign(S,assembleRod(p.r,p.left,p.right,p.old));S.n=3;S.preset="custom";S.step=0;S.revealed=false;showTab("example",true);
   });
   $("reuse-run").addEventListener("click",()=>{
     rodSession=startRodSession(profileSettings());for(let k=0;k<3;k++)advanceRodSession(rodSession);renderRodTimeline();
@@ -1687,8 +1700,9 @@ window.MathJax = {
   $("g-track").addEventListener("click", (e) => { const k = e.target.dataset && e.target.dataset.k; if (k !== undefined) { gStop(); gGo(+k); } });
 
   // ---------- tabs ----------
-  function showTab(t) {
+  function showTab(t, scroll) {
     const tab = t === "example" ? "example" : t === "gauss" ? "gauss" : "derive";
+    const pane = { gauss: "gauss", derive: "der", example: "ex" }[tab];
     $("gauss").hidden = tab !== "gauss";
     $("der").hidden = tab !== "derive";
     $("ex").hidden = tab !== "example";
@@ -1698,10 +1712,13 @@ window.MathJax = {
     gStop(); dStop(); stop();
     try { history.replaceState(null, "", "#" + tab); } catch (e) {}
     if (tab === "gauss") gRender(); else if (tab === "derive") dRender(); else render();
+    // The rod introduction is long, so bring the selected part into view instead of jumping to
+    // the top of the page, which looks like nothing happened.
+    if (scroll) try { $(pane).scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) { $(pane).scrollIntoView(); }
   }
   document.addEventListener("click", (e) => {
     const g = e.target.closest && e.target.closest("[data-goto]");
-    if (g) { showTab(g.dataset.goto); window.scrollTo({ top: 0 }); }
+    if (g) showTab(g.dataset.goto, true);
   });
 
   document.addEventListener("keydown", (e) => {
@@ -1716,7 +1733,9 @@ window.MathJax = {
   renderAssembly();
   load("warmup",3);
   render();
-  showTab(location.hash === "#example" ? "example" : location.hash === "#derive" ? "derive" : "gauss");
+  // A shared link that names a part opens on it; a plain visit starts at the rod introduction.
+  const linked = ["#gauss", "#derive", "#example"].includes(location.hash);
+  showTab(location.hash === "#example" ? "example" : location.hash === "#derive" ? "derive" : "gauss", linked);
 })();
 </script>
 </body>
